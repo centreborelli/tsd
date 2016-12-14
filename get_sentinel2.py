@@ -79,22 +79,36 @@ def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
     # list available images that are not empty or masked by clouds
     images = search_sentinel2.list_usable_images(lat, lon, start_date, end_date)
 
+    # take 100 meters margin in case of forthcoming shift
+    if register:
+        w += 100
+        h += 100
+
     # download images
     crops = []
     for img in images:
         d = os.path.join(out_dir, img['date'].isoformat())
         if api == 'kayrros':
-            crops.append(download_sentinel2.get_crops_from_kayrros_api(img,
-                                                                       bands,
-                                                                       lon, lat,
-                                                                       w, h, d))
+            l = download_sentinel2.get_crops_from_kayrros_api(img, bands, lon,
+                                                              lat, w, h, d)
         else:
-            crops.append(download_sentinel2.get_crops_from_aws(img, bands, lon,
-                                                               lat, w, h, d))
+            l = download_sentinel2.get_crops_from_aws(img, bands, lon, lat, w,
+                                                      h, d)
+        if l:
+            crops.append(l)
 
-    # compute the shift wrt to the first img as the median of channel shifts
+    # register the images through time
     if register:
-        registration.main(crops, crops)
+        tmp = [['{}_registered{}'.format(*os.path.splitext(b)) for b in c] for c
+               in crops]
+        registration.main(crops, tmp, all_pairwise=True)
+
+        # crop to remove the margin
+        for crop in crops:
+            for band in crop:
+                band_reg = '{}_registered{}'.format(*os.path.splitext(band))
+                utils.crop_georeferenced_image(band, band_reg, lon, lat, w-100,
+                                               h-100)
 
 #    # produce color images
 #    for img in images:
@@ -285,5 +299,5 @@ if __name__ == '__main__':
 #                if not os.path.isfile(scl) or not utils.is_valid(scl):
 #                    download_image_bands_aws(url, all_bands, cache_dir)
 #                    scene_classification(scl, url)
-#                crop_georeferenced_image(crop, img, lon, lat, w, h)
+#                utils.crop_georeferenced_image(crop, img, lon, lat, w, h)
 #            img_info['scl'] = crop
