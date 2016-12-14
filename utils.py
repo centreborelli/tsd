@@ -7,6 +7,7 @@ import errno
 import argparse
 import datetime
 import tifffile
+import subprocess
 from osgeo import gdal
 import numpy as np
 
@@ -103,3 +104,22 @@ def merge_bands(infiles, outfile):
         outfile: path to the ouput multi-band image file
     """
     tifffile.imsave(outfile, np.dstack(tifffile.imread(f) for f in infiles))
+
+
+def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
+    """
+    Crop an image around a given geographic location.
+
+    Args:
+        out_path: path to the output (cropped) image file
+        in_path: path to the input image file
+        lon, lat: longitude and latitude of the center of the crop
+        w, h: width and height of the crop, in meters
+    """
+    cx, cy = utm.from_latlon(lat, lon)[:2]
+    ulx = cx - w / 2
+    lrx = cx + w / 2
+    uly = cy + h / 2  # in UTM the y coordinate increases from south to north
+    lry = cy - h / 2
+    subprocess.call(['gdal_translate', in_path, out_path, '-ot', 'UInt16',
+                     '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
