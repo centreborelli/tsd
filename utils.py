@@ -10,6 +10,7 @@ import tifffile
 import subprocess
 from osgeo import gdal
 import numpy as np
+import utm
 
 
 def valid_date(s):

@@ -107,8 +107,9 @@ def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
         for crop in crops:
             for band in crop:
                 band_reg = '{}_registered{}'.format(*os.path.splitext(band))
-                utils.crop_georeferenced_image(band, band_reg, lon, lat, w-100,
-                                               h-100)
+                if os.path.isfile(band_reg):
+                    utils.crop_georeferenced_image(band, band_reg, lon, lat, w-100, h-100)
+                    os.remove(band_reg)
 
 #    # produce color images
 #    for img in images:
