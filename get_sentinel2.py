@@ -87,13 +87,12 @@ def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
     # download images
     crops = []
     for img in images:
-        d = os.path.join(out_dir, img['date'].isoformat())
         if api == 'kayrros':
             l = download_sentinel2.get_crops_from_kayrros_api(img, bands, lon,
-                                                              lat, w, h, d)
+                                                              lat, w, h, out_dir)
         else:
             l = download_sentinel2.get_crops_from_aws(img, bands, lon, lat, w,
-                                                      h, d)
+                                                      h, out_dir)
         if l:
             crops.append(l)
 
