@@ -38,7 +38,6 @@ import os
 import fnmatch
 import re
 import bs4
-import csv
 import shutil
 import operator
 import argparse
@@ -59,6 +58,7 @@ import weightedstats
 import search_sentinel2
 import download_sentinel2
 import registration
+import midway
 import utils
 
 from sortedcontainers import SortedSet
@@ -72,7 +72,7 @@ all_bands = ['01', '02', '03', '04', '05', '06', '07', '08', '8A', '09', '10',
 
 def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
                     start_date=None, end_date=None, sen2cor=False,
-                    api='kayrros'):
+                    api='kayrros', cache_dir=''):
     """
     Main function: download, crop and register a Sentinel-2 image time series.
     """
@@ -92,7 +92,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
                                                               lat, w, h, out_dir)
         else:
             l = download_sentinel2.get_crops_from_aws(img, bands, lon, lat, w,
-                                                      h, out_dir)
+                                                      h, out_dir, cache_dir)
         if l:
             crops.append(l)
 
@@ -110,16 +110,8 @@ def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
                     utils.crop_georeferenced_image(band, band_reg, lon, lat, w-100, h-100)
                     os.remove(band_reg)
 
-#    # produce color images
-#    for img in images:
-#        if '02' in bands and '03' in bands and '04' in bands:  # B, G, R
-#            rgb = '{}_rgb.tif'.format(img['name'])
-#            utils.merge_bands([img['02'], img['03'], img['04']],
-#                              os.path.join(out_dir, rgb))
-#        if '03' in bands and '04' in bands and '08' in bands:  # G, R, I
-#            irg = '{}_irg.tif'.format(img['name'])
-#            utils.merge_bands([img['03'], img['04'], img['08']],
-#                              os.path.join(out_dir, irg))
+    # equalize histograms with midway
+    midway.main(out_dir, out_dir+'_equalized')
 
 
 def get_available_dates_for_coords(lats, lons, union_intersect=False, start_date=None, end_date=None):
@@ -226,78 +218,35 @@ def get_images_for_dates(lat, lon, dates, bands, crop_size=246):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
                                                   'of Sentinel-2 images'))
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--csv', type=str, help=('path to a csv file containing '
-                                                'a list of api, lon, lat'))
-    group.add_argument('--latlon', nargs=2, type=float, help=('latitude and '
-                                                              'longitude of the '
-                                                              'interest point'))
+    parser.add_argument('--lat', type=float, required=True,
+                        help=('latitude of the interest point'))
+    parser.add_argument('--lon', type=float, required=True,
+                        help=('longitude of the interest point'))
     parser.add_argument('-s', '--start-date', type=utils.valid_date,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument("-b", "--band", nargs='*',
-                        help=("list of spectral bands, default all 13 bands"))
-    parser.add_argument("-r", "--register", action="store_true",
-                        help="register images through time")
-    parser.add_argument('-w', '--wsize', type=int, help='size of the crop, in meters',
+    parser.add_argument('-b', '--band', nargs='*', default=all_bands,
+                        help=('list of spectral bands, default all 13 bands'))
+    parser.add_argument('-r', '--register', action='store_true',
+                        help='register images through time')
+    parser.add_argument('-w', '--size', type=int, help='size of the crop, in meters',
                         default=5000)
     parser.add_argument('-d', '--dir', type=str, help=('path to save the '
                                                        'images'), default='')
-    parser.add_argument("--use-sen2cor", action="store_true",
-                        help="apply Sen2Cor Scene Classification")
+    parser.add_argument('--use-sen2cor', action='store_true',
+                        help='apply Sen2Cor Scene Classification')
     parser.add_argument('--api', type=str, default='kayrros',
                         help='API used: kayrros or cmla')
-    parser.add_argument('--cache', type=str, help=('cache directory'))
+    parser.add_argument('--cache', type=str, help=('cache directory'),
+                        default=os.path.abspath('.s2-cache'))
+
     args = parser.parse_args()
 
-    # cache directory
-    if args.cache is not None:
-        cache_dir = args.cache
-
     # list of bands as strings
-    if args.band is None:
-        bands = all_bands
-    else:
-        bands = [str(b).zfill(2).upper() for b in args.band]
+    bands = [str(b).zfill(2).upper() for b in args.band]
 
-    if args.latlon:
-        get_time_series(args.latlon[0], args.latlon[1], bands, args.wsize,
-                        args.wsize, args.register, out_dir=args.dir,
-                        start_date=args.start_date, end_date=args.end_date,
-                        sen2cor=args.use_sen2cor, api=args.api)
-    else:
-        # open CSV file and process the entries one at a time
-        with open(args.csv) as csvfile:
-            dialect = csv.Sniffer().sniff(csvfile.read(1024))  # autodetect sep
-            csvfile.seek(0)
-            header = csv.Sniffer().has_header(csvfile.read(1024))  # autodetect header
-            csvfile.seek(0)
-            reader = csv.reader(csvfile, dialect)
-            if header:
-                reader.next()  # skip header row
-            for row in reader:
-                api = row[0]
-                lon = float(row[1])
-                lat = float(row[2])
-                start_date = dateutil.parser.parse(row[3]) if len(row) > 3 else args.start_date
-                end_date = dateutil.parser.parse(row[4]) if len(row) > 4 else args.end_date
-                print("processing API {}...".format(api), end=' ')
-                get_time_series(lat, lon, bands, args.wsize, args.wsize,
-                                args.register,
-                                out_dir=os.path.join(args.dir, api),
-                                start_date=start_date, end_date=end_date,
-                                sen2cor=args.use_sen2cor,
-                                api=args.api)
-
-
-#        # compute scene classification
-#        if sen2cor:
-#            crop = os.path.join(out_dir, '{}_scene_classification.tif'.format(name))
-#            if not os.path.isfile(crop) or not utils.is_valid(crop):
-#                scl = os.path.join(cache_dir, '{}_scene_classification.tif'.format(name))
-#                if not os.path.isfile(scl) or not utils.is_valid(scl):
-#                    download_image_bands_aws(url, all_bands, cache_dir)
-#                    scene_classification(scl, url)
-#                utils.crop_georeferenced_image(crop, img, lon, lat, w, h)
-#            img_info['scl'] = crop
+    get_time_series(args.lat, args.lon, bands, args.size, args.size,
+                    args.register, out_dir=args.dir, start_date=args.start_date,
+                    end_date=args.end_date, sen2cor=args.use_sen2cor,
+                    api=args.api, args.cache)
