@@ -4,10 +4,12 @@
 from __future__ import print_function
 import os
 import errno
+import shutil
 import argparse
 import datetime
 import tifffile
 import subprocess
+import tempfile
 from osgeo import gdal
 import numpy as np
 import utm
