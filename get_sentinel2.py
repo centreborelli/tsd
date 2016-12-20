@@ -120,7 +120,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     shutil.copy(b, os.path.join(out_dir, 'no_midway'))
 
         for i in xrange(len(bands)):
-            midway.main([crop[i] for crop in crops], out_dir)
+            midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
 
 
 def get_available_dates_for_coords(lats, lons, union_intersect=False, start_date=None, end_date=None):
