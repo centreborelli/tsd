@@ -77,7 +77,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
     Main function: download, crop and register a Sentinel-2 image time series.
     """
     # list available images that are not empty or masked by clouds
-    images = search_sentinel2.list_usable_images(lat, lon, start_date, end_date)
+    images = search_sentinel2.list_usable_images(lat, lon, start_date, end_date, api)
 
     if register:  # take 100 meters margin in case of forthcoming shift
         w += 100
