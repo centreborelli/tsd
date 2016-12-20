@@ -70,8 +70,8 @@ all_bands = ['01', '02', '03', '04', '05', '06', '07', '08', '8A', '09', '10',
              '11', '12']
 
 
-def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
-                    start_date=None, end_date=None, sen2cor=False,
+def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
+                    out_dir='', start_date=None, end_date=None, sen2cor=False,
                     api='kayrros', cache_dir='', debug=False):
     """
     Main function: download, crop and register a Sentinel-2 image time series.
@@ -97,20 +97,30 @@ def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
 
     # register the images through time
     if register:
-        if debug:
-            shutil.copytree(out_dir, '{}_no_registration'.format(os.path.normpath(out_dir)))
+        if debug:  # keep a copy of the cropped images before registration
+            bak = os.path.join(out_dir, 'no_registration')
+            utils.mkdir_p(bak)
+            for crop in crops:  # crop to remove the margin
+                for b in crop:
+                    o = os.path.join(bak, os.path.basename(b))
+                    utils.crop_georeferenced_image(o, b, lon, lat, w-100, h-100)
+
         registration.main(crops, crops, all_pairwise=True)
+
         for crop in crops:  # crop to remove the margin
-            for band in crop:
-                if os.path.isfile(band):
-                    utils.crop_georeferenced_image(band, band, lon, lat, w-100,
-                                                   h-100)
+            for b in crop:
+                utils.crop_georeferenced_image(b, b, lon, lat, w-100, h-100)
 
     # equalize histograms through time, band per band
-    if debug:
-        shutil.copytree(out_dir, '{}_no_midway'.format(os.path.normpath(out_dir)))
-    for i in xrange(len(bands)):
-        midway.main([crop[i] for crop in crops], out_dir)
+    if equalize:
+        if debug:  # keep a copy of the images before equalization
+            utils.mkdir_p(os.path.join(out_dir, 'no_midway'))
+            for crop in crops:
+                for b in crop:
+                    shutil.copy(b, os.path.join(out_dir, 'no_midway'))
+
+        for i in xrange(len(bands)):
+            midway.main([crop[i] for crop in crops], out_dir)
 
 
 def get_available_dates_for_coords(lats, lons, union_intersect=False, start_date=None, end_date=None):
@@ -229,6 +239,8 @@ if __name__ == '__main__':
                         help=('list of spectral bands, default all 13 bands'))
     parser.add_argument('-r', '--register', action='store_true',
                         help='register images through time')
+    parser.add_argument('-m', '--midway', action='store_true',
+                        help='equalize colors with midway')
     parser.add_argument('-w', '--size', type=int, help='size of the crop, in meters',
                         default=5000)
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
@@ -249,7 +261,7 @@ if __name__ == '__main__':
     bands = [str(b).zfill(2).upper() for b in args.band]
 
     get_time_series(args.lat, args.lon, bands, args.size, args.size,
-                    args.register, out_dir=args.outdir,
+                    args.register, args.midway, out_dir=args.outdir,
                     start_date=args.start_date, end_date=args.end_date,
                     sen2cor=args.use_sen2cor, api=args.api,
                     cache_dir=args.cache, debug=args.debug)
