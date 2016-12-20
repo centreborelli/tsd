@@ -14,6 +14,9 @@ from osgeo import gdal
 import numpy as np
 import utm
 import matplotlib.pyplot as plt
+import traceback
+import warnings
+import sys
 
 
 def valid_date(s):
@@ -156,3 +159,12 @@ def show(img):
 
     ax.format_coord = format_coord
     plt.show()
+
+
+def warn_with_traceback(message, category, filename, lineno, file=None,
+                        line=None):
+    traceback.print_stack()
+    log = file if hasattr(file,'write') else sys.stderr
+    log.write(warnings.formatwarning(message, category, filename, lineno, line))
+
+#warnings.showwarning = warn_with_traceback
