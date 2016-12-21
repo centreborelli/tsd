@@ -79,14 +79,14 @@ The pipeline can be used from the command line through the Python scripts
 and process Sentinel-2 images of the Jamnagar refinery, located at latitude
 22.34806 and longitude 69.86889, run
 
-    python get_sentinel2.py --latlon 22.34806 69.86889 -b 2 3 4 -r -d test
+    python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b 2 3 4 -r -o test
 
 This will download crops of size 5000 x 5000 meters from the bands 2, 3 and 4,
 corresponding to the blue, green and red channels, and register them through
 time. To specify the desired bands, use the `-b` or `--band` flag. The crop
 size can be changed with the `-w` flag. For instance
 
-    python get_sentinel2.py --latlon 22.34806 69.86889 -b 11 12 -w 8000
+    python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b 11 12 -w 8000
 
 will download crops of size 8000 x 8000 meters, only for the SWIR channels (bands 11
 and 12), without registration (no option `-r`).
@@ -96,9 +96,9 @@ All the available options are listed when using the `-h` or `--help` flag:
     python get_sentinel2.py -h
     python get_sentinel1_scihub.py -h
 
-You can also run `search_sentinel2.py` or `registration.py` from the command
-line separately to use only single blocks of the pipeline. Run them with `-h`
-to get the list of available options.
+You can also run `search_sentinel2.py`, `registration.py` or `midway.py` from
+the command line separately to use only single blocks of the pipeline. Run them
+with `-h` to get the list of available options.
 
 ## As Python modules
 
@@ -120,7 +120,7 @@ the input location:
     import search_sentinel2
     lat, lon = 42, 3
     x = search_sentinel2.search_sentinel2_images_kayrros(lat, lon)
-    is_image_cloudy_at_location(x[-1], lat, lon, w=50)
+    search_sentinel2.is_image_cloudy_at_location(x[-1], lat, lon, w=50)
 
 
 To get the list of non-empty and non-cloudy images acquired from the 15/10/2016
@@ -129,7 +129,7 @@ on a given location:
     import datetime
     import search_sentinel2
     lat, lon = 42, 3
-    search_sentinel2.list_usable_images(lat, lon, start_date=datetime.date(2016, 10, 15))
+    search_sentinel2.list_usable_images(lat, lon, start_date=datetime.date(2016, 10, 15), api='kayrros')
 
 
 To download crops and register them through time:
@@ -147,15 +147,14 @@ To download crops and register them through time:
     bands = ['04']
 
     # list non-empty and non-cloudy images
-    images = search_sentinel2.list_usable_images(lat, lon, start_date=datetime.date(2016, 1, 1))
+    images = search_sentinel2.list_usable_images(lat, lon, start_date=datetime.date(2016, 1, 1), api='kayrros')
 
     # download crops
     crops = []
     for img in images:
         paths = download_sentinel2.get_crops_from_kayrros_api(img, bands, lon, lat,
                                                               w, h, 'raw')
-        if paths is not None:
-            crops.append(paths)
+        crops.append(paths)
 
     # register through time
     registered_crops = [[os.path.join('reg', os.path.basename(b)) for b in i] for i in crops]

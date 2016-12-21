@@ -4,13 +4,19 @@
 from __future__ import print_function
 import os
 import errno
+import shutil
 import argparse
 import datetime
 import tifffile
 import subprocess
+import tempfile
 from osgeo import gdal
 import numpy as np
 import utm
+import matplotlib.pyplot as plt
+import traceback
+import warnings
+import sys
 
 
 def valid_date(s):
@@ -117,10 +123,48 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
         lon, lat: longitude and latitude of the center of the crop
         w, h: width and height of the crop, in meters
     """
+    # compute utm geographic coordinates of the crop
     cx, cy = utm.from_latlon(lat, lon)[:2]
     ulx = cx - w / 2
     lrx = cx + w / 2
     uly = cy + h / 2  # in UTM the y coordinate increases from south to north
     lry = cy - h / 2
-    subprocess.call(['gdal_translate', in_path, out_path, '-ot', 'UInt16',
-                     '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
+
+    if out_path == in_path:  # hack to allow the output to overwrite the input
+        fd, tmp = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(in_path))
+        os.close(fd)
+        subprocess.call(['gdal_translate', in_path, tmp, '-ot', 'UInt16',
+                         '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
+        shutil.move(tmp, out_path)
+    else:
+        subprocess.call(['gdal_translate', in_path, out_path, '-ot', 'UInt16',
+                         '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
+
+
+
+def show(img):
+    """
+    """
+    fig, ax = plt.subplots()
+    ax.imshow(img, interpolation='nearest')
+
+    def format_coord(x, y):
+        col = int(x + 0.5)
+        row = int(y + 0.5)
+        if col >= 0 and col < img.shape[1] and row >= 0 and row < img.shape[0]:
+            z = img[row, col]
+            return 'x={}, y={}, z={}'.format(col, row, z)
+        else:
+            return 'x={}, y={}'.format(col, row)
+
+    ax.format_coord = format_coord
+    plt.show()
+
+
+def warn_with_traceback(message, category, filename, lineno, file=None,
+                        line=None):
+    traceback.print_stack()
+    log = file if hasattr(file,'write') else sys.stderr
+    log.write(warnings.formatwarning(message, category, filename, lineno, line))
+
+#warnings.showwarning = warn_with_traceback
