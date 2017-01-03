@@ -41,50 +41,63 @@ import tifffile
 import search_landsat
 import download_landsat
 import registration
+import midway
 import utils
 
 
 all_bands = [str(i) for i in xrange(1, 12)]
 
 
-def get_time_series(lat, lon, bands, w, h, register=False, out_dir='',
-                    start_date=None, end_date=None):
+def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
+                    out_dir='', start_date=None, end_date=None, debug=False):
     """
     Main function: download, crop and register a Sentinel-2 image time series.
     """
     # list available images that are not empty or masked by clouds
     images = search_landsat.list_images(lat, lon, start_date, end_date)
 
-    # take 100 meters margin in case of forthcoming shift
-    if register:
+    if register:  # take 100 meters margin in case of forthcoming shift
         w += 100
         h += 100
 
     # download images
     crops = []
     for img in images:
-        d = os.path.join(out_dir, img['date'].isoformat())
-        l = download_landsat.get_crops_from_kayrros_api(img, bands, lon, lat,
-                                                          w, h, d)
+        l = download_landsat.get_crops_from_kayrros_api(img, bands, lon, lat, w,
+                                                        h, out_dir)
         if l:
             if all(tifffile.imread(x).any() for x in l):  # test for empty images
                 crops.append(l)
             else:
-                shutil.rmtree(os.path.dirname(l[0]))
+                for x in l:
+                    os.remove(x)
 
     # register the images through time
     if register:
-        tmp = [['{}_registered{}'.format(*os.path.splitext(b)) for b in c] for c
-               in crops]
-        registration.main(crops, tmp, all_pairwise=True)
+        if debug:  # keep a copy of the cropped images before registration
+            bak = os.path.join(out_dir, 'no_registration')
+            utils.mkdir_p(bak)
+            for crop in crops:  # crop to remove the margin
+                for b in crop:
+                    o = os.path.join(bak, os.path.basename(b))
+                    utils.crop_georeferenced_image(o, b, lon, lat, w-100, h-100)
 
-        # crop to remove the margin
-        for crop in crops:
-            for band in crop:
-                band_reg = '{}_registered{}'.format(*os.path.splitext(band))
-                if os.path.isfile(band_reg):
-                    utils.crop_georeferenced_image(band, band_reg, lon, lat, w-100, h-100)
-                    os.remove(band_reg)
+        registration.main(crops, crops, all_pairwise=True)
+
+        for crop in crops:  # crop to remove the margin
+            for b in crop:
+                utils.crop_georeferenced_image(b, b, lon, lat, w-100, h-100)
+
+    # equalize histograms through time, band per band
+    if equalize:
+        if debug:  # keep a copy of the images before equalization
+            utils.mkdir_p(os.path.join(out_dir, 'no_midway'))
+            for crop in crops:
+                for b in crop:
+                    shutil.copy(b, os.path.join(out_dir, 'no_midway'))
+
+        for i in xrange(len(bands)):
+            midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
@@ -95,17 +108,22 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument("-b", "--band", nargs='*',
-                        help=("list of spectral bands, default all 11 bands"),
-                        default=all_bands)
+    parser.add_argument("-b", "--band", nargs='*', default=all_bands,
+                        help=("list of spectral bands, default all 11 bands"))
     parser.add_argument("-r", "--register", action="store_true",
                         help="register images through time")
-    parser.add_argument('-w', '--wsize', type=int, help='size of the crop, in meters',
+    parser.add_argument('-m', '--midway', action='store_true',
+                        help='equalize colors with midway')
+    parser.add_argument('-w', '--size', type=int, help='size of the crop, in meters',
                         default=5000)
-    parser.add_argument('-d', '--dir', type=str, help=('path to save the '
-                                                       'images'), default='')
+    parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
+                                                          'images'), default='')
+    parser.add_argument('-d', '--debug', action='store_true', help=('save '
+                                                                    'intermediate '
+                                                                    'images'))
     args = parser.parse_args()
 
-    get_time_series(args.lat, args.lon, args.band, args.wsize, args.wsize,
-                    args.register, out_dir=args.dir, start_date=args.start_date,
-                    end_date=args.end_date)
+    get_time_series(args.lat, args.lon, args.band, args.size, args.size,
+                    args.register, args.midway, out_dir=args.outdir,
+                    start_date=args.start_date, end_date=args.end_date,
+                    debug=args.debug)

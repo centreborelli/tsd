@@ -227,10 +227,8 @@ def get_images_for_dates(lat, lon, dates, bands, crop_size=246):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
                                                   'of Sentinel-2 images'))
-    parser.add_argument('--lat', type=float, required=True,
-                        help=('latitude of the interest point'))
-    parser.add_argument('--lon', type=float, required=True,
-                        help=('longitude of the interest point'))
+    parser.add_argument('--lat', type=float, required=True, help=('latitude'))
+    parser.add_argument('--lon', type=float, required=True, help=('longitude'))
     parser.add_argument('-s', '--start-date', type=utils.valid_date,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
