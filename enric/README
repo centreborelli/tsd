@@ -1,0 +1,15 @@
+here i gather some working algorithms before they are integrated with the rest
+
+eventually, all the files from here will be pythonized and kyayrrosized and
+this directory will disappear
+
+--enric
+
+-------------------------------------------------------------------------------
+
+SUB-DIRECTORIES:
+
+fgrain: megawave implementation of grain filters, conveniently un-megawaveized
+byu Gabriele Facciolo
+
+imscript: tiny tools for image processing in the unix environment
