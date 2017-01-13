@@ -1,6 +1,6 @@
 here i gather some working algorithms before they are integrated with the rest
 
-eventually, all the files from here will be pythonized and kyayrrosized and
+eventually, all the files herein will be pythonized and kayrrosized and
 this directory will disappear
 
 --enric
@@ -10,6 +10,8 @@ this directory will disappear
 SUB-DIRECTORIES:
 
 fgrain: megawave implementation of grain filters, conveniently un-megawaveized
-byu Gabriele Facciolo
+by Gabriele Facciolo
 
 imscript: tiny tools for image processing in the unix environment
+
+roads: algorithms for the analysis of roads
