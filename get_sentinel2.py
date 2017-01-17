@@ -139,7 +139,7 @@ def get_available_dates_for_coords(lats, lons, union_intersect=False, start_date
         list of datetimes
     """
     if start_date is None:
-        start_date = datetime.datetime(2000, 01, 01)
+        start_date = datetime.datetime(2000, 1, 1)
     if end_date is None:
         end_date = datetime.datetime.now()
 
