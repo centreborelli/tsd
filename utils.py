@@ -141,6 +141,41 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
                          '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
 
 
+def latlon_to_pix(img, lat, lon):
+   """
+   Get the pixel coordinates of a geographic location in a georeferenced image.
+
+   Args:
+       img: path to the input image
+       lat, lon: geographic coordinates of the input location
+
+   Returns:
+       x, y: pixel coordinates
+   """
+   # load the image dataset
+   ds = gdal.Open(img)
+
+   # get a geo-transform of the dataset
+   try:
+       gt = ds.GetGeoTransform()
+   except AttributeError:
+       return 0, 0
+
+   # create a spatial reference object for the dataset
+   srs = osr.SpatialReference()
+   srs.ImportFromWkt(ds.GetProjection())
+
+   # set up the coordinate transformation object
+   ct = osr.CoordinateTransformation(srs.CloneGeogCS(), srs)
+
+   # change the point locations into the GeoTransform space
+   point1, point0 = ct.TransformPoint(lon, lat)[:2]
+
+   # translate the x and y coordinates into pixel values
+   x = (point1 - gt[0]) / gt[1]
+   y = (point0 - gt[3]) / gt[5]
+   return int(x), int(y)
+
 
 def show(img):
     """
