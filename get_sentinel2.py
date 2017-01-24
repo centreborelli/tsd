@@ -72,12 +72,14 @@ all_bands = ['01', '02', '03', '04', '05', '06', '07', '08', '8A', '09', '10',
 
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     out_dir='', start_date=None, end_date=None,
-                    api='kayrros', cache_dir='', debug=False):
+                    api_search='kayrros', api_down='kayrros', cache_dir='',
+                    debug=False):
     """
     Main function: download, crop and register a Sentinel-2 image time series.
     """
     # list available images that are not empty or masked by clouds
-    images = search_sentinel2.list_usable_images(lat, lon, start_date, end_date, api)
+    images = search_sentinel2.list_usable_images(lat, lon, start_date, end_date,
+                                                 api_search)
 
     if register:  # take 100 meters margin in case of forthcoming shift
         w += 100
@@ -86,7 +88,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
     # download images
     crops = []
     for img in images:
-        if api == 'kayrros':
+        if api_down == 'kayrros':
             l = download_sentinel2.get_crops_from_kayrros_api(img, bands, lon,
                                                               lat, w, h, out_dir)
         else:
@@ -246,8 +248,10 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
-    parser.add_argument('--api', type=str, default='kayrros',
-                        help='API used: kayrros or cmla')
+    parser.add_argument('--api-search', type=str, default='kayrros',
+                        help='API used to search: kayrros or aws')
+    parser.add_argument('--api-download', type=str, default='kayrros',
+                        help='API used to download: kayrros or aws')
     parser.add_argument('--cache', type=str, help=('cache directory'),
                         default=os.path.abspath('.s2-cache'))
 
@@ -259,5 +263,5 @@ if __name__ == '__main__':
     get_time_series(args.lat, args.lon, bands, args.size, args.size,
                     args.register, args.midway, out_dir=args.outdir,
                     start_date=args.start_date, end_date=args.end_date,
-                    api=args.api,
+                    api_search=args.api_search, api_down=args.api_download,
                     cache_dir=args.cache, debug=args.debug)
