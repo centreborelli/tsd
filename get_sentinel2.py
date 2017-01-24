@@ -71,7 +71,7 @@ all_bands = ['01', '02', '03', '04', '05', '06', '07', '08', '8A', '09', '10',
 
 
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
-                    out_dir='', start_date=None, end_date=None, sen2cor=False,
+                    out_dir='', start_date=None, end_date=None,
                     api='kayrros', cache_dir='', debug=False):
     """
     Main function: download, crop and register a Sentinel-2 image time series.
@@ -246,8 +246,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
-    parser.add_argument('--use-sen2cor', action='store_true',
-                        help='apply Sen2Cor Scene Classification')
     parser.add_argument('--api', type=str, default='kayrros',
                         help='API used: kayrros or cmla')
     parser.add_argument('--cache', type=str, help=('cache directory'),
@@ -261,5 +259,5 @@ if __name__ == '__main__':
     get_time_series(args.lat, args.lon, bands, args.size, args.size,
                     args.register, args.midway, out_dir=args.outdir,
                     start_date=args.start_date, end_date=args.end_date,
-                    sen2cor=args.use_sen2cor, api=args.api,
+                    api=args.api,
                     cache_dir=args.cache, debug=args.debug)
