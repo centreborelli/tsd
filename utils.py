@@ -10,7 +10,7 @@ import datetime
 import tifffile
 import subprocess
 import tempfile
-from osgeo import gdal
+from osgeo import gdal, osr
 import numpy as np
 import utm
 import matplotlib.pyplot as plt
