@@ -33,7 +33,6 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-from __future__ import print_function
 import os
 import fnmatch
 import re
@@ -62,6 +61,10 @@ import midway
 import utils
 
 from sortedcontainers import SortedSet
+
+from builtins import range # for compatibility with python2
+
+
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 
@@ -121,7 +124,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                 for b in crop:
                     shutil.copy(b, os.path.join(out_dir, 'no_midway'))
 
-        for i in xrange(len(bands)):
+        for i in range(len(bands)):
             midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
 
 
