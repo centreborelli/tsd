@@ -36,7 +36,7 @@ and then by installing the Python bindings through `pip`:
     pip install gdal
 
 On Linux `gdal` and its Python bindings are usually straightforward to install
-throught your package manager.
+through your package manager.
 
 ## Libraries (only for Sentinel-1)
 The C++ code requires the `libtiff` and `libfftw3` libraries. On OSX you can
