@@ -71,35 +71,53 @@ def pixel_size(filename):
     return resolution[0], -resolution[1]  # for gdal, ry < 0
 
 
-def get_geographic_info(filename):
+def get_geotif_metadata(filename):
     """
-    Read the geographic information of an image file.
+    Read some metadata (using GDAL) from the header of a geotif file.
     """
-    dataset = gdal.Open(filename)
-    if dataset is None:
+    f = gdal.Open(filename)
+    if f is None:
         print('Unable to open {} for reading'.format(filename))
         return
-    return dataset.GetGeoTransform(), dataset.GetProjection()
+    return f.GetGeoTransform(), f.GetProjection(), f.GetMetadata()
 
 
-def set_geographic_info(filename, geotransform, projection):
+def set_geotif_metadata(filename, geotransform=None, projection=None,
+                        metadata=None):
     """
-    Write a given geographic information to an image file.
+    Write some metadata (using GDAL) to the header of a geotif file.
 
     Args:
         filename: path to the file where the information has to be written
         geotransform, projection: gdal geographic information
+        metadata: dictionary written to the GDAL 'Metadata' tag. It can be used
+            to store any extra metadata (e.g. acquisition date, sun azimuth...)
+    """
+    f = gdal.Open(filename, gdal.GA_Update)
+    if f is None:
+        print('Unable to open {} for writing'.format(filename))
+        return
+
+    if geotransform is not None and geotransform != (0, 1, 0, 0, 0, 1):
+        f.SetGeoTransform(geotransform)
+
+    if projection is not None and projection != '':
+        f.SetProjection(projection)
+
+    if metadata is not None:
+        f.SetMetadata(metadata)
+
+
+def set_geotif_metadata_item(filename, tagname, tagvalue):
+    """
+    Append a key, value pair to the GDAL metadata tag to a geotif file.
     """
     dataset = gdal.Open(filename, gdal.GA_Update)
     if dataset is None:
         print('Unable to open {} for writing'.format(filename))
         return
 
-    if geotransform is not None and geotransform != (0, 1, 0, 0, 0, 1):
-        dataset.SetGeoTransform(geotransform)
-
-    if projection is not None and projection != '':
-        dataset.SetProjection(projection)
+    dataset.SetMetadataItem(tagname, tagvalue)
 
 
 def merge_bands(infiles, outfile):
