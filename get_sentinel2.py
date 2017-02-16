@@ -244,7 +244,9 @@ if __name__ == '__main__':
                         help='register images through time')
     parser.add_argument('-m', '--midway', action='store_true',
                         help='equalize colors with midway')
-    parser.add_argument('-w', '--size', type=int, help='size of the crop, in meters',
+    parser.add_argument('-w', '--width', type=int, help='width of the crop, in meters',
+                        default=5000)
+    parser.add_argument('-l', '--height', type=int, help='height of the crop, in meters',
                         default=5000)
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
@@ -263,7 +265,7 @@ if __name__ == '__main__':
     # list of bands as strings
     bands = [str(b).zfill(2).upper() for b in args.band]
 
-    get_time_series(args.lat, args.lon, bands, args.size, args.size,
+    get_time_series(args.lat, args.lon, bands, args.width, args.height,
                     args.register, args.midway, out_dir=args.outdir,
                     start_date=args.start_date, end_date=args.end_date,
                     api_search=args.api_search, api_down=args.api_download,
