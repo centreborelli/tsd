@@ -14,11 +14,11 @@ They use the Python modules `search_sentinel2.py`, `download_sentinel2.py`,
 
 ## Python packages
 The following Python packages are required: `numpy`, `gdal`, `bs4`, `requests`,
-`utm`, `mgrs`, `dateutil.parser`, `tifffile`, `matplotlib`, `weightedstats`.
+`utm`, `mgrs`, `dateutil.parser`, `tifffile`, `matplotlib`, `weightedstats`, `pyfftw`.
 
 All of them except `gdal` can be installed through `pip`:
 
-    pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future weightedstats
+    pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future weightedstats pyfftw
 
 On OSX, `gdal` and its Python bindings are easily installed with the [GDAL Complete
 Compatibility Framework](http://www.kyngchaos.com/software/frameworks). Don't
