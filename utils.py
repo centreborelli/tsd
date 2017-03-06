@@ -3,6 +3,7 @@
 
 from __future__ import print_function
 import os
+import re
 import errno
 import shutil
 import argparse
@@ -27,6 +28,44 @@ def valid_date(s):
         return datetime.datetime.strptime(s, "%Y-%m-%d").date()
     except ValueError:
         raise argparse.ArgumentTypeError("Invalid date: '{}'".format(s))
+
+
+def valid_lon(s):
+    """
+    Check if a string is a well-formatted longitude.
+    """
+    try:
+        return float(s)
+    except ValueError:
+        regex = r"(\d+)d(\d+)'([\d.]+)\"([WE])"
+        m = re.match(regex, s)
+        if m is None:
+            raise argparse.ArgumentTypeError("Invalid longitude: '{}'".format(s))
+        else:
+            x = m.groups()
+            lon = int(x[0]) + float(x[1]) / 60 + float(x[2]) / 3600
+            if x[3] == 'W':
+                lon *= -1
+            return lon
+
+
+def valid_lat(s):
+    """
+    Check if a string is a well-formatted latitude.
+    """
+    try:
+        return float(s)
+    except ValueError:
+        regex = r"(\d+)d(\d+)'([\d.]+)\"([NS])"
+        m = re.match(regex, s)
+        if m is None:
+            raise argparse.ArgumentTypeError("Invalid latitude: '{}'".format(s))
+        else:
+            x = m.groups()
+            lat = int(x[0]) + float(x[1]) / 60 + float(x[2]) / 3600
+            if x[3] == 'S':
+                lat *= -1
+            return lat
 
 
 def is_valid(f):

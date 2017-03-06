@@ -102,8 +102,10 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
                                                   'of Landsat images'))
-    parser.add_argument('--lat', type=float, required=True, help='latitude')
-    parser.add_argument('--lon', type=float, required=True, help='longitude')
+    parser.add_argument('--lat', type=utils.valid_lat, required=True,
+                        help='latitude')
+    parser.add_argument('--lon', type=utils.valid_lon, required=True,
+                        help='longitude')
     parser.add_argument('-s', '--start-date', type=utils.valid_date,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
