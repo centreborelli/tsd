@@ -18,7 +18,7 @@ The following Python packages are required: `numpy`, `gdal`, `bs4`, `requests`,
 
 All of them except `gdal` can be installed through `pip`:
 
-    pip install bs4 requests utm mgrs python-dateutil
+    pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future weightedstats
 
 On OSX, `gdal` and its Python bindings are easily installed with the [GDAL Complete
 Compatibility Framework](http://www.kyngchaos.com/software/frameworks). Don't
