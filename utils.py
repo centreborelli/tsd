@@ -234,6 +234,30 @@ def latlon_to_pix(img, lat, lon):
    return int(x), int(y)
 
 
+def weighted_median(data, weights=None):
+    """
+    Return the weighted median of a 1D array.
+    """
+    if weights is None:
+        return np.median(data)
+
+    sorted_data, sorted_weights = zip(*sorted(zip(data, weights)))
+    cumulative_weight = np.cumsum(sorted_weights)
+    total_weight = cumulative_weight[-1]
+
+    if any(weights > total_weight * 0.5):
+        return np.array(data)[weights == np.max(weights)][0]
+
+    i = np.where(cumulative_weight <= .5 * total_weight)[0][-1] + 1
+    left_right_diff = cumulative_weight[i-1] - (total_weight - cumulative_weight[i])
+    if left_right_diff == 0:
+        return data[i]
+    elif left_right_diff > 0:
+        return 0.5 * (sorted_data[i-1] + sorted_data[i])
+    else:
+        return 0.5 * (sorted_data[i] + sorted_data[i+1])
+
+
 def show(img):
     """
     """

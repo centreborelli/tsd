@@ -52,7 +52,6 @@ import matplotlib.path
 import matplotlib.transforms
 import numpy as np
 import scipy.ndimage
-import weightedstats
 
 import search_sentinel2
 import download_sentinel2
