@@ -159,3 +159,5 @@ To download crops and register them through time:
     # register through time
     registered_crops = [[os.path.join('reg', os.path.basename(b)) for b in i] for i in crops]
     registration.main(crops, registered_crops)
+
+![Image](doc/flow_chart_cloud_segmentor.png?raw=true)
