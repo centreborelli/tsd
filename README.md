@@ -20,20 +20,20 @@ All of them except `gdal` can be installed through `pip`:
 
     pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future pyfftw
 
-On OSX, `gdal` and its Python bindings are easily installed with the [GDAL Complete
-Compatibility Framework](http://www.kyngchaos.com/software/frameworks). Don't
-forget to update your PATH after the installation:
+On OSX, the latest version of `gdal` (currently 2.1) and its Python bindings
+are easily installed with the [GDAL Complete Compatibility
+Framework](http://www.kyngchaos.com/software/frameworks).
 
-    export PATH=/Library/Frameworks/GDAL.framework/Programs:$PATH
+Don't forget to update your PATH and PYTHONPATH after the installation by
+copying these lines in your `~/.profile`:
 
-Alternatively, the Python bindings for `gdal` can be installed by first
-installing the latest version of `libgdal` through `brew`:
+    export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"
+    export PYTHONPATH="/Library/Frameworks/GDAL.framework/Versions/2.1/Python/2.7/site-packages:$PYTHONPATH"
 
-    brew install gdal --HEAD --with-complete --without-python
+Alternatively, `gdal` version 1.11 and its Python bindings can be installed
+through `brew`. This version doesn't support JP2 files:
 
-and then by installing the Python bindings through `pip`:
-
-    pip install gdal
+    brew install gdal --with-python3
 
 On Linux `gdal` and its Python bindings are usually straightforward to install
 through your package manager.
