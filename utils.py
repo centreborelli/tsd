@@ -20,6 +20,16 @@ import warnings
 import sys
 
 
+def valid_datetime(s):
+    """
+    Check if a string is a well-formatted datetime.
+    """
+    try:
+        return datetime.datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        raise argparse.ArgumentTypeError("Invalid date: '{}'".format(s))
+
+
 def valid_date(s):
     """
     Check if a string is a well-formatted date.

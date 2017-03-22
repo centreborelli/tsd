@@ -232,9 +232,9 @@ if __name__ == '__main__':
     group.add_argument('--latlon', nargs=2, type=float, help=('latitude and '
                                                               'longitude of the '
                                                               'interest point'))
-    parser.add_argument('-s', '--start-date', type=utils.valid_date,
+    parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
-    parser.add_argument('-e', '--end-date', type=utils.valid_date,
+    parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-w', '--wsize', type=int, help='size of the crop',
                         default=250)
