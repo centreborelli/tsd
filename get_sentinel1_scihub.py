@@ -78,27 +78,39 @@ def get_scihub_url(url, user='carlodef', password='kayrros_cmla'):
             print('Scientific Data Hub returned error', r.status_code)
 
 
-def list_s1_images_scihub(lat, lon, start_date=None, end_date=None,
-                          satellite='Sentinel-1', product_type='GRD',
-                          operational_mode='IW'):
+def list_s1_images_scihub(lat, lon, w=None, h=None, start_date=None,
+                          end_date=None, satellite='Sentinel-1',
+                          product_type='GRD', operational_mode='IW'):
     """
-    Returns the list of Sentinel-1 products available on a given location.
+    Return the list of Sentinel-1 products available on a given location.
     """
     # default start/end dates
     if start_date is None:
-        start_date = datetime.datetime(2000, 01, 01)
+        start_date = datetime.datetime(2000, 1, 1)
     if end_date is None:
         end_date = datetime.datetime.now()
 
-    # get the list of available images
+    # build the url used to query the scihub API
     query = 'platformname:{}'.format(satellite)
     query += ' AND producttype:{}'.format(product_type)
     query += ' AND sensoroperationalmode:{}'.format(operational_mode)
-    query += ' AND footprint:\"intersects({}, {})\"'.format(lat, lon)
     query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
                                                       end_date.isoformat())
-    query += '&rows=100&start=0'  # otherwise we'll get only 10 results at most
+
+    # queried polygon or point
+    # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
+    if w is not None and h is not None:
+        rectangle = utils.latlon_rectangle_centered_at(lat, lon, w, h)
+        rectangle = [p[::-1] for p in rectangle]  # order is lon, lat for polygons
+        poly_str = ', '.join(' '.join(str(x) for x in p) for p in rectangle)
+        query += ' AND footprint:\"contains(POLYGON(({})))\"'.format(poly_str)
+    else:
+        # scihub ordering is lat, lon for points
+        query += ' AND footprint:\"intersects({}, {})\"'.format(lat, lon)
+
+    # send the query to scihub API
     url = '{}/search?q={}'.format(base_url, query)
+    url += '&rows=100&start=0'  # otherwise we get only the first 10 results
     text = get_scihub_url(url)
     if text is None:
         return []
@@ -217,10 +229,10 @@ def get_temporal_sequence(lat, lon, w, h, temporal_registration=False,
     Main function: download, crop and register a Sentinel-1 image time serie.
     """
     # list available images
-    images = list_s1_images_scihub(lat, lon, start_date, end_date)
+    images = list_s1_images_scihub(lat, lon, w, h, start_date, end_date)
 
     # download and crop
-    crops = download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir)
+    download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir)
 
 
 if __name__ == '__main__':
@@ -236,7 +248,7 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-w', '--wsize', type=int, help='size of the crop',
+    parser.add_argument('-w', '--wsize', type=int, help='size of the crop (in pixels)',
                         default=250)
     parser.add_argument('-d', '--dir', type=str, help=('path to save the '
                                                        'images'), default='')

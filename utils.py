@@ -244,6 +244,19 @@ def latlon_to_pix(img, lat, lon):
    return int(x), int(y)
 
 
+def latlon_rectangle_centered_at(lat, lon, w, h):
+    """
+    """
+    x, y, number, letter = utm.from_latlon(lat, lon)
+    rectangle = []
+    rectangle.append(utm.to_latlon(x - .5*w, y - .5*h, number, letter))
+    rectangle.append(utm.to_latlon(x - .5*w, y + .5*h, number, letter))
+    rectangle.append(utm.to_latlon(x + .5*w, y + .5*h, number, letter))
+    rectangle.append(utm.to_latlon(x + .5*w, y - .5*h, number, letter))
+    rectangle.append(rectangle[0])  # close the polygon
+    return rectangle
+
+
 def weighted_median(data, weights=None):
     """
     Return the weighted median of a 1D array.
