@@ -3,7 +3,7 @@
 # pylint: disable=C0103
 
 """
-Automatic download, crop and registration of Sentinel-1 images.
+Automatic download and crop of Sentinel-1 images.
 
 Copyright (C) 2016, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 
@@ -42,7 +42,6 @@ import utils
 
 
 base_url = 'https://scihub.copernicus.eu/dhus'
-cache_dir = '.s1-cache'
 
 
 def query_data_hub(output_filename, url, verbose=False, user='carlodef',
@@ -147,12 +146,14 @@ def list_s1_images_scihub(lat, lon, w=None, h=None, start_date=None,
     return out
 
 
-def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir=''):
+def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
+                                       cache_dir=''):
     """
     Download, extract and crop a list of Sentinel-1 images from the scihub.
     """
-    # create output and cache directories if they don't exist
-    utils.mkdir_p(cache_dir)
+    # create output and cache directories
+    if cache_dir:
+        utils.mkdir_p(cache_dir)
     if out_dir:
         utils.mkdir_p(out_dir)
 
@@ -223,8 +224,8 @@ def latlon_to_pix(img_file, lat, lon):
     return col, row
 
 
-def get_temporal_sequence(lat, lon, w, h, temporal_registration=False,
-                          out_dir='', start_date=None, end_date=None):
+def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
+                    cache_dir=''):
     """
     Main function: download, crop and register a Sentinel-1 image time serie.
     """
@@ -232,52 +233,30 @@ def get_temporal_sequence(lat, lon, w, h, temporal_registration=False,
     images = list_s1_images_scihub(lat, lon, w, h, start_date, end_date)
 
     # download and crop
-    download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir)
+    download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir, cache_dir)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
                                                   'of Sentinel-1 images'))
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--csv', type=str, help=('path to a csv file containing '
-                                                'a list of api, lon, lat'))
-    group.add_argument('--latlon', nargs=2, type=float, help=('latitude and '
-                                                              'longitude of the '
-                                                              'interest point'))
+    parser.add_argument('--lat', type=utils.valid_lat, required=True,
+                        help=('latitude'))
+    parser.add_argument('--lon', type=utils.valid_lon, required=True,
+                        help=('longitude'))
     parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-w', '--wsize', type=int, help='size of the crop (in pixels)',
-                        default=250)
-    parser.add_argument('-d', '--dir', type=str, help=('path to save the '
-                                                       'images'), default='')
+    parser.add_argument('-w', '--width', type=int, help='width of the crop in pixels',
+                        default=500)
+    parser.add_argument('-l', '--height', type=int, help='height of the crop in pixels',
+                        default=500)
+    parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
+                                                          'images'), default='')
+    parser.add_argument('--cache', type=str, help=('cache directory'),
+                        default=os.path.abspath('.s1-cache'))
     args = parser.parse_args()
 
-    if args.latlon:
-        get_temporal_sequence(args.latlon[0], args.latlon[1], args.wsize,
-                              args.wsize, out_dir=args.dir,
-                              start_date=args.start_date,
-                              end_date=args.end_date)
-    else:
-        # open CSV file and process the entries one at a time
-        with open(args.csv) as f:
-            dialect = csv.Sniffer().sniff(f.read(1024))  # detect sep
-            f.seek(0)
-            header = csv.Sniffer().has_header(f.read(1024))  # detect header
-            f.seek(0)
-            reader = csv.reader(f, dialect)
-            if header:
-                reader.next()  # skip header row
-            for row in reader:
-                api = row[0]
-                lon = float(row[1])
-                lat = float(row[2])
-                start_date = dateutil.parser.parse(
-                    row[3]) if len(row) > 3 else args.start_date
-                end_date = dateutil.parser.parse(
-                    row[4]) if len(row) > 4 else args.end_date
-                print("processing API {}...".format(api), end=' ')
-                get_temporal_sequence(lat, lon, args.wsize, args.wsize,
-                                      start_date=start_date, end_date=end_date,
-                                      out_dir=os.path.join(args.dir, api))
+    get_time_series(args.lat, args.lon, args.width, args.height,
+                    start_date=args.start_date, end_date=args.end_date,
+                    out_dir=args.outdir, cache_dir=args.cache)
