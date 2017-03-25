@@ -5,7 +5,7 @@
 """
 Automatic download and crop of Sentinel-1 images.
 
-Copyright (C) 2016, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -20,25 +20,23 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
 from __future__ import print_function
 import os
 import re
-import bs4
 import glob
-import errno
 import zipfile
-import requests
 import datetime
 import argparse
 import subprocess
+
+import bs4
+import requests
 import dateutil.parser
 from osgeo import gdal
-import csv
 gdal.UseExceptions()
 
-import srtm4
-import utils
+from cmla import srtm4
+from cmla import utils
 
 
 base_url = 'https://scihub.copernicus.eu/dhus'
@@ -62,6 +60,7 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
 
 def get_scihub_url(url, user='carlodef', password='kayrros_cmla'):
     """
+    Request a scihub url.
     """
     r = requests.get(url, auth=(user, password))
     if r.ok:
@@ -168,13 +167,7 @@ def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
             zip_path = os.path.join(cache_dir, '{}.zip'.format(name))
             if not zipfile.is_zipfile(zip_path):
                 url = "{}/odata/v1/Products('{}')/$value".format(base_url, uuid)
-                subprocess.call(['wget',
-                                 '--no-check-certificate',
-                                 '--auth-no-challenge',
-                                 '--user=carlodef',
-                                 '--password=kayrros_cmla',
-                                 '--output-document=%s' % zip_path,
-                                 url])
+                query_data_hub(zip_path, url, verbose=True)
 
             # extract tiff image from the zip
             z = zipfile.ZipFile(zip_path, 'r')
