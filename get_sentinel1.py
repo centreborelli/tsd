@@ -35,8 +35,8 @@ import dateutil.parser
 from osgeo import gdal
 gdal.UseExceptions()
 
-from cmla import srtm4
-from cmla import utils
+import srtm4
+import utils
 
 
 base_url = 'https://scihub.copernicus.eu/dhus'
