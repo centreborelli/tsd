@@ -201,7 +201,7 @@ def latlon_to_pix(img_file, lat, lon):
                                   stdout=subprocess.PIPE)
             p2 = subprocess.Popen(['gdaltransform', '-tps', '-i', img_file],
                                   stdin=p1.stdout, stdout=subprocess.PIPE)
-            line = p2.stdout.read()
+            line = p2.stdout.readlines()[-1]  # keep only the last line to discard warnings
             out = list(map(float, re.findall(b"\d+\.\d+", line)))
             col = int(round(out[0]))
             row = int(round(out[1]))
