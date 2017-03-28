@@ -28,9 +28,11 @@ import zipfile
 import datetime
 import argparse
 import subprocess
+import numpy as np
 
 import bs4
 import requests
+import tifffile
 import dateutil.parser
 from osgeo import gdal
 gdal.UseExceptions()
@@ -140,7 +142,12 @@ def list_s1_images_scihub(lat, lon, w=None, h=None, start_date=None,
             if x.get('name') == 'beginposition':
                 imaging_date = dateutil.parser.parse(x.text)
 
-        out.append((uuid, img_name, imaging_date))
+        # retrieve orbit direction
+        for x in img.find_all('str'):
+            if x.get('name') == 'orbitdirection':
+                orbit_direction = x.text
+
+        out.append((uuid, img_name, imaging_date, orbit_direction))
 
     return out
 
@@ -158,7 +165,7 @@ def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
 
     # loop over the images to download, extract and crop
     for i in images:
-        uuid, name, date = i
+        uuid, name, date, orbit_direction = i
         filenames = glob.glob(os.path.join(cache_dir, name, 'measurement',
                                            's1a-iw-grd-vv-*.tif'))
         if not filenames or not utils.is_valid(filenames[0]):
@@ -182,9 +189,14 @@ def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
         x = cx - int(w / 2)
         y = cy - int(h / 2)
 
-        crop = os.path.join(out_dir, date.strftime('%Y-%m-%dT%H:%M:%S.tif'))
+        crop = os.path.join(out_dir, '{}.tif'.format(date.date().isoformat()))
         subprocess.call(['gdal_translate', img, crop, '-ot', 'UInt16',
                          '-srcwin', str(x), str(y), str(w), str(h)])
+
+        if orbit_direction == 'ASCENDING':  # flip up/down
+            metadata = utils.get_geotif_metadata(crop)
+            tifffile.imsave(crop, np.flipud(tifffile.imread(crop)))
+            utils.set_geotif_metadata(crop, *metadata)
 
 
 def latlon_to_pix(img_file, lat, lon):
