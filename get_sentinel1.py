@@ -42,7 +42,7 @@ import utils
 import search_sentinel1
 
 
-base_url = 'https://scihub.copernicus.eu/dhus'
+scihub_url = 'https://scihub.copernicus.eu/dhus'
 
 
 def query_data_hub(output_filename, url, verbose=False, user='carlodef',
@@ -61,10 +61,9 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
                      url])
 
 
-def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
-                                       cache_dir=''):
+def download_and_crop_s1_image(image, lon, lat, w, h, out_dir='', cache_dir=''):
     """
-    Download, extract and crop a list of Sentinel-1 images from the scihub.
+    Download, extract and crop a Sentinel-1 image.
     """
     # create output and cache directories
     if cache_dir:
@@ -72,40 +71,38 @@ def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
     if out_dir:
         utils.mkdir_p(out_dir)
 
-    # loop over the images to download, extract and crop
-    for i in images:
-        uuid, name, date, orbit_direction = i
-        filenames = glob.glob(os.path.join(cache_dir, name, 'measurement',
-                                           's1a-iw-grd-vv-*.tif'))
-        if not filenames or not utils.is_valid(filenames[0]):
+    # download, extract and crop
+    uuid, name, date, orbit_direction = image
+    filenames = glob.glob(os.path.join(cache_dir, name, 'measurement',
+                                       's1a-iw-grd-vv-*.tif'))
+    if not filenames or not utils.is_valid(filenames[0]):
 
-            # download zip file from scihub
-            zip_path = os.path.join(cache_dir, '{}.zip'.format(name))
-            if not zipfile.is_zipfile(zip_path):
-                url = "{}/odata/v1/Products('{}')/$value".format(base_url, uuid)
-                query_data_hub(zip_path, url, verbose=True)
+        # download zip file from scihub
+        zip_path = os.path.join(cache_dir, '{}.zip'.format(name))
+        if not zipfile.is_zipfile(zip_path):
+            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, uuid)
+            query_data_hub(zip_path, url, verbose=True)
 
-            # extract tiff image from the zip
-            z = zipfile.ZipFile(zip_path, 'r')
-            l = z.namelist()
-            filenames = [
-                x for x in l if 'measurement' in x and 'iw-grd-vv' in x]
-            z.extract(filenames[0], path=cache_dir)
+        # extract tiff image from the zip
+        z = zipfile.ZipFile(zip_path, 'r')
+        l = z.namelist()
+        filenames = [x for x in l if 'measurement' in x and 'iw-grd-vv' in x]
+        z.extract(filenames[0], path=cache_dir)
 
-        # do the crop
-        img = os.path.join(cache_dir, filenames[0])
-        cx, cy = latlon_to_pix(img, lat, lon)
-        x = cx - int(w / 2)
-        y = cy - int(h / 2)
+    # do the crop
+    img = os.path.join(cache_dir, filenames[0])
+    cx, cy = latlon_to_pix(img, lat, lon)
+    x = cx - int(w / 2)
+    y = cy - int(h / 2)
 
-        crop = os.path.join(out_dir, '{}.tif'.format(date.date().isoformat()))
-        subprocess.call(['gdal_translate', img, crop, '-ot', 'UInt16',
-                         '-srcwin', str(x), str(y), str(w), str(h)])
+    crop = os.path.join(out_dir, '{}.tif'.format(date.date().isoformat()))
+    subprocess.call(['gdal_translate', img, crop, '-ot', 'UInt16',
+                     '-srcwin', str(x), str(y), str(w), str(h)])
 
-        if orbit_direction == 'ASCENDING':  # flip up/down
-            metadata = utils.get_geotif_metadata(crop)
-            tifffile.imsave(crop, np.flipud(tifffile.imread(crop)))
-            utils.set_geotif_metadata(crop, *metadata)
+    if orbit_direction == 'ASCENDING':  # flip up/down
+        metadata = utils.get_geotif_metadata(crop)
+        tifffile.imsave(crop, np.flipud(tifffile.imread(crop)))
+        utils.set_geotif_metadata(crop, *metadata)
 
 
 def latlon_to_pix(img_file, lat, lon):
@@ -148,7 +145,8 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
                                                     end_date, product_type=product_type)
 
     # download and crop
-    download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir, cache_dir)
+    for image in images:
+        download_and_crop_s1_image(image, lon, lat, w, h, out_dir, cache_dir)
 
 
 if __name__ == '__main__':
