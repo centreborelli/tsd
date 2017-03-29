@@ -71,7 +71,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
         utils.mkdir_p(out_dir)
 
     # download zip file
-    uuid, name, date, orbit_direction, identifier = image
+    name, date, orbit_direction, identifier, uuid = image[1:]
     zip_path = os.path.join(out_dir, '{}.zip'.format(name))
     if not zipfile.is_zipfile(zip_path):
         if mirror == 'scihub':
