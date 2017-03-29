@@ -139,13 +139,13 @@ def latlon_to_pix(img_file, lat, lon):
 
 
 def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
-                    cache_dir=''):
+                    cache_dir='', product_type='GRD'):
     """
     Main function: download, crop and register a Sentinel-1 image time serie.
     """
     # list available images
     images = search_sentinel1.list_s1_images_scihub(lat, lon, w, h, start_date,
-                                                    end_date)
+                                                    end_date, product_type=product_type)
 
     # download and crop
     download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir, cache_dir)
@@ -170,8 +170,10 @@ if __name__ == '__main__':
                                                           'images'), default='')
     parser.add_argument('--cache', type=str, help=('cache directory'),
                         default=os.path.abspath('.s1-cache'))
+    parser.add_argument('-t', '--product-type',
+                        help='type of image: GRD or SLC', default='GRD')
     args = parser.parse_args()
 
     get_time_series(args.lat, args.lon, args.width, args.height,
                     start_date=args.start_date, end_date=args.end_date,
-                    out_dir=args.outdir, cache_dir=args.cache)
+                    out_dir=args.outdir, cache_dir=args.cache, product_type=args.product_type)
