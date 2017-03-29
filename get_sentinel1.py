@@ -39,6 +39,7 @@ gdal.UseExceptions()
 
 import srtm4
 import utils
+import search_sentinel1
 
 
 base_url = 'https://scihub.copernicus.eu/dhus'
@@ -58,98 +59,6 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
                      '--password=%s' % password,
                      '--output-document=%s' % output_filename,
                      url])
-
-
-def get_scihub_url(url, user='carlodef', password='kayrros_cmla'):
-    """
-    Request a scihub url.
-    """
-    r = requests.get(url, auth=(user, password))
-    if r.ok:
-        return r.text
-    else:
-        print('ERROR:', end=' ')
-        if r.status_code == 503:
-            print('The Sentinels Scientific Data Hub is down. Check on'
-                  ' https://scihub.copernicus.eu/dhus/#/home')
-        elif r.status_code == 401:
-            print('Authentication failed with', user, password)
-        else:
-            print('Scientific Data Hub returned error', r.status_code)
-
-
-def list_s1_images_scihub(lat, lon, w=None, h=None, start_date=None,
-                          end_date=None, satellite='Sentinel-1',
-                          product_type='GRD', operational_mode='IW'):
-    """
-    Return the list of Sentinel-1 products available on a given location.
-    """
-    # default start/end dates
-    if start_date is None:
-        start_date = datetime.datetime(2000, 1, 1)
-    if end_date is None:
-        end_date = datetime.datetime.now()
-
-    # build the url used to query the scihub API
-    query = 'platformname:{}'.format(satellite)
-    query += ' AND producttype:{}'.format(product_type)
-    query += ' AND sensoroperationalmode:{}'.format(operational_mode)
-    query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
-                                                      end_date.isoformat())
-
-    # queried polygon or point
-    # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
-    if w is not None and h is not None:
-        rectangle = utils.latlon_rectangle_centered_at(lat, lon, w, h)
-        rectangle = [p[::-1] for p in rectangle]  # order is lon, lat for polygons
-        poly_str = ', '.join(' '.join(str(x) for x in p) for p in rectangle)
-        query += ' AND footprint:\"contains(POLYGON(({})))\"'.format(poly_str)
-    else:
-        # scihub ordering is lat, lon for points
-        query += ' AND footprint:\"intersects({}, {})\"'.format(lat, lon)
-
-    # send the query to scihub API
-    url = '{}/search?q={}'.format(base_url, query)
-    url += '&rows=100&start=0'  # otherwise we get only the first 10 results
-    text = get_scihub_url(url)
-    if text is None:
-        return []
-
-    # count the number of images
-    images = bs4.BeautifulSoup(text, 'xml').find_all('entry')
-    print('Found {} images'.format(len(images)))
-
-    # loop over the images to extract uuids, filenames and acquisition dates
-    out = []
-    for img in images:
-
-        # retrieve uuid
-        uuid = img.find('id').text
-        if uuid is None:
-            for x in img.find_all('str'):
-                if x.get('name') == 'uuid':
-                    uuid = x.text
-
-        # retrieve filename
-        img_name = "%s.SAFE" % img.find('title').text
-        if img_name is None:
-            for x in img.find_all('str'):
-                if x.get('name') == 'filename':
-                    img_name = x.text
-
-        # retrieve acquisition date
-        for x in img.find_all('date'):
-            if x.get('name') == 'beginposition':
-                imaging_date = dateutil.parser.parse(x.text)
-
-        # retrieve orbit direction
-        for x in img.find_all('str'):
-            if x.get('name') == 'orbitdirection':
-                orbit_direction = x.text
-
-        out.append((uuid, img_name, imaging_date, orbit_direction))
-
-    return out
 
 
 def download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir='',
@@ -235,7 +144,8 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
     Main function: download, crop and register a Sentinel-1 image time serie.
     """
     # list available images
-    images = list_s1_images_scihub(lat, lon, w, h, start_date, end_date)
+    images = search_sentinel1.list_s1_images_scihub(lat, lon, w, h, start_date,
+                                                    end_date)
 
     # download and crop
     download_and_crop_s1_images_scihub(images, lon, lat, w, h, out_dir, cache_dir)
