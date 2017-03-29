@@ -73,7 +73,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
     # download zip file
     name, date, orbit_direction, identifier, uuid = image[1:]
     zip_path = os.path.join(out_dir, '{}.zip'.format(name))
-    if not zipfile.is_zipfile(zip_path):
+    if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
         if mirror == 'scihub':
             url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, uuid)
             query_data_hub(zip_path, url, verbose=True)
