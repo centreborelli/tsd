@@ -43,6 +43,7 @@ import search_sentinel1
 
 
 scihub_url = 'https://scihub.copernicus.eu/dhus'
+peps_url = 'https://peps.cnes.fr/resto/collections'
 
 
 def query_data_hub(output_filename, url, verbose=False, user='carlodef',
@@ -61,7 +62,8 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
                      url])
 
 
-def download_and_crop_s1_image(image, lon, lat, w, h, out_dir='', cache_dir=''):
+def download_and_crop_s1_image(image, lon, lat, w, h, out_dir='', cache_dir='',
+                               mirror='peps'):
     """
     Download, extract and crop a Sentinel-1 image.
     """
@@ -77,11 +79,15 @@ def download_and_crop_s1_image(image, lon, lat, w, h, out_dir='', cache_dir=''):
                                        's1a-iw-grd-vv-*.tif'))
     if not filenames or not utils.is_valid(filenames[0]):
 
-        # download zip file from scihub
+        # download zip file
         zip_path = os.path.join(cache_dir, '{}.zip'.format(name))
         if not zipfile.is_zipfile(zip_path):
-            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, uuid)
-            query_data_hub(zip_path, url, verbose=True)
+            if mirror == 'scihub':
+                url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, uuid)
+                query_data_hub(zip_path, url, verbose=True)
+            else:
+                url = "{}/S1/{}/download".format(peps_url, uuid)
+                os.system("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
 
         # extract tiff image from the zip
         z = zipfile.ZipFile(zip_path, 'r')
