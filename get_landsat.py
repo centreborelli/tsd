@@ -51,10 +51,11 @@ all_bands = [str(i) for i in xrange(1, 12)]
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     out_dir='', start_date=None, end_date=None, debug=False):
     """
-    Main function: download, crop and register a Sentinel-2 image time series.
+    Main function: download, crop and register a time series of Landsat-8 images.
     """
-    # list available images that are not empty or masked by clouds
-    images = search_landsat.list_images(lat, lon, start_date, end_date)
+    # list available images
+    images = search_landsat.search_development_seed(lat, lon, start_date,
+                                                    end_date)
 
     if register:  # take 100 meters margin in case of forthcoming shift
         w += 100
@@ -98,6 +99,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
 
         for i in xrange(len(bands)):
             midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
