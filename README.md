@@ -7,10 +7,10 @@
 CMLA, ENS Cachan, Université Paris-Saclay, 2016
 
 # Installation and dependencies
-The main scripts are `get_sentinel2.py` and `get_sentinel1_scihub.py`.
+The main scripts are `get_sentinel2.py`, `get_sentinel1.py` and `get_landsat.py`.
 
-They use the Python modules `search_sentinel2.py`, `download_sentinel2.py`,
-`register.py` and `midway.py`.
+They use the Python modules `search_*`, `download_*`, `register.py` and
+`midway.py`.
 
 ## Python packages
 The following Python packages are required: `numpy`, `gdal`, `bs4`, `requests`,
@@ -18,7 +18,7 @@ The following Python packages are required: `numpy`, `gdal`, `bs4`, `requests`,
 
 All of them except `gdal` can be installed through `pip`:
 
-    pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future pyfftw
+    pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future pyfftw landsat-util
 
 On OSX, the latest version of `gdal` (currently 2.1) and its Python bindings
 are easily installed with the [GDAL Complete Compatibility
