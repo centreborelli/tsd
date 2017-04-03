@@ -64,14 +64,6 @@ from sortedcontainers import SortedSet
 from builtins import range # for compatibility with python2
 
 
-
-# http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
-
-cache_dir = os.path.abspath('.s2-cache')
-all_bands = ['01', '02', '03', '04', '05', '06', '07', '08', '8A', '09', '10',
-             '11', '12']
-
-
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     out_dir='', start_date=None, end_date=None,
                     api_search='kayrros', api_down='kayrros', cache_dir='',
@@ -239,8 +231,8 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-b', '--band', nargs='*', default=all_bands,
-                        help=('list of spectral bands, default all 13 bands'))
+    parser.add_argument('-b', '--band', nargs='*', default=[4],
+                        help=('list of spectral bands, default band 4 (red)'))
     parser.add_argument('-r', '--register', action='store_true',
                         help='register images through time')
     parser.add_argument('-m', '--midway', action='store_true',

@@ -45,9 +45,6 @@ import midway
 import utils
 
 
-all_bands = [str(i) for i in xrange(1, 12)]
-
-
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     out_dir='', start_date=None, end_date=None, debug=False):
     """
@@ -112,8 +109,8 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument("-b", "--band", nargs='*', default=all_bands,
-                        help=("list of spectral bands, default all 11 bands"))
+    parser.add_argument("-b", "--band", nargs='*', default=[8],
+                        help=("list of spectral bands, default band 8 (panchro)"))
     parser.add_argument("-r", "--register", action="store_true",
                         help="register images through time")
     parser.add_argument('-m', '--midway', action='store_true',
