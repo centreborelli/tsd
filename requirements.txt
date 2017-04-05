@@ -1,0 +1,10 @@
+requests
+bs4
+utm
+mgrs
+python-dateutil
+tifffile
+matplotlib
+future
+pyfftw
+landsat-util

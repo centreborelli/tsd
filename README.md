@@ -1,10 +1,10 @@
-# Automatic download, crop, registration, filtering, and equalization of Sentinel images.
+# Automatic download, crop, registration, filtering, and equalization of Sentinel and Landsat images.
 
 [Axel Davy](mailto:axel.davy@ens.fr),
 [Carlo de Franchis](mailto:carlo.de-franchis@ens-cachan.fr),
 [Martin Rais](mailto:martin.rais@cmla.ens-cachan.fr)
 [Enric Meinhardt-Llopis](mailto:enric.meinhardt@cmla.ens-cachan.fr)
-CMLA, ENS Cachan, Université Paris-Saclay, 2016
+CMLA, ENS Cachan, Université Paris-Saclay, 2016-17
 
 # Installation and dependencies
 The main scripts are `get_sentinel2.py`, `get_sentinel1.py` and `get_landsat.py`.
@@ -13,40 +13,47 @@ They use the Python modules `search_*`, `download_*`, `register.py` and
 `midway.py`.
 
 ## Python packages
-The following Python packages are required: `numpy`, `gdal`, `bs4`, `requests`,
-`utm`, `mgrs`, `dateutil.parser`, `tifffile`, `matplotlib`, `pyfftw`.
+The required Python packages are listed in the file `requirements.txt`. They
+can be installed with `pip`:
 
-All of them except `gdal` can be installed through `pip`:
+    pip install -r requirements.txt
 
-    pip install bs4 requests utm mgrs python-dateutil tifffile matplotlib future pyfftw landsat-util
+## GDAL (on macOS)
+There are at least two ways of installing `gdal`:
 
-On OSX, the latest version of `gdal` (currently 2.1) and its Python bindings
-are easily installed with the [GDAL Complete Compatibility
-Framework](http://www.kyngchaos.com/software/frameworks).
+### Using brew
 
-Don't forget to update your PATH and PYTHONPATH after the installation by
-copying these lines in your `~/.profile`:
+    brew install gdal --with-complete --with-python3 --HEAD
+
+Note that this version doesn't support JP2 files.
+
+### Using the [GDAL Complete Compatibility Framework](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.1.dmg).
+
+Download and install the `.dmg` file from the link above. Don't forget to
+update your `PATH` and `PYTHONPATH` after the installation by copying these lines
+in your `~/.profile`:
 
     export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"
     export PYTHONPATH="/Library/Frameworks/GDAL.framework/Versions/2.1/Python/2.7/site-packages:$PYTHONPATH"
 
-Alternatively, `gdal` version 1.11 and its Python bindings can be installed
-through `brew`. This version doesn't support JP2 files:
+Note that this version supports JP2 files, but Python bindings are available only for Python 2.
 
-    brew install gdal --with-python3
 
+## GDAL (Linux)
 On Linux `gdal` and its Python bindings are usually straightforward to install
 through your package manager.
 
-## Libraries (only for Sentinel-1)
-The C++ code requires the `libtiff` and `libfftw3` libraries. On OSX you can
-install them with `brew`:
+    sudo apt-get update
+    sudo apt-get install libgdal-dev gdal-bin python-gdal
 
-    brew install libtiff fftw
+
+## Libraries (only for Sentinel-1)
+The C++ code requires the `libtiff` library. On OSX you can install it with `brew`:
+
+    brew install libtiff
 
 Then the code can be compiled by running `make`. This should produce a `bin`
-folder containing three compiled programs: `colorbalance`, `srtm4` and
-`srtm4_which_tile`.
+folder containing two compiled programs: `srtm4` and `srtm4_which_tile`.
 
 ## Docker (only to use Sen2cor)
 The Sentinel-2 pipeline, implemented in `get_sentinel2.py`, can optionally use
