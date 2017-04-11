@@ -155,14 +155,14 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
     for z in zips:
         tifs.append(extract_sentinel_image(z, out_dir=cache_dir))
 
-    # crop
-    for img, tif in zip(images, tifs):
-        crop = os.path.join(out_dir, os.path.basename(tif))
-        crop_sentinel_image(crop, tif, lat, lon, w, h)
-        if img[3] == 'ASCENDING':  # flip up/down
-            metadata = utils.get_geotif_metadata(crop)
-            tifffile.imsave(crop, np.flipud(tifffile.imread(crop)))
-            utils.set_geotif_metadata(crop, *metadata)
+    # # crop
+    # for img, tif in zip(images, tifs):
+    #     crop = os.path.join(out_dir, os.path.basename(tif))
+    #     crop_sentinel_image(crop, tif, lat, lon, w, h)
+    #     if img[3] == 'ASCENDING':  # flip up/down
+    #         metadata = utils.get_geotif_metadata(crop)
+    #         tifffile.imsave(crop, np.flipud(tifffile.imread(crop)))
+    #         utils.set_geotif_metadata(crop, *metadata)
 
 
 if __name__ == '__main__':
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--cache', type=str, help=('cache directory'),
-                        default=os.path.abspath('.s1-cache'))
+                        default=os.path.abspath('s1-cache'))
     parser.add_argument('-t', '--product-type',
                         help='type of image: GRD or SLC', default='GRD')
     args = parser.parse_args()
@@ -191,3 +191,4 @@ if __name__ == '__main__':
     get_time_series(args.lat, args.lon, args.width, args.height,
                     start_date=args.start_date, end_date=args.end_date,
                     out_dir=args.outdir, cache_dir=args.cache, product_type=args.product_type)
+ 
