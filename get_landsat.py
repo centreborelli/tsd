@@ -41,8 +41,11 @@ import tifffile
 import search_landsat
 import download_landsat
 import registration
-import midway
 import utils
+
+import sys
+sys.path.append('../')
+from stable.scripts.midway import midway_on_files
 
 
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
@@ -95,7 +98,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     shutil.copy(b, os.path.join(out_dir, 'no_midway'))
 
         for i in xrange(len(bands)):
-            midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
+            midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
 
 
 if __name__ == '__main__':
