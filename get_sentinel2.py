@@ -56,8 +56,11 @@ import scipy.ndimage
 import search_sentinel2
 import download_sentinel2
 import registration
-import midway
 import utils
+
+import sys
+sys.path.append('../')
+from stable.scripts.midway import midway_on_files
 
 from sortedcontainers import SortedSet
 
@@ -116,7 +119,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     shutil.copy(b, os.path.join(out_dir, 'no_midway'))
 
         for i in range(len(bands)):
-            midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
+            midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
 
 
 def get_available_dates_for_coords(lats, lons, union_intersect=False, start_date=None, end_date=None):
