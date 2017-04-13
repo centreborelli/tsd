@@ -54,7 +54,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
     Main function: download, crop and register a time series of Landsat-8 images.
     """
     # list available images
-    images = search_landsat.search_development_seed(lat, lon, start_date,
+    images = search_landsat.search_development_seed(lat, lon, w, h, start_date,
                                                     end_date)['results']
 
     if register:  # take 100 meters margin in case of forthcoming shift
