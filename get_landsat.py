@@ -55,7 +55,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
     """
     # list available images
     images = search_landsat.search_development_seed(lat, lon, start_date,
-                                                    end_date)
+                                                    end_date)['results']
 
     if register:  # take 100 meters margin in case of forthcoming shift
         w += 100
@@ -67,11 +67,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
         l = download_landsat.get_crops_from_kayrros_api(img, bands, lon, lat, w,
                                                         h, out_dir)
         if l:
-            if all(tifffile.imread(x).any() for x in l):  # test for empty images
-                crops.append(l)
-            else:
-                for x in l:
-                    os.remove(x)
+            crops.append(l)
 
     # register the images through time
     if register:

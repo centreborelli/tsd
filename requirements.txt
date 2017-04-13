@@ -7,3 +7,4 @@ tifffile
 matplotlib
 future
 pyfftw
+shapely
