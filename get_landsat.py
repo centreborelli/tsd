@@ -41,8 +41,11 @@ import tifffile
 import search_landsat
 import download_landsat
 import registration
-import midway
 import utils
+
+import sys
+sys.path.append('../')
+from stable.scripts.midway import midway_on_files
 
 
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
@@ -51,8 +54,8 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
     Main function: download, crop and register a time series of Landsat-8 images.
     """
     # list available images
-    images = search_landsat.search_development_seed(lat, lon, start_date,
-                                                    end_date)
+    images = search_landsat.search_development_seed(lat, lon, w, h, start_date,
+                                                    end_date)['results']
 
     if register:  # take 100 meters margin in case of forthcoming shift
         w += 100
@@ -64,11 +67,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
         l = download_landsat.get_crops_from_kayrros_api(img, bands, lon, lat, w,
                                                         h, out_dir)
         if l:
-            if all(tifffile.imread(x).any() for x in l):  # test for empty images
-                crops.append(l)
-            else:
-                for x in l:
-                    os.remove(x)
+            crops.append(l)
 
     # register the images through time
     if register:
@@ -95,7 +94,7 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
                     shutil.copy(b, os.path.join(out_dir, 'no_midway'))
 
         for i in xrange(len(bands)):
-            midway.main([crop[i] for crop in crops if len(crop) > i], out_dir)
+            midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
 
 
 if __name__ == '__main__':

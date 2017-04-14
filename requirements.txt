@@ -7,4 +7,4 @@ tifffile
 matplotlib
 future
 pyfftw
-landsat-util
+shapely
