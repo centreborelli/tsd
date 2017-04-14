@@ -71,16 +71,22 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
         utils.mkdir_p(out_dir)
 
     # download zip file
-    name, date, orbit_direction, identifier, uuid = image[1:]
-    zip_path = os.path.join(out_dir, '{}.zip'.format(name))
+    zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))
     if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
         if mirror == 'scihub':
-            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, uuid)
+            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, image['id'])
             query_data_hub(zip_path, url, verbose=True)
         else:
-            url = "{}/S1/{}/download".format(peps_url, uuid)
-            print("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
-            os.system("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
+            r = requests.get('{}/S1/search.atom?identifier={}'.format(peps_url, image['title']))
+            if r.ok:
+                img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
+                peps_id = img.find('id').text
+                url = "{}/S1/{}/download".format(peps_url, peps_id)
+                print("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
+                os.system("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
+            else:
+                print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url, image['title']))
+
     return zip_path
 
 
@@ -155,14 +161,10 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
     for z in zips:
         tifs.append(extract_sentinel_image(z, out_dir=cache_dir))
 
-    # # crop
-    # for img, tif in zip(images, tifs):
-    #     crop = os.path.join(out_dir, os.path.basename(tif))
-    #     crop_sentinel_image(crop, tif, lat, lon, w, h)
-    #     if img[3] == 'ASCENDING':  # flip up/down
-    #         metadata = utils.get_geotif_metadata(crop)
-    #         tifffile.imsave(crop, np.flipud(tifffile.imread(crop)))
-    #         utils.set_geotif_metadata(crop, *metadata)
+    # crop
+    for img, tif in zip(images, tifs):
+        crop = os.path.join(out_dir, os.path.basename(tif))
+        crop_sentinel_image(crop, tif, lat, lon, w, h)
 
 
 if __name__ == '__main__':
