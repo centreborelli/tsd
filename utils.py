@@ -257,6 +257,12 @@ def latlon_rectangle_centered_at(lat, lon, w, h):
     return rectangle
 
 
+def lonlat_rectangle_centered_at(lon, lat, w, h):
+    """
+    """
+    return [p[::-1] for p in latlon_rectangle_centered_at(lat, lon, w, h)]
+
+
 def weighted_median(data, weights=None):
     """
     Return the weighted median of a 1D array.
