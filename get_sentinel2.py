@@ -59,7 +59,7 @@ import registration
 import utils
 
 import sys
-sys.path.append('../')
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from stable.scripts.midway import midway_on_files
 
 from sortedcontainers import SortedSet
