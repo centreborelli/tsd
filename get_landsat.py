@@ -49,7 +49,8 @@ from stable.scripts.midway import midway_on_files
 
 
 def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
-                    out_dir='', start_date=None, end_date=None, debug=False):
+                    out_dir='', start_date=None, end_date=None, debug=False,
+                    mirror='aws'):
     """
     Main function: download, crop and register a time series of Landsat-8 images.
     """
@@ -64,8 +65,8 @@ def get_time_series(lat, lon, bands, w, h, register=False, equalize=False,
     # download images
     crops = []
     for img in images:
-        l = download_landsat.get_crops_from_kayrros_api(img, bands, lon, lat, w,
-                                                        h, out_dir)
+        l = download_landsat.get_crops(img, bands, lon, lat, w, h, out_dir,
+                                       mirror)
         if l:
             crops.append(l)
 
@@ -114,16 +115,20 @@ if __name__ == '__main__':
                         help="register images through time")
     parser.add_argument('-m', '--midway', action='store_true',
                         help='equalize colors with midway')
-    parser.add_argument('-w', '--size', type=int, help='size of the crop, in meters',
+    parser.add_argument('-w', '--width', type=int, help='width of the crop, in meters',
+                        default=5000)
+    parser.add_argument('-l', '--height', type=int, help='height of the crop, in meters',
                         default=5000)
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
+    parser.add_argument('--mirror', type=str, default='aws',
+                        help='mirror from where to download: aws or kayrros')
     args = parser.parse_args()
 
-    get_time_series(args.lat, args.lon, args.band, args.size, args.size,
+    get_time_series(args.lat, args.lon, args.band, args.width, args.height,
                     args.register, args.midway, out_dir=args.outdir,
                     start_date=args.start_date, end_date=args.end_date,
-                    debug=args.debug)
+                    debug=args.debug, mirror=args.mirror)
