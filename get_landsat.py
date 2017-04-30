@@ -102,7 +102,7 @@ if __name__ == '__main__':
                                                                     'intermediate '
                                                                     'images'))
     parser.add_argument('--mirror', type=str, default='aws',
-                        help='mirror from where to download: aws or kayrros')
+                        help='mirror from where to download')
     args = parser.parse_args()
 
     get_time_series(args.lat, args.lon, args.band, args.width, args.height,
