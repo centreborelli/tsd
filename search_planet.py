@@ -24,7 +24,7 @@ ITEM_TYPES = ['PSScene4Band', 'PSScene3Band', 'PSOrthoTile', 'REScene', 'REOrtho
               'Sentinel2L1C', 'Landsat8L1G']
 
 
-def search_planet(lat, lon, w=None, h=None, start_date=None, end_date=None,
+def search(lat, lon, w=None, h=None, start_date=None, end_date=None,
                   item_types=ITEM_TYPES):
     """
     Search for images using Planet API.
@@ -90,6 +90,6 @@ if __name__ == '__main__':
                         help='end date, YYYY-MM-DD')
     args = parser.parse_args()
 
-    print(json.dumps(search_planet(args.lat, args.lon, args.width, args.height,
-                                   start_date=args.start_date,
-                                   end_date=args.end_date)))
+    print(json.dumps(search(args.lat, args.lon, args.width, args.height,
+                            start_date=args.start_date,
+                            end_date=args.end_date)))

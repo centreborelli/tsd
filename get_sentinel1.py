@@ -17,7 +17,7 @@ import bs4
 import requests
 
 import utils
-import search_sentinel
+import search_scihub
 
 
 scihub_url = 'https://scihub.copernicus.eu/dhus'
@@ -79,8 +79,8 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
     Main function: download a Sentinel-1 image time serie.
     """
     # list available images
-    images = search_sentinel.search_scihub(lat, lon, w, h, start_date,
-                                           end_date, product_type=product_type)
+    images = search_scihub.search(lat, lon, w, h, start_date, end_date,
+                                  product_type=product_type)
 
     # download
     zips = []
