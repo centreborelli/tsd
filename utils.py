@@ -208,6 +208,14 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
                          '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
 
 
+def download_crop_with_gdal_vsicurl(output_file, url, ulx, uly, lrx, lry):
+    """
+    """
+    subprocess.check_output(['gdal_translate', url, output_file, '-projwin',
+                             str(ulx), str(uly), str(lrx), str(lry)],
+                            stderr=subprocess.STDOUT)
+
+
 def latlon_to_pix(img, lat, lon):
    """
    Get the pixel coordinates of a geographic location in a georeferenced image.
