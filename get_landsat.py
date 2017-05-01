@@ -15,8 +15,10 @@ import sys
 import shutil
 import argparse
 import datetime
+import numpy as np
 import utm
 import dateutil.parser
+import tifffile
 
 import utils
 import parallel
@@ -79,9 +81,28 @@ def metadata_from_metadata_dict(d, api='devseed'):
     }
 
 
+def is_image_cloudy(qa_band_file, p=.5):
+    """
+    Tell if a Landsat-8 image crop is cloud-covered according to the QA band.
+
+    The crop is considered covered if a fraction larger than p of its pixels are
+    labeled as clouds in the QA band.
+
+    Args:
+        qa_band_file: path to a Landsat-8 QA band crop
+        p: fraction threshold
+    """
+    x = tifffile.imread(qa_band_file)
+    BQA_CLOUD_YES = [61440, 59424, 57344, 56320, 53248]
+    BQA_CLOUD_MAYBE = [39936, 36896, 36864]
+    mask = np.in1d(x, BQA_CLOUD_YES + BQA_CLOUD_MAYBE).reshape(x.shape)
+    return np.count_nonzero(mask) > p * x.size
+
+
 def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
-                    register=False, equalize=False, out_dir='', debug=False,
-                    search_api='devseed', download_mirror='aws'):
+                    out_dir='', search_api='devseed', download_mirror='aws',
+                    parallel_downloads=10, register=False, equalize=False,
+                    debug=False):
     """
     Main function: download, crop and register a time series of Landsat-8 images.
     """
@@ -92,6 +113,7 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
     elif search_api == 'planet':
         images = search_planet.search(lat, lon, w, h, start_date, end_date,
                                       item_types=['Landsat8L1G'])['features']
+    print('Found {} images'.format(len(images)))
 
     # build urls and filenames
     urls = []
@@ -99,7 +121,7 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
     for img in images:
         url = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
-        for b in bands:
+        for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
             urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
@@ -117,42 +139,59 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
 
     # download crops
     utils.mkdir_p(out_dir)
-    print('Downloading {} image crops...'.format(len(urls)))
-    parallel.run_calls(utils.download_crop_with_gdal_vsicurl, zip(fnames,
-                                                                  urls), 10,
-                       ulx, uly, lrx, lry)
+    print('Downloading {} crops from {} images with {} bands...'.format(len(urls), len(images), len(bands) + 1))
+    parallel.run_calls(utils.download_crop_with_gdal_vsicurl, zip(fnames, urls),
+                       parallel_downloads, ulx, uly, lrx, lry)
 
-    # embed some metadata in the image files
+    # discard images that are totally covered by clouds
+    cloudy = []
+    for img in images:
+        name = filename_from_metadata_dict(img, search_api)
+        if is_image_cloudy(os.path.join(out_dir, '{}_band_QA.tif'.format(name))):
+            cloudy.append(img)
+            for b in bands + ['QA']:
+                os.remove(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
+    print('{} cloudy images out of {}'.format(len(cloudy), len(images)))
+    for x in cloudy:
+        images.remove(x)
+
+    # group band crops per image
     crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
     for img in images:
         name = filename_from_metadata_dict(img, search_api)
-        bands_fnames = [os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)) for b in bands]
+        crops.append([os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
+                      for b in bands])
+
+    # embed some metadata in the remaining image files
+    for bands_fnames in crops:
         for f in bands_fnames:  # embed some metadata as gdal geotiff tags
             for k, v in metadata_from_metadata_dict(img, search_api).items():
                 utils.set_geotif_metadata_item(f, k, v)
-        crops.append(bands_fnames)
 
     # register the images through time
     if register:
         if debug:  # keep a copy of the cropped images before registration
             bak = os.path.join(out_dir, 'no_registration')
             utils.mkdir_p(bak)
-            for f in fnames:  # crop to remove the margin
-                o = os.path.join(bak, os.path.basename(f))
-                utils.crop_georeferenced_image(o, f, lon, lat, w-100, h-100)
+            for bands_fnames in crops:
+                for f in bands_fnames:  # crop to remove the margin
+                    o = os.path.join(bak, os.path.basename(f))
+                    utils.crop_georeferenced_image(o, f, lon, lat, w-100, h-100)
 
         registration.main(crops, crops, all_pairwise=True)
 
-        for f in fnames:  # crop to remove the margin
-            utils.crop_georeferenced_image(f, f, lon, lat, w-100, h-100)
+        for bands_fnames in crops:
+            for f in bands_fnames:  # crop to remove the margin
+                utils.crop_georeferenced_image(f, f, lon, lat, w-100, h-100)
 
     # equalize histograms through time, band per band
     if equalize:
         if debug:  # keep a copy of the images before equalization
             bak = os.path.join(out_dir, 'no_midway')
             utils.mkdir_p(bak)
-            for f in fnames:
-                shutil.copy(f, bak)
+            for bands_fnames in crops:
+                for f in bands_fnames:
+                    shutil.copy(f, bak)
 
         for i in xrange(len(bands)):
             midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
@@ -173,10 +212,10 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument("-b", "--band", nargs='*', default=[8],
-                        help=("list of spectral bands, default band 8 (panchro)"))
-    parser.add_argument("-r", "--register", action="store_true",
-                        help="register images through time")
+    parser.add_argument('-b', '--band', nargs='*', default=[8],
+                        help=('list of spectral bands, default band 8 (panchro)'))
+    parser.add_argument('-r', '--register', action='store_true',
+                        help='register images through time')
     parser.add_argument('-m', '--midway', action='store_true',
                         help='equalize colors with midway')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
@@ -188,6 +227,8 @@ if __name__ == '__main__':
                         help='mirror from where to download')
     parser.add_argument('--api', type=str, default='devseed',
                         help='search API')
+    parser.add_argument('--parallel-downloads', type=int, default=10,
+                        help='max number of parallel crops downloads')
     args = parser.parse_args()
 
     get_time_series(args.lat, args.lon, args.width, args.height,
@@ -195,4 +236,5 @@ if __name__ == '__main__':
                     bands=args.band, register=args.register,
                     equalize=args.midway, out_dir=args.outdir,
                     debug=args.debug, search_api=args.api,
-                    download_mirror=args.mirror)
+                    download_mirror=args.mirror,
+                    parallel_downloads=args.parallel_downloads)
