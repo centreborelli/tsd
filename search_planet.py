@@ -25,7 +25,7 @@ ITEM_TYPES = ['PSScene4Band', 'PSScene3Band', 'PSOrthoTile', 'REScene', 'REOrtho
 
 
 def search(lat, lon, w=None, h=None, start_date=None, end_date=None,
-                  item_types=ITEM_TYPES):
+           item_types=ITEM_TYPES):
     """
     Search for images using Planet API.
 
@@ -88,8 +88,9 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
+    parser.add_argument('--item-types', nargs='*', default=ITEM_TYPES)
     args = parser.parse_args()
 
     print(json.dumps(search(args.lat, args.lon, args.width, args.height,
                             start_date=args.start_date,
-                            end_date=args.end_date)))
+                            end_date=args.end_date, item_types=args.item_types)))

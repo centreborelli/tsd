@@ -211,9 +211,9 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
 def download_crop_with_gdal_vsicurl(output_file, url, ulx, uly, lrx, lry):
     """
     """
-    subprocess.check_output(['gdal_translate', url, output_file, '-projwin',
-                             str(ulx), str(uly), str(lrx), str(lry)],
-                            stderr=subprocess.STDOUT)
+    cmd = ['gdal_translate', url, output_file, '-ot', 'UInt16', '-projwin',
+           str(ulx), str(uly), str(lrx), str(lry)]
+    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 
 
 def latlon_to_pix(img, lat, lon):
