@@ -93,9 +93,9 @@ def is_image_cloudy(qa_band_file, p=.5):
         p: fraction threshold
     """
     x = tifffile.imread(qa_band_file)
-    BQA_CLOUD_YES = [61440, 59424, 57344, 56320, 53248]
-    BQA_CLOUD_MAYBE = [39936, 36896, 36864]
-    mask = np.in1d(x, BQA_CLOUD_YES + BQA_CLOUD_MAYBE).reshape(x.shape)
+    bqa_cloud_yes = [61440, 59424, 57344, 56320, 53248]
+    bqa_cloud_maybe = [39936, 36896, 36864]
+    mask = np.in1d(x, bqa_cloud_yes + bqa_cloud_maybe).reshape(x.shape)
     return np.count_nonzero(mask) > p * x.size
 
 
@@ -149,8 +149,11 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
         name = filename_from_metadata_dict(img, search_api)
         if is_image_cloudy(os.path.join(out_dir, '{}_band_QA.tif'.format(name))):
             cloudy.append(img)
+            utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
             for b in bands + ['QA']:
-                os.remove(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
+                shutil.move(os.path.join(out_dir, '{}_band_{}.tif'.format(name,
+                                                                          b)),
+                            os.path.join(out_dir, 'cloudy'))
     print('{} cloudy images out of {}'.format(len(cloudy), len(images)))
     for x in cloudy:
         images.remove(x)
