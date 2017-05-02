@@ -198,9 +198,9 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[4],
             cloudy.append(img)
             utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
             for b in bands:
-                shutil.move(os.path.join(out_dir, '{}_band_{}.tif'.format(name,
-                                                                          b)),
-                            os.path.join(out_dir, 'cloudy'))
+                f = '{}_band_{}.tif'.format(name, b)
+                shutil.move(os.path.join(out_dir, f),
+                            os.path.join(out_dir, 'cloudy', f))
     print('{} cloudy images out of {}'.format(len(cloudy), len(images)))
     for x in cloudy:
         images.remove(x)
