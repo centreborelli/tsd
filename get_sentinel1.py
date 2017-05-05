@@ -57,13 +57,13 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
             query_data_hub(zip_path, url, verbose=True)
         elif mirror == 'peps':
             r = requests.get('{}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
-            if r.ok:
+            try:
                 img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
                 peps_id = img.find('id').text
                 url = "{}/S1/{}/download".format(peps_url_download, peps_id)
                 print("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
                 os.system("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
-            else:
+            except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
                 print('WARNING: will download from scihub mirror...')
                 download_sentinel_image(image, out_dir, mirror='scihub')
