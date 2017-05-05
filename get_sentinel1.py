@@ -30,7 +30,7 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
     """
     Download a file from the Copernicus data hub.
     """
-    verbosity = '--no-verbose' if verbose else '--quiet'  # more verbosity with --verbose
+    verbosity = '--verbose' if verbose else '--no-verbose'  # intermediate verbosity with --quiet
     subprocess.call(['wget',
                      verbosity,
                      '--no-check-certificate',
