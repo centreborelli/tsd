@@ -28,7 +28,11 @@ import utils
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
-scihub_url = 'https://scihub.copernicus.eu/dhus/'
+api_urls = {
+    'copernicus': 'https://scihub.copernicus.eu/dhus/',
+    'austria': 'https://data.sentinel.zamg.ac.at/',
+    'finland': 'https://finhub.nsdc.fmi.fi/'
+}
 
 
 def post_scihub(url, query, user='carlodef', password='kayrros_cmla'):
@@ -82,14 +86,14 @@ def build_scihub_query(lat, lon, w=None, h=None, start_date=None,
     return query
 
 
-def load_query(query, start_row=0, page_size=100):
+def load_query(query, api_url, start_row=0, page_size=100):
     """
     Do a full-text query on the SciHub API using the OpenSearch format.
 
     https://scihub.copernicus.eu/twiki/do/view/SciHubUserGuide/3FullTextSearch
     """
     # load query results
-    url = '{}search?format=json&rows={}&start={}'.format(scihub_url, page_size,
+    url = '{}search?format=json&rows={}&start={}'.format(api_url, page_size,
                                                          start_row)
     r = post_scihub(url, query)
 
@@ -105,7 +109,7 @@ def load_query(query, start_row=0, page_size=100):
     # repeat query until all results have been loaded
     output = entries
     if total_results > start_row + page_size:
-        output += load_query(query, start_row=(start_row + page_size))
+        output += load_query(query, api_url, start_row=(start_row + page_size))
     return output
 
 
@@ -186,13 +190,14 @@ def polygon_intersects_bbox(polygon, bbox):
 
 
 def search(lat, lon, w=None, h=None, start_date=None, end_date=None,
-           satellite='Sentinel-1', product_type='GRD', operational_mode='IW'):
+           satellite='Sentinel-1', product_type='GRD', operational_mode='IW',
+           api='copernicus'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
     query = build_scihub_query(lat, lon, w, h, start_date, end_date, satellite,
                                product_type, operational_mode)
-    results = load_query(query)
+    results = load_query(query, api_urls[api])
     print('Found {} images'.format(len(results)), file=sys.stderr)
 
     # check if the image footprint contains the point or region of interest (roi)
@@ -242,12 +247,14 @@ if __name__ == '__main__':
                         help='(for S1) type of image: GRD or SLC')
     parser.add_argument('--operational-mode', default='IW',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
+    parser.add_argument('--api', default='copernicus',
+                        help='mirror to use: copernicus, austria of finland')
     args = parser.parse_args()
 
     images = search(args.lat, args.lon, args.width, args.height,
                     args.start_date, args.end_date, satellite=args.satellite,
                     product_type=args.product_type,
-                    operational_mode=args.operational_mode)
+                    operational_mode=args.operational_mode, api=args.api)
     print(json.dumps(images))
 #    for image in images:
 #        print(image['summary'])
