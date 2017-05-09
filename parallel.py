@@ -16,9 +16,9 @@ def show_progress(a):
     """
     show_progress.counter += 1
     status = 'done {:{fill}{width}} / {}'.format(show_progress.counter,
-                                                           show_progress.total,
-                                                           fill='',
-                                                           width=len(str(show_progress.total)))
+                                                 show_progress.total,
+                                                 fill='',
+                                                 width=len(str(show_progress.total)))
     if show_progress.counter < show_progress.total:
         status += chr(8) * len(status)
     else:
@@ -56,7 +56,7 @@ def run_calls(fun, list_of_args, nb_workers, *extra_args):
 
     for r in results:
         try:
-            outputs.append(r.get(60))  # wait at most 1 min per call
+            outputs.append(r.get(120))  # wait at most 2 minutes per call
         except multiprocessing.TimeoutError:
             print("Timeout while running %s" % str(r))
             outputs.append(None)
