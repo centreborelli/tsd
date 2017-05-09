@@ -51,6 +51,7 @@ def aws_url_from_metadata_dict(d, api='planet'):
 
 def filename_from_metadata_dict(d, api='planet'):
     """
+    Build a string using the image acquisition date and identifier.
     """
     if api == 'planet':
         mgrs_id = d['properties']['mgrs_grid_id']
@@ -60,6 +61,7 @@ def filename_from_metadata_dict(d, api='planet'):
 
 def metadata_from_metadata_dict(d, api='planet'):
     """
+    Return a dict containing some string-formatted metadata.
     """
     if api == 'planet':
         imaging_date = dateutil.parser.parse(d['properties']['acquired'])
@@ -132,16 +134,15 @@ def polygon_intersects_bbox(polygon, bbox):
 
 
 def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[4],
-                    out_dir='', search_api='planet', download_mirror='aws',
-                    parallel_downloads=10, register=False, equalize=False,
-                    debug=False):
+                    out_dir='', search_api='planet', parallel_downloads=10,
+                    register=False, equalize=False, debug=False):
     """
     Main function: download, crop and register a time series of Sentinel-2 images.
     """
     # list available images
     if search_api == 'scihub':
         images = search_scihub.search(lat, lon, w, h, start_date,
-                                       end_date)['results']
+                                      end_date)['results']
     elif search_api == 'planet':
         images = search_planet.search(lat, lon, w, h, start_date, end_date,
                                       item_types=['Sentinel2L1C'])['features']
@@ -184,7 +185,9 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[4],
 
     # download crops
     utils.mkdir_p(out_dir)
-    print('Downloading {} crops from {} images with {} bands...'.format(len(urls), len(images), len(bands)))
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
+                                                                     len(images),
+                                                                     len(bands)))
     parallel.run_calls(utils.download_crop_with_gdal_vsicurl, zip(fnames,
                                                                   urls),
                        parallel_downloads, ulx, uly, lrx, lry)
@@ -228,6 +231,7 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[4],
                     o = os.path.join(bak, os.path.basename(f))
                     utils.crop_georeferenced_image(o, f, lon, lat, w-100, h-100)
 
+        print('Registering...')
         registration.main(crops, crops, all_pairwise=True)
 
         for bands_fnames in crops:
@@ -243,6 +247,7 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[4],
                 for f in bands_fnames:
                     shutil.copy(f, bak)
 
+        print('Equalizing...')
         for i in xrange(len(bands)):
             midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
 
@@ -273,8 +278,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
-    parser.add_argument('--mirror', type=str, default='aws',
-                        help='mirror from where to download')
     parser.add_argument('--api', type=str, default='planet',
                         help='search API')
     parser.add_argument('--parallel-downloads', type=int, default=10,
@@ -286,5 +289,4 @@ if __name__ == '__main__':
                     bands=args.band, register=args.register,
                     equalize=args.midway, out_dir=args.outdir,
                     debug=args.debug, search_api=args.api,
-                    download_mirror=args.mirror,
                     parallel_downloads=args.parallel_downloads)

@@ -200,12 +200,14 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
     if out_path == in_path:  # hack to allow the output to overwrite the input
         fd, tmp = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(in_path))
         os.close(fd)
-        subprocess.call(['gdal_translate', in_path, tmp, '-ot', 'UInt16',
-                         '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
+        subprocess.check_output(['gdal_translate', in_path, tmp, '-ot',
+                                 'UInt16', '-projwin', str(ulx), str(uly),
+                                 str(lrx), str(lry)])
         shutil.move(tmp, out_path)
     else:
-        subprocess.call(['gdal_translate', in_path, out_path, '-ot', 'UInt16',
-                         '-projwin', str(ulx), str(uly), str(lrx), str(lry)])
+        subprocess.check_output(['gdal_translate', in_path, out_path, '-ot',
+                                 'UInt16', '-projwin', str(ulx), str(uly),
+                                 str(lrx), str(lry)])
 
 
 def download_crop_with_gdal_vsicurl(output_file, url, ulx, uly, lrx, lry):

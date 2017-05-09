@@ -49,6 +49,7 @@ def aws_url_from_metadata_dict(d, api='devseed'):
 
 def filename_from_metadata_dict(d, api='devseed'):
     """
+    Build a string using the image acquisition date and identifier.
     """
     if api == 'devseed':
         scene_id = d['sceneID']
@@ -62,6 +63,7 @@ def filename_from_metadata_dict(d, api='devseed'):
 
 def metadata_from_metadata_dict(d, api='devseed'):
     """
+    Return a dict containing some string-formatted metadata.
     """
     if api == 'devseed':
         date = dateutil.parser.parse(d['date']).date()
@@ -100,9 +102,8 @@ def is_image_cloudy(qa_band_file, p=.5):
 
 
 def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
-                    out_dir='', search_api='devseed', download_mirror='aws',
-                    parallel_downloads=10, register=False, equalize=False,
-                    debug=False):
+                    out_dir='', search_api='devseed', parallel_downloads=10,
+                    register=False, equalize=False, debug=False):
     """
     Main function: download, crop and register a time series of Landsat-8 images.
     """
@@ -139,7 +140,9 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
 
     # download crops
     utils.mkdir_p(out_dir)
-    print('Downloading {} crops from {} images with {} bands...'.format(len(urls), len(images), len(bands) + 1))
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
+                                                                     len(images),
+                                                                     len(bands) + 1))
     parallel.run_calls(utils.download_crop_with_gdal_vsicurl, zip(fnames, urls),
                        parallel_downloads, ulx, uly, lrx, lry)
 
@@ -151,9 +154,9 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
             cloudy.append(img)
             utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
             for b in bands + ['QA']:
-                shutil.move(os.path.join(out_dir, '{}_band_{}.tif'.format(name,
-                                                                          b)),
-                            os.path.join(out_dir, 'cloudy'))
+                f = '{}_band_{}.tif'.format(name, b)
+                shutil.move(os.path.join(out_dir, f),
+                            os.path.join(out_dir, 'cloudy', f))
     print('{} cloudy images out of {}'.format(len(cloudy), len(images)))
     for x in cloudy:
         images.remove(x)
@@ -181,6 +184,7 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
                     o = os.path.join(bak, os.path.basename(f))
                     utils.crop_georeferenced_image(o, f, lon, lat, w-100, h-100)
 
+        print('Registering...')
         registration.main(crops, crops, all_pairwise=True)
 
         for bands_fnames in crops:
@@ -196,6 +200,7 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
                 for f in bands_fnames:
                     shutil.copy(f, bak)
 
+        print('Equalizing...')
         for i in xrange(len(bands)):
             midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
 
@@ -226,8 +231,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
-    parser.add_argument('--mirror', type=str, default='aws',
-                        help='mirror from where to download')
     parser.add_argument('--api', type=str, default='devseed',
                         help='search API')
     parser.add_argument('--parallel-downloads', type=int, default=10,
@@ -239,5 +242,4 @@ if __name__ == '__main__':
                     bands=args.band, register=args.register,
                     equalize=args.midway, out_dir=args.outdir,
                     debug=args.debug, search_api=args.api,
-                    download_mirror=args.mirror,
                     parallel_downloads=args.parallel_downloads)
