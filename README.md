@@ -10,7 +10,7 @@ CMLA, ENS Cachan, Université Paris-Saclay, 2016-17
 The main scripts are `get_sentinel2.py`, `get_sentinel1.py` and `get_landsat.py`.
 
 They use the Python modules `search_*`, `download_*`, `register.py` and
-`midway.py`.
+the stable libraries and scripts.
 
 ## Python packages
 The required Python packages are listed in the file `requirements.txt`. They
@@ -103,7 +103,7 @@ All the available options are listed when using the `-h` or `--help` flag:
     python get_sentinel2.py -h
     python get_sentinel1_scihub.py -h
 
-You can also run `search_sentinel2.py`, `registration.py` or `midway.py` from
+You can also run `search_sentinel2.py` or `registration.py` from
 the command line separately to use only single blocks of the pipeline. Run them
 with `-h` to get the list of available options.
 
