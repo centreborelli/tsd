@@ -17,7 +17,7 @@ import bs4
 import requests
 
 import utils
-import search_sentinel
+import search_scihub
 
 
 scihub_url = 'https://scihub.copernicus.eu/dhus'
@@ -30,7 +30,7 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
     """
     Download a file from the Copernicus data hub.
     """
-    verbosity = '--no-verbose' if verbose else '--quiet'  # more verbosity with --verbose
+    verbosity = '--verbose' if verbose else '--no-verbose'  # intermediate verbosity with --quiet
     subprocess.call(['wget',
                      verbosity,
                      '--no-check-certificate',
@@ -57,13 +57,13 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
             query_data_hub(zip_path, url, verbose=True)
         elif mirror == 'peps':
             r = requests.get('{}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
-            if r.ok:
+            try:
                 img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
                 peps_id = img.find('id').text
                 url = "{}/S1/{}/download".format(peps_url_download, peps_id)
                 print("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
                 os.system("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
-            else:
+            except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
                 print('WARNING: will download from scihub mirror...')
                 download_sentinel_image(image, out_dir, mirror='scihub')
@@ -79,8 +79,8 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
     Main function: download a Sentinel-1 image time serie.
     """
     # list available images
-    images = search_sentinel.search_scihub(lat, lon, w, h, start_date,
-                                           end_date, product_type=product_type)
+    images = search_scihub.search(lat, lon, w, h, start_date, end_date,
+                                  product_type=product_type)
 
     # download
     zips = []
