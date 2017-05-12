@@ -8,9 +8,9 @@ import errno
 import shutil
 import argparse
 import datetime
-import tifffile
 import subprocess
 import tempfile
+import tifffile
 from osgeo import gdal, osr
 import numpy as np
 import utm
@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 import traceback
 import warnings
 import sys
+import geojson
+import shapely.geometry
 
 
 def valid_datetime(s):
@@ -78,6 +80,27 @@ def valid_lat(s):
             return lat
 
 
+def valid_geojson(filepath):
+    """
+    Check if a file contains valid geojson.
+    """
+    with open(filepath, 'r') as f:
+        geo = geojson.load(f)
+        if type(geo) in [geojson.geometry.Polygon, geojson.geometry.Point]:
+            return geo
+        elif type(geo) == geojson.feature.FeatureCollection:
+            return geo['features'][0]['geometry']
+
+
+def geojson_geometry_object(lat, lon, w=None, h=None):
+    """
+    """
+    if w is not None and h is not None:  # rectangle
+        return geojson.Polygon([lonlat_rectangle_centered_at(lon, lat, w, h)])
+    else:  # point
+        return geojson.Point([lon, lat])
+
+
 def is_valid(f):
     """
     Check if a path is a valid image file according to gdal.
@@ -87,6 +110,21 @@ def is_valid(f):
         return True
     except RuntimeError:
         return False
+
+
+def tmpfile(ext=''):
+    """
+    Creates a temporary file.
+
+    Args:
+        ext: desired file extension. The dot has to be included.
+
+    Returns:
+        absolute path to the created file
+    """
+    fd, out = tempfile.mkstemp(suffix=ext)
+    os.close(fd)           # http://www.logilab.org/blogentry/17873
+    return out
 
 
 def mkdir_p(path):
@@ -210,12 +248,37 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
                                  str(lrx), str(lry)])
 
 
-def download_crop_with_gdal_vsicurl(output_file, url, ulx, uly, lrx, lry):
+def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry):
     """
     """
-    cmd = ['gdal_translate', url, output_file, '-ot', 'UInt16', '-projwin',
-           str(ulx), str(uly), str(lrx), str(lry)]
+    cmd = ['gdal_translate', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
+           '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+
+
+def crop_with_gdalwarp(outpath, inpath, geojson_path):
+    """
+    """
+    cmd = ['gdalwarp', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
+           '-overwrite', '-crop_to_cutline', '-cutline', geojson_path]
+    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+
+
+def utm_bbx(aoi):
+    """
+    """
+    # compute the utm zone number of the first polygon vertex
+    lon, lat = aoi['coordinates'][0][0]
+    zone_number = utm.from_latlon(lat, lon)[2]
+
+    # convert all polygon vertices coordinates from (lon, lat) to utm
+    c = []
+    for lon, lat in aoi['coordinates'][0]:
+        c.append(utm.from_latlon(lat, lon, force_zone_number=zone_number)[:2])
+
+    # return the utm bounding box
+    bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
+    return bbx[0], bbx[3], bbx[2], bbx[1]  # minx, maxy, maxx, miny
 
 
 def latlon_to_pix(img, lat, lon):

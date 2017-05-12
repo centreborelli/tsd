@@ -101,7 +101,7 @@ def is_image_cloudy(qa_band_file, p=.5):
     return np.count_nonzero(mask) > p * x.size
 
 
-def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
+def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                     out_dir='', search_api='devseed', parallel_downloads=10,
                     register=False, equalize=False, debug=False):
     """
@@ -109,10 +109,9 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
     """
     # list available images
     if search_api == 'devseed':
-        images = search_devseed.search(lat, lon, w, h, start_date,
-                                       end_date)['results']
+        images = search_devseed.search(aoi, start_date, end_date)['results']
     elif search_api == 'planet':
-        images = search_planet.search(lat, lon, w, h, start_date, end_date,
+        images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Landsat8L1G'])['features']
     print('Found {} images'.format(len(images)))
 
@@ -126,24 +125,21 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
             urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
-    # compute coordinates of the crop
-    cx, cy = utm.from_latlon(lat, lon)[:2]
+    # convert aoi coordates to utm
+    ulx, uly, lrx, lry = utils.utm_bbx(aoi)
 
     if register:  # take 100 meters margin in case of forthcoming shift
-        w += 100
-        h += 100
-
-    ulx = cx - w / 2
-    lrx = cx + w / 2
-    uly = cy + h / 2  # in UTM the y coordinate increases from south to north
-    lry = cy - h / 2
+        ulx -= 50
+        uly += 50
+        lrx += 50
+        lry -= 50
 
     # download crops
     utils.mkdir_p(out_dir)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
                                                                      len(images),
                                                                      len(bands) + 1))
-    parallel.run_calls(utils.download_crop_with_gdal_vsicurl, zip(fnames, urls),
+    parallel.run_calls(utils.crop_with_gdal_translate, zip(fnames, urls),
                        parallel_downloads, ulx, uly, lrx, lry)
 
     # discard images that are totally covered by clouds
@@ -176,20 +172,21 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
 
     # register the images through time
     if register:
+        ulx, uly, lrx, lry = utils.utm_bbx(aoi)
         if debug:  # keep a copy of the cropped images before registration
             bak = os.path.join(out_dir, 'no_registration')
             utils.mkdir_p(bak)
             for bands_fnames in crops:
                 for f in bands_fnames:  # crop to remove the margin
                     o = os.path.join(bak, os.path.basename(f))
-                    utils.crop_georeferenced_image(o, f, lon, lat, w-100, h-100)
+                    utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry)
 
         print('Registering...')
         registration.main(crops, crops, all_pairwise=True)
 
         for bands_fnames in crops:
             for f in bands_fnames:  # crop to remove the margin
-                utils.crop_georeferenced_image(f, f, lon, lat, w-100, h-100)
+                utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry)
 
     # equalize histograms through time, band per band
     if equalize:
@@ -208,14 +205,14 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, bands=[8],
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
                                                   'of Landsat images'))
-    parser.add_argument('--lat', type=utils.valid_lat, required=True,
-                        help='latitude')
-    parser.add_argument('--lon', type=utils.valid_lon, required=True,
-                        help='longitude')
-    parser.add_argument('-w', '--width', type=int, help='width of the crop, in meters',
-                        default=5000)
-    parser.add_argument('-l', '--height', type=int, help='height of the crop, in meters',
-                        default=5000)
+    parser.add_argument('--geom', type=utils.valid_geojson,
+                        help=('path to geojson file'))
+    parser.add_argument('--lat', type=utils.valid_lat,
+                        help=('latitude of the center of the rectangle AOI'))
+    parser.add_argument('--lon', type=utils.valid_lon,
+                        help=('longitude of the center of the rectangle AOI'))
+    parser.add_argument('-w', '--width', type=int, help='width of the AOI (m)')
+    parser.add_argument('-l', '--height', type=int, help='height of the AOI (m)')
     parser.add_argument('-s', '--start-date', type=utils.valid_date,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
@@ -237,8 +234,18 @@ if __name__ == '__main__':
                         help='max number of parallel crops downloads')
     args = parser.parse_args()
 
-    get_time_series(args.lat, args.lon, args.width, args.height,
-                    start_date=args.start_date, end_date=args.end_date,
+    if args.geom and (args.lat or args.lon or args.width or args.height):
+        parser.error('--geom and {--lat, --lon, -w, -l} are mutually exclusive')
+
+    if not args.geom and (not args.lat or not args.lon):
+        parser.error('either --geom or {--lat, --lon} must be defined')
+
+    if args.geom:
+        aoi = args.geom
+    else:
+        aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
+                                            args.height)
+    get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                     bands=args.band, register=args.register,
                     equalize=args.midway, out_dir=args.outdir,
                     debug=args.debug, search_api=args.api,

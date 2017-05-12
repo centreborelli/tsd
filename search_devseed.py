@@ -11,8 +11,8 @@ Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
 from __future__ import print_function
 import argparse
 import datetime
-import requests
 import json
+import requests
 import shapely.geometry
 
 import utils
@@ -50,10 +50,17 @@ def query_builder(lat, lon, start_date=None, end_date=None):
     return x
 
 
-def search(lat, lon, w=None, h=None, start_date=None, end_date=None):
+def search(aoi, start_date=None, end_date=None):
     """
     List the L8 images covering a location using Development Seed’s Landsat API.
+
+    Args:
+        aoi: geojson.Polygon or geojson.Point object
     """
+    # compute the centroid of the area of interest
+    lon, lat = shapely.geometry.shape(aoi).centroid.coords.xy
+    lon, lat = lon[0], lat[0]
+
     # build url
     search_string = query_builder(lat, lon, start_date, end_date)
     url = '{}?search={}&limit=1000'.format(api_url, search_string)
@@ -66,15 +73,11 @@ def search(lat, lon, w=None, h=None, start_date=None, end_date=None):
         print('WARNING: request to {} returned {}'.format(url, r.status_code))
         return
 
-    # check if the image footprint contains the point or region of interest (roi)
-    if w is not None and h is not None:
-        roi = shapely.geometry.Polygon(utils.lonlat_rectangle_centered_at(lon, lat, w, h))
-    else:
-        roi = shapely.geometry.Point(lon, lat)
-
+    # check if the image footprint contains the area of interest
+    aoi = shapely.geometry.shape(aoi)
     not_covering = []
     for x in d['results']:
-        if not shapely.geometry.shape(x['data_geometry']).contains(roi):
+        if not shapely.geometry.shape(x['data_geometry']).contains(aoi):
             not_covering.append(x)
 
     for x in not_covering:
@@ -90,18 +93,31 @@ def search(lat, lon, w=None, h=None, start_date=None, end_date=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Search of Landsat-8 images.')
-    parser.add_argument('--lat', type=utils.valid_lat, required=True,
-                        help=('latitude of the interest point'))
-    parser.add_argument('--lon', type=utils.valid_lon, required=True,
-                        help=('longitude of the interest point'))
-    parser.add_argument('-w', '--width', type=int, help='width of the area (m)')
-    parser.add_argument('-l', '--height', type=int, help='height of the area (m)')
-    parser.add_argument('-s', '--start-date', type=utils.valid_date,
+    parser.add_argument('--geom', type=utils.valid_geojson,
+                        help=('path to geojson file'))
+    parser.add_argument('--lat', type=utils.valid_lat,
+                        help=('latitude of the center of the rectangle AOI'))
+    parser.add_argument('--lon', type=utils.valid_lon,
+                        help=('longitude of the center of the rectangle AOI'))
+    parser.add_argument('-w', '--width', type=int, help='width of the AOI (m)')
+    parser.add_argument('-l', '--height', type=int, help='height of the AOI (m)')
+    parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
-    parser.add_argument('-e', '--end-date', type=utils.valid_date,
+    parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     args = parser.parse_args()
 
-    print(json.dumps(search(args.lat, args.lon, args.width, args.height,
-                            start_date=args.start_date,
+    if args.geom and (args.lat or args.lon or args.width or args.height):
+        parser.error('--geom and {--lat, --lon, -w, -l} are mutually exclusive')
+
+    if not args.geom and (not args.lat or not args.lon):
+        parser.error('either --geom or {--lat, --lon} must be defined')
+
+    if args.geom:
+        aoi = args.geom
+    else:
+        aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
+                                            args.height)
+
+    print(json.dumps(search(aoi, start_date=args.start_date,
                             end_date=args.end_date)))
