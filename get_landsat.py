@@ -108,11 +108,28 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     Main function: download, crop and register a time series of Landsat-8 images.
     """
     # list available images
+    seen = set()
     if search_api == 'devseed':
         images = search_devseed.search(aoi, start_date, end_date)['results']
+        images.sort(key=lambda k: (k['acquisitionDate'], k['row'], k['path']))
+
+        # remove duplicates (same acquisition day)
+        images = [x for x in images if not (x['acquisitionDate'] in seen
+                                            or  # seen.add() returns None
+                                            seen.add(x['acquisitionDate']))]
     elif search_api == 'planet':
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Landsat8L1G'])['features']
+
+        # sort images by acquisition date, then by acquisiton row and path
+        images.sort(key=lambda k: (k['properties']['acquired'],
+                                   k['properties']['wrs_row'],
+                                   k['properties']['wrs_path']))
+
+        # remove duplicates (same acquisition day)
+        images = [x for x in images if not (x['properties']['acquired'] in seen
+                                            or  # seen.add() returns None
+                                            seen.add(x['properties']['acquired']))]
     print('Found {} images'.format(len(images)))
 
     # build urls and filenames
