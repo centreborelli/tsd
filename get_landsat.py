@@ -125,8 +125,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
             urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
-    # convert aoi coordates to utm
-    ulx, uly, lrx, lry = utils.utm_bbx(aoi)
+    # convert aoi coordinates to utm
+    ulx, uly, lrx, lry, utm_zone = utils.utm_bbx(aoi)
 
     if register:  # take 100 meters margin in case of forthcoming shift
         ulx -= 50
@@ -140,7 +140,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                                                      len(images),
                                                                      len(bands) + 1))
     parallel.run_calls(utils.crop_with_gdal_translate, zip(fnames, urls),
-                       parallel_downloads, ulx, uly, lrx, lry)
+                       parallel_downloads, ulx, uly, lrx, lry, utm_zone)
 
     # discard images that are totally covered by clouds
     cloudy = []
@@ -179,14 +179,16 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
             for bands_fnames in crops:
                 for f in bands_fnames:  # crop to remove the margin
                     o = os.path.join(bak, os.path.basename(f))
-                    utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry)
+                    utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry,
+                                                   utm_zone)
 
         print('Registering...')
         registration.main(crops, crops, all_pairwise=True)
 
         for bands_fnames in crops:
             for f in bands_fnames:  # crop to remove the margin
-                utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry)
+                utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry,
+                                               utm_zone)
 
     # equalize histograms through time, band per band
     if equalize:

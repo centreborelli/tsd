@@ -248,11 +248,13 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
                                  str(lrx), str(lry)])
 
 
-def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry):
+def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None):
     """
     """
     cmd = ['gdal_translate', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
            '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
+    if utm_zone is not None:
+        cmd += ['-projwin_srs', '"+proj=utm +zone={}"'.format(utm_zone)]
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 
 
@@ -278,7 +280,7 @@ def utm_bbx(aoi):
 
     # return the utm bounding box
     bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
-    return bbx[0], bbx[3], bbx[2], bbx[1]  # minx, maxy, maxx, miny
+    return bbx[0], bbx[3], bbx[2], bbx[1], zone_number  # minx, maxy, maxx, miny
 
 
 def latlon_to_pix(img, lat, lon):
