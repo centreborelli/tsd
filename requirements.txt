@@ -8,3 +8,5 @@ matplotlib
 future
 pyfftw
 shapely
+planet
+geojson
