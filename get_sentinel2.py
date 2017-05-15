@@ -22,11 +22,6 @@ import bs4
 import geojson
 import shapely.geometry
 
-<<<<<<< HEAD
-import search_sentinel2
-import download_sentinel2
-=======
->>>>>>> origin/master
 import utils
 import parallel
 import search_scihub
@@ -35,15 +30,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from stable.scripts.midway import midway_on_files
 from stable.scripts import registration
 
-<<<<<<< HEAD
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from stable.scripts.midway import midway_on_files
-from stable.scripts import registration
-
-from sortedcontainers import SortedSet
-=======
->>>>>>> origin/master
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
@@ -241,100 +227,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
     # equalize histograms through time, band per band
     if equalize:
         if debug:  # keep a copy of the images before equalization
-<<<<<<< HEAD
-            utils.mkdir_p(os.path.join(out_dir, 'no_midway'))
-            for crop in crops:
-                for b in crop:
-                    shutil.copy(b, os.path.join(out_dir, 'no_midway'))
-
-        for i in range(len(bands)):
-            midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
-
-
-def get_available_dates_for_coords(lats, lons, union_intersect=False, start_date=None, end_date=None):
-    """
-    Returns dates of available images at given coordinates.
-
-    Args:
-        lats: 1D table of latitudes
-        lons: 1D table of longitudes
-        union_intersect: There may be different dates available depending
-        on the coordinates. Pick the union of these dates (union_intersect = False)
-        or the intersection (union_intersect = True)
-        start_date/end_date: date boundaries
-
-    Returns:
-        list of datetimes
-    """
-    if start_date is None:
-        start_date = datetime.datetime(2000, 1, 1)
-    if end_date is None:
-        end_date = datetime.datetime.now()
-
-    # list of available images in the requested date range
-    res = SortedSet()
-    init = False
-    for (lat, lon) in zip(lats, lons):
-        current = SortedSet()
-        for x in search_for_sentinel_images_on_aws(lat, lon):
-            date = datetime.datetime(*map(int, x.split('/')[7:10]))
-            if start_date < date < end_date:
-                current.add(date)
-        if not(init):
-            res = current
-            init = True
-        elif union_intersect:
-            res.intersection_update(current)
-        else:
-            res.update(current)
-    return [d for d in res]
-
-
-def get_images_for_date(lat, lon, date, bands, crop_size):
-    """
-    Assumes is called from get_images_for_dates who has already
-    done some caching.
-
-    If there was no image for the selected date,
-    returns None. TODO If the image was cloudy, returns False.
-    Else returns a 3D array: crop_size x crop_size x num_bands
-    """
-
-    res = np.zeros((crop_size, crop_size, len(bands)))
-    for (b,i) in zip(bands, range(len(bands))):
-        cdir = 'cache/{}_{}/'.format(lat,lon)
-        imgname_pattern = 'tile_*_acquired_{}_band_{}.tif'.format(date.date(), b) #ignore mgrs_id
-        files = os.listdir(cdir)
-        files = fnmatch.filter(files, imgname_pattern)
-        if len(files) > 1:
-            print ('Warning: several matching files')
-            print (files)
-        if (len(files) == 0): # no file. cloudy/missing date
-            return None
-        f = cdir + files[0]
-        img = tifffile.imread(f)
-        assert(not(f is None))
-        if b in ['01', '09', '10', '05', '06', '07', '8A', '11', '12']:
-            img = scipy.ndimage.zoom(img, (crop_size, crop_size), order=0)
-        else:
-            if img.shape != (crop_size, crop_size):
-                print (img.shape)
-                assert (False)
-        res[:,:,i] = img[:,:]
-
-    return res
-
-
-def get_images_for_dates(lat, lon, dates, bands, crop_size=246):
-    """
-    Returns the selected bands at selected dates.
-=======
             bak = os.path.join(out_dir, 'no_midway')
             utils.mkdir_p(bak)
             for bands_fnames in crops:
                 for f in bands_fnames:
                     shutil.copy(f, bak)
->>>>>>> origin/master
 
         print('Equalizing...')
         for i in xrange(len(bands)):
