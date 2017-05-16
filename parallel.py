@@ -56,7 +56,7 @@ def run_calls(fun, list_of_args, nb_workers, *extra_args):
 
     for r in results:
         try:
-            outputs.append(r.get(120))  # wait at most 2 minutes per call
+            outputs.append(r.get(60))  # wait at most 1 minute per call
         except multiprocessing.TimeoutError:
             print("Timeout while running %s" % str(r))
             outputs.append(None)
