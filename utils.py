@@ -254,8 +254,13 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
     cmd = ['gdal_translate', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
            '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     if utm_zone is not None:
-        cmd += ['-projwin_srs', '"+proj=utm +zone={}"'.format(utm_zone)]
-    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
+    try:
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print('ERROR: this command failed')
+        print(' '.join(cmd))
+        print(e.output)
 
 
 def crop_with_gdalwarp(outpath, inpath, geojson_path):
