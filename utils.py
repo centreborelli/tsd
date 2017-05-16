@@ -20,6 +20,7 @@ import warnings
 import sys
 import geojson
 import shapely.geometry
+gdal.UseExceptions()
 
 
 def valid_datetime(s):
@@ -251,9 +252,15 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None):
     """
     """
+    if outpath == inpath:  # hack to allow the output to overwrite the input
+        fd, out = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(inpath))
+        os.close(fd)
+    else:
+        out = outpath
+
     env = os.environ.copy()
     env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = os.path.splitext(inpath)[1]
-    cmd = ['gdal_translate', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
+    cmd = ['gdal_translate', inpath, out, '-ot', 'UInt16', '-of', 'GTiff',
            '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     if utm_zone is not None:
         cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
@@ -263,6 +270,9 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
         print('ERROR: this command failed')
         print(' '.join(cmd))
         print(e.output)
+
+    if outpath == inpath:  # hack to allow the output to overwrite the input
+        shutil.move(out, outpath)
 
 
 def crop_with_gdalwarp(outpath, inpath, geojson_path):

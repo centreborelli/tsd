@@ -121,6 +121,17 @@ def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
     return cloudy.area > (p * aoi_shape.area)
 
 
+def bands_files_are_valid(img, bands, search_api, directory):
+    """
+    Check if all bands images files are valid.
+    """
+    name = filename_from_metadata_dict(img, search_api)
+    filenames = ['{}_band_{}.tif'.format(name, b) for b in bands]
+    paths = [os.path.join(directory, f) for f in filenames]
+    return all(utils.is_valid(p) for p in paths)
+
+
+
 def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
                     out_dir='', search_api='planet', parallel_downloads=100,
                     register=False, equalize=False, debug=False):
@@ -175,6 +186,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
     parallel.run_calls(utils.crop_with_gdal_translate, zip(fnames, urls),
                        parallel_downloads, ulx, uly, lrx, lry, utm_zone)
 
+    # discard images that failed to download
+    images = [x for x in images if bands_files_are_valid(x, bands, search_api,
+                                                         out_dir)]
     # discard images that are totally covered by clouds
     cloudy = []
     for img in images:
@@ -221,7 +235,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
 
         for bands_fnames in crops:
             for f in bands_fnames:  # crop to remove the margin
-                utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry,
+                utils.crop_with_gdal_translate(f, f, ulx, uly, lrx, lry,
                                                utm_zone)
 
     # equalize histograms through time, band per band
