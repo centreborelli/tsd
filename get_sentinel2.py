@@ -206,7 +206,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
 
     # register the images through time
     if register:
-        ulx, uly, lrx, lry = utils.utm_bbx(aoi)
+        ulx, uly, lrx, lry = utils.utm_bbx(aoi)[:4]
         if debug:  # keep a copy of the cropped images before registration
             bak = os.path.join(out_dir, 'no_registration')
             utils.mkdir_p(bak)
