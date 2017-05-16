@@ -251,12 +251,14 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None):
     """
     """
+    env = os.environ.copy()
+    env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = os.path.splitext(inpath)[1]
     cmd = ['gdal_translate', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
            '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     if utm_zone is not None:
         cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
     try:
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
     except subprocess.CalledProcessError as e:
         print('ERROR: this command failed')
         print(' '.join(cmd))
