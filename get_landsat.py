@@ -156,7 +156,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
                                                                      len(images),
                                                                      len(bands) + 1))
-    parallel.run_calls(utils.crop_with_gdal_translate, zip(fnames, urls),
+    parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, urls)),
                        parallel_downloads, ulx, uly, lrx, lry, utm_zone)
 
     # discard images that are totally covered by clouds
