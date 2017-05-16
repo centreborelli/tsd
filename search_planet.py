@@ -32,10 +32,10 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
         item_types: list of strings.
     """
     # default start/end dates
-    if start_date is None:
-        start_date = datetime.datetime(2015, 8, 1)
     if end_date is None:
         end_date = datetime.datetime.now()
+    if start_date is None:
+        start_date = end_date - datetime.timedelta(365)
 
     # planet date range filter
     date_range_filter = {

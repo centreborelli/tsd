@@ -33,10 +33,10 @@ def query_builder(lat, lon, start_date=None, end_date=None):
         string
     """
     # default start/end dates
-    if start_date is None:
-        start_date = datetime.date(2013, 7, 1)
     if end_date is None:
         end_date = datetime.date.today()
+    if start_date is None:
+        start_date = end_date - datetime.timedelta(365)
 
     # position
     x = 'upperLeftCornerLatitude:[{}+TO+1000]'.format(lat)
