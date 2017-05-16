@@ -122,7 +122,7 @@ def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
-                    out_dir='', search_api='planet', parallel_downloads=10,
+                    out_dir='', search_api='planet', parallel_downloads=100,
                     register=False, equalize=False, debug=False):
     """
     Main function: download, crop and register a time series of Sentinel-2 images.
@@ -266,7 +266,7 @@ if __name__ == '__main__':
                                                                     'images'))
     parser.add_argument('--api', type=str, default='planet',
                         help='search API')
-    parser.add_argument('--parallel-downloads', type=int, default=10,
+    parser.add_argument('--parallel-downloads', type=int, default=100,
                         help='max number of parallel crops downloads')
     args = parser.parse_args()
 
