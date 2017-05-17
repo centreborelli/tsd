@@ -165,7 +165,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     utils.mkdir_p(out_dir)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
                                                                      len(images),
-                                                                     len(bands) + 1))
+                                                                     len(bands) + 1),
+         end=' ')
     parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, urls)),
                        parallel_downloads, ulx, uly, lrx, lry, utm_zone)
 
@@ -212,7 +213,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                     utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry,
                                                    utm_zone)
 
-        print('Registering...')
+        print('Registering...', end=' ')
         registration.main(crops, crops, all_pairwise=True)
 
         for bands_fnames in crops:

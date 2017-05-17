@@ -15,10 +15,10 @@ def show_progress(a):
            apply_async, it has to take one argument.
     """
     show_progress.counter += 1
-    status = 'done {:{fill}{width}} / {}'.format(show_progress.counter,
-                                                 show_progress.total,
-                                                 fill='',
-                                                 width=len(str(show_progress.total)))
+    status = '{:{fill}{width}} / {}'.format(show_progress.counter,
+                                            show_progress.total,
+                                            fill='',
+                                            width=len(str(show_progress.total)))
     if show_progress.counter < show_progress.total:
         status += chr(8) * len(status)
     else:
