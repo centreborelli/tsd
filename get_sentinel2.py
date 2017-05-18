@@ -115,7 +115,7 @@ def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
     if r.ok:
         soup = bs4.BeautifulSoup(r.text, 'xml')
         for polygon in soup.find_all('MaskFeature'):
-            if polygon.maskType.text in ['OPAQUE', 'CIRRUS']:  # either OPAQUE or CIRRUS
+            if polygon.maskType.text == 'OPAQUE':  # either OPAQUE or CIRRUS
                 polygons.append(polygon)
     else:
         print("WARNING: couldn't retrieve cloud mask file", url)
