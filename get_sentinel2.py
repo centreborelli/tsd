@@ -131,8 +131,11 @@ def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
             pass
 
     aoi_shape = shapely.geometry.shape(aoi)
-    cloudy = shapely.geometry.MultiPolygon(clouds).intersection(aoi_shape)
-    return cloudy.area > (p * aoi_shape.area)
+    try:
+        cloudy = shapely.geometry.MultiPolygon(clouds).intersection(aoi_shape)
+        return cloudy.area > (p * aoi_shape.area)
+    except shapely.geos.TopologicalError:
+        return False
 
 
 def bands_files_are_valid(img, bands, search_api, directory):
