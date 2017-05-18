@@ -109,7 +109,6 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode)
     results = load_query(query, api_urls[api])
-    print('Found {} images'.format(len(results)), file=sys.stderr)
 
     # check if the image footprint contains the area of interest
     not_covering = []
@@ -121,8 +120,6 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
 
     for x in not_covering:
         results.remove(x)
-    print('{} images containing the region of interest'.format(len(results)),
-          file=sys.stderr)
 
     return results
 

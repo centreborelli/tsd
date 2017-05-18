@@ -35,23 +35,30 @@ from stable.scripts import registration
 aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
 
 
-def aws_url_from_metadata_dict(d, api='planet'):
+def date_and_mgrs_id_from_metadata_dict(d, api='planet'):
     """
-    Build the AWS url of a Sentinel-2 image from it's metadata.
+    Build a string using the image acquisition date and identifier.
     """
     if api == 'planet':
         mgrs_id = d['properties']['mgrs_grid_id']
-        utm_code, lat_band, sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
         date = dateutil.parser.parse(d['properties']['acquired'])
     elif api == 'scihub':
         # we assume the product name is formatted as in:
         # S2A_MSIL1C_20170410T171301_N0204_R112_T14SQE_20170410T172128
         # the mgrs_id (here 14SQE) is read from the product name in '_T14SQE_'
         mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
-        utm_code, lat_band, sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
         date_string = [a['content'] for a in d['date'] if a['name'] == 'beginposition'][0]
         date = dateutil.parser.parse(date_string)
+    return date, mgrs_id
 
+
+
+def aws_url_from_metadata_dict(d, api='planet'):
+    """
+    Build the AWS url of a Sentinel-2 image from it's metadata.
+    """
+    date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
+    utm_code, lat_band, sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
     return '{}/tiles/{}/{}/{}/{}/{}/{}/0/'.format(aws_url, utm_code, lat_band,
                                                   sqid, date.year, date.month,
                                                   date.day)
@@ -61,21 +68,28 @@ def filename_from_metadata_dict(d, api='planet'):
     """
     Build a string using the image acquisition date and identifier.
     """
-    if api == 'planet':
-        mgrs_id = d['properties']['mgrs_grid_id']
-        date = dateutil.parser.parse(d['properties']['acquired']).date()
-    return '{}_tile_{}'.format(date.isoformat(), mgrs_id)
+    date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
+    return '{}_tile_{}'.format(date.date().isoformat(), mgrs_id)
 
 
 def metadata_from_metadata_dict(d, api='planet'):
     """
     Return a dict containing some string-formatted metadata.
     """
+    imaging_date = date_and_mgrs_id_from_metadata_dict(d, api)[0]
     if api == 'planet':
-        imaging_date = dateutil.parser.parse(d['properties']['acquired'])
         sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
         sun_azimuth = d['properties']['sun_azimuth']
-
+    elif api == 'scihub':
+        url = aws_url_from_metadata_dict(d, api)
+        r = requests.get('{}metadata.xml'.format(url))
+        if r.ok:
+            soup = bs4.BeautifulSoup(r.text, 'xml')
+            sun_zenith = float(soup.Mean_Sun_Angle.ZENITH_ANGLE.text)
+            sun_azimuth = float(soup.Mean_Sun_Angle.AZIMUTH_ANGLE.text)
+        else:
+            print("WARNING: couldn't retrieve sun azimuth and zenith", url)
+            sun_zenith, sun_azimuth = 90, 0
     return {
         "IMAGING_DATE": imaging_date.strftime('%Y-%m-%dT%H:%M:%S'),
         "SUN_ZENITH": str(sun_zenith),
@@ -140,20 +154,19 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
     """
     # list available images
     if search_api == 'scihub':
-        images = search_scihub.search(aoi, start_date, end_date)['results']
+        images = search_scihub.search(aoi, start_date, end_date, satellite='Sentinel-2')
     elif search_api == 'planet':
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])['features']
 
-        # sort images by acquisition date, then by mgrs id
-        images.sort(key=lambda k: (k['properties']['acquired'],
-                                   k['properties']['mgrs_grid_id']))
+    # sort images by acquisition date, then by mgrs id
+    images.sort(key=lambda k: date_and_mgrs_id_from_metadata_dict(k, search_api))
 
-        # remove duplicates (same acquisition day, different mgrs tile id)
-        seen = set()
-        images = [x for x in images if not (x['properties']['acquired'] in seen
-                                            or  # seen.add() returns None
-                                            seen.add(x['properties']['acquired']))]
+    # remove duplicates (same acquisition day, different mgrs tile id)
+    seen = set()
+    images = [x for x in images if not (date_and_mgrs_id_from_metadata_dict(x, search_api)[0] in seen
+                                        or  # seen.add() returns None
+                                        seen.add(date_and_mgrs_id_from_metadata_dict(x, search_api)[0]))]
     print('Found {} images'.format(len(images)))
 
     # convert bands to uppercase strings of length 2: 1 --> '01', '8a' --> '8A'
@@ -264,9 +277,9 @@ if __name__ == '__main__':
                         help=('longitude of the center of the rectangle AOI'))
     parser.add_argument('-w', '--width', type=int, help='width of the AOI (m)')
     parser.add_argument('-l', '--height', type=int, help='height of the AOI (m)')
-    parser.add_argument('-s', '--start-date', type=utils.valid_date,
+    parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
-    parser.add_argument('-e', '--end-date', type=utils.valid_date,
+    parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-b', '--band', nargs='*', default=[4],
                         help=('list of spectral bands, default band 4 (red)'))
