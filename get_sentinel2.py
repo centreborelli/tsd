@@ -208,7 +208,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
     for img in images:
         url = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
-        if is_image_cloudy_at_location(url, aoi):
+        if is_image_cloudy_at_location(url, utils.geojson_lonlat_to_utm(aoi)):
             cloudy.append(img)
             utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
             for b in bands:

@@ -283,6 +283,21 @@ def crop_with_gdalwarp(outpath, inpath, geojson_path):
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 
 
+def geojson_lonlat_to_utm(aoi):
+    """
+    """
+    # compute the utm zone number of the first polygon vertex
+    lon, lat = aoi['coordinates'][0][0]
+    zone_number = utm.from_latlon(lat, lon)[2]
+
+    # convert all polygon vertices coordinates from (lon, lat) to utm
+    c = []
+    for lon, lat in aoi['coordinates'][0]:
+        c.append(utm.from_latlon(lat, lon, force_zone_number=zone_number)[:2])
+
+    return geojson.Polygon([c])
+
+
 def utm_bbx(aoi):
     """
     """
