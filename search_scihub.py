@@ -45,7 +45,8 @@ def post_scihub(url, query, user='carlodef', password='kayrros_cmla'):
             print('Authentication failed with', user, password)
         else:
             print('Scientific Data Hub returned error', r.status_code)
-        r.raise_for_status()
+        #r.raise_for_status()
+        sys.exit(1)
 
 
 def build_scihub_query(aoi, start_date=None, end_date=None,
