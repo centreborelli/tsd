@@ -16,6 +16,7 @@ import os
 import sys
 import shutil
 import argparse
+import multiprocessing
 import dateutil.parser
 import requests
 import bs4
@@ -149,8 +150,9 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 
 
-def get_time_series(aoi, start_date=None, end_date=None, bands=[4],
-                    out_dir='', search_api='planet', parallel_downloads=100,
+def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
+                    search_api='planet',
+                    parallel_downloads=multiprocessing.cpu_count(),
                     register=False, equalize=False, debug=False):
     """
     Main function: download, crop and register a time series of Sentinel-2 images.
@@ -297,7 +299,8 @@ if __name__ == '__main__':
                                                                     'images'))
     parser.add_argument('--api', type=str, default='planet',
                         help='search API')
-    parser.add_argument('--parallel-downloads', type=int, default=100,
+    parser.add_argument('--parallel-downloads', type=int,
+                        default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
     args = parser.parse_args()
 
