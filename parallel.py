@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Copyright (C) 2017, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
+from __future__ import print_function
 import os
 import sys
 import multiprocessing
@@ -58,7 +59,7 @@ def run_calls(fun, list_of_args, nb_workers, *extra_args):
         try:
             outputs.append(r.get(60))  # wait at most 1 minute per call
         except multiprocessing.TimeoutError:
-            print("Timeout while running %s" % str(r))
+            print("Timeout while running %s" % str(r), file=sys.stderr)
             outputs.append(None)
         except KeyboardInterrupt:
             pool.terminate()
