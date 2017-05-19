@@ -73,13 +73,13 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
     return zip_path
 
 
-def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
+def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', mirror='peps'):
     """
     Main function: download a Sentinel-1 image time serie.
     """
     # list available images
-    images = search_scihub.search(lat, lon, w, h, start_date, end_date,
+    images = search_scihub.search(aoi, start_date, end_date,
                                   product_type=product_type)
 
     # download
@@ -93,16 +93,16 @@ def get_time_series(lat, lon, w, h, start_date=None, end_date=None, out_dir='',
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=('Automatic download and crop '
+    parser = argparse.ArgumentParser(description=('Automatic download '
                                                   'of Sentinel-1 images'))
-    parser.add_argument('--lat', type=utils.valid_lat, required=True,
-                        help=('latitude'))
-    parser.add_argument('--lon', type=utils.valid_lon, required=True,
-                        help=('longitude'))
-    parser.add_argument('-w', '--width', type=int, help='width of the area in meters',
-                        default=1000)
-    parser.add_argument('-l', '--height', type=int, help='height of the area in meters',
-                        default=1000)
+    parser.add_argument('--geom', type=utils.valid_geojson,
+                        help=('path to geojson file'))
+    parser.add_argument('--lat', type=utils.valid_lat,
+                        help=('latitude of the center of the rectangle AOI'))
+    parser.add_argument('--lon', type=utils.valid_lon,
+                        help=('longitude of the center of the rectangle AOI'))
+    parser.add_argument('-w', '--width', type=int, help='width of the AOI (m)')
+    parser.add_argument('-l', '--height', type=int, help='height of the AOI (m)')
     parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
@@ -110,11 +110,22 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-t', '--product-type',
-                        help='type of image: GRD or SLC', default='GRD')
+                        help='type of image: GRD, SLC, RAW', default='GRD')
     parser.add_argument('--mirror', help='download mirror: peps or scihub',
                         default='peps')
     args = parser.parse_args()
 
-    get_time_series(args.lat, args.lon, args.width, args.height,
-                    start_date=args.start_date, end_date=args.end_date,
-                    out_dir=args.outdir, product_type=args.product_type, mirror=args.mirror)
+    if args.geom and (args.lat or args.lon or args.width or args.height):
+        parser.error('--geom and {--lat, --lon, -w, -l} are mutually exclusive')
+
+    if not args.geom and (not args.lat or not args.lon):
+        parser.error('either --geom or {--lat, --lon} must be defined')
+
+    if args.geom:
+        aoi = args.geom
+    else:
+        aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
+                                            args.height)
+    get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
+                    out_dir=args.outdir, product_type=args.product_type,
+                    mirror=args.mirror)
