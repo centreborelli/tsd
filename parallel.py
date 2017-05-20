@@ -4,7 +4,7 @@
 from __future__ import print_function
 import os
 import sys
-import multiprocessing
+import multiprocessing.pool
 
 
 def show_progress(a):
@@ -47,7 +47,7 @@ def run_calls(fun, list_of_args, nb_workers, *extra_args):
     outputs = []
     show_progress.counter = 0
     show_progress.total = len(list_of_args)
-    pool = multiprocessing.Pool(nb_workers)
+    pool = multiprocessing.pool.ThreadPool(nb_workers)
     for x in list_of_args:
         if type(x) == tuple:
             args = x + extra_args
