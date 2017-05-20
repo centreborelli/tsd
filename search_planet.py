@@ -37,19 +37,10 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
     if start_date is None:
         start_date = end_date - datetime.timedelta(365)
 
-    # planet date range filter
-    date_range_filter = {
-        "type": "DateRangeFilter",
-        "field_name": "acquired",
-        "config": {
-            "gte": start_date.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
-            "lte": end_date.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        }
-    }
-
-    # build a filter for the AOI and the date range
-    query = api.filters.and_filter(api.filters.geom_filter(aoi), date_range_filter)
-
+    # build a search request with filters for the AOI and the date range
+    geom_filter = api.filters.geom_filter(aoi)
+    date_filter = api.filters.date_range('acquired', gte=start_date, lte=end_date)
+    query = api.filters.and_filter(geom_filter, date_filter)
     request = api.filters.build_search_request(query, item_types)
 
     # this will cause an exception if there are any API related errors
