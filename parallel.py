@@ -28,7 +28,7 @@ def show_progress(a):
     sys.stdout.flush()
 
 
-def run_calls(fun, list_of_args, nb_workers, *extra_args):
+def run_calls(fun, list_of_args, nb_workers, timeout, *extra_args):
     """
     Run a function several times in parallel with different inputs.
 
@@ -37,6 +37,7 @@ def run_calls(fun, list_of_args, nb_workers, *extra_args):
         list_of_args: list of (first positional) arguments passed to fun, one
             per call
         nb_workers: number of calls run simultaneously
+        timeout: number of seconds allowed per function call
         extra_args (optional): tuple containing extra arguments to be passed to
             fun (same value for all calls)
 
@@ -57,7 +58,7 @@ def run_calls(fun, list_of_args, nb_workers, *extra_args):
 
     for r in results:
         try:
-            outputs.append(r.get(60))  # wait at most 1 minute per call
+            outputs.append(r.get(timeout))
         except multiprocessing.TimeoutError:
             print("Timeout while running %s" % str(r), file=sys.stderr)
             outputs.append(None)

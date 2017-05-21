@@ -110,7 +110,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
     utils.mkdir_p(out_dir)
     print('Downloading {} crops...'.format(len(images)), end=' ')
     parallel.run_calls(download_crop, list(zip(fnames, images)),
-                       parallel_downloads, asset_type,
+                       parallel_downloads, 120, asset_type,
                        ulx, uly, lrx, lry, utm_zone)
 
     return

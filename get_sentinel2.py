@@ -203,7 +203,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                                                                      len(bands)),
           end=' ')
     parallel.run_calls(utils.crop_with_gdal_translate, zip(fnames, urls),
-                       parallel_downloads, ulx, uly, lrx, lry, utm_zone)
+                       parallel_downloads, 60, ulx, uly, lrx, lry, utm_zone)
 
     # discard images that failed to download
     images = [x for x in images if bands_files_are_valid(x, bands, search_api,
