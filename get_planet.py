@@ -41,6 +41,21 @@ def fname_from_metadata(d):
     return '{}_scene_{}'.format(date.isoformat(), scene_id)
 
 
+def metadata_from_metadata_dict(d):
+    """
+    Return a dict containing some string-formatted metadata.
+    """
+    imaging_date = dateutil.parser.parse(d['properties']['acquired'])
+    sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
+    sun_azimuth = d['properties']['sun_azimuth']
+
+    return {
+        "IMAGING_DATE": imaging_date.strftime('%Y-%m-%dT%H:%M:%S'),
+        "SUN_ZENITH": str(sun_zenith),
+        "SUN_AZIMUTH": str(sun_azimuth)
+    }
+
+
 def get_download_url(item, asset_type):
     """
     """
@@ -113,13 +128,13 @@ def get_time_series(aoi, start_date=None, end_date=None,
                        parallel_downloads, 120, asset_type,
                        ulx, uly, lrx, lry, utm_zone)
 
-    return
-
     # embed some metadata in the image files
-    for bands_fnames in crops:
-        for f in bands_fnames:  # embed some metadata as gdal geotiff tags
-            for k, v in metadata_from_metadata_dict(img, search_api).items():
+    for f, img in zip(fnames, images):  # embed some metadata as gdal geotiff tags
+        if os.path.isfile(f):
+            for k, v in metadata_from_metadata_dict(img).items():
                 utils.set_geotif_metadata_item(f, k, v)
+
+    return
 
     # register the images through time
     if register:
