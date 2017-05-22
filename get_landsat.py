@@ -216,10 +216,15 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
         print('Registering...', end=' ')
         registration.main(crops, crops, all_pairwise=True)
 
-        for bands_fnames in crops:
-            for f in bands_fnames:  # crop to remove the margin
-                utils.crop_with_gdal_translate(f, f, ulx, uly, lrx, lry,
-                                               utm_zone)
+        for bands_fnames in crops:  # crop to remove the margin
+            for f in bands_fnames:
+                utils.crop_with_gdal_translate(f, f, ulx, uly, lrx, lry, utm_zone)
+        cloudy = os.path.join(out_dir, 'cloudy')
+        if os.path.isdir(cloudy):
+            for f in os.listdir(cloudy):
+                utils.crop_with_gdal_translate(os.path.join(cloudy, f),
+                                               os.path.join(cloudy, f),
+                                               ulx, uly, lrx, lry, utm_zone)
 
     # equalize histograms through time, band per band
     if equalize:
