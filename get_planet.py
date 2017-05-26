@@ -24,9 +24,6 @@ import planet
 import utils
 import parallel
 import search_planet
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from stable.scripts.midway import midway_on_files
-from stable.scripts import registration
 
 client = search_planet.client
     
@@ -136,34 +133,6 @@ def get_time_series(aoi, start_date=None, end_date=None,
 
     return
 
-    # register the images through time
-    if register:
-        if debug:  # keep a copy of the cropped images before registration
-            bak = os.path.join(out_dir, 'no_registration')
-            utils.mkdir_p(bak)
-            for bands_fnames in crops:
-                for f in bands_fnames:  # crop to remove the margin
-                    o = os.path.join(bak, os.path.basename(f))
-                    utils.crop_georeferenced_image(o, f, lon, lat, w-100, h-100)
-
-        registration.main(crops, crops, all_pairwise=True)
-
-        for bands_fnames in crops:
-            for f in bands_fnames:  # crop to remove the margin
-                utils.crop_georeferenced_image(f, f, lon, lat, w-100, h-100)
-
-    # equalize histograms through time, band per band
-    if equalize:
-        if debug:  # keep a copy of the images before equalization
-            bak = os.path.join(out_dir, 'no_midway')
-            utils.mkdir_p(bak)
-            for bands_fnames in crops:
-                for f in bands_fnames:
-                    shutil.copy(f, bak)
-
-        for i in xrange(len(bands)):
-            midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
@@ -186,10 +155,6 @@ if __name__ == '__main__':
                               'Landsat8L1G'))
     parser.add_argument('--asset', default='analytic',
                         help=('choose from analytic, visual, basic'))
-    parser.add_argument('-r', '--register', action='store_true',
-                        help='register images through time')
-    parser.add_argument('-m', '--midway', action='store_true',
-                        help='equalize colors with midway')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
