@@ -120,7 +120,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     # list available images
     seen = set()
     if search_api == 'devseed':
-        images = search_devseed.search(aoi, start_date, end_date)['results']
+        images = search_devseed.search(aoi, start_date, end_date,
+                                       'Landsat-8')['results']
         images.sort(key=lambda k: (k['acquisitionDate'], k['row'], k['path']))
 
         # remove duplicates (same acquisition day)
@@ -266,8 +267,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
-    parser.add_argument('--api', type=str, default='devseed',
-                        help='search API')
+    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
+                        default='devseed', help='search API')
     parser.add_argument('--parallel-downloads', type=int, default=100,
                         help='max number of parallel crops downloads')
     args = parser.parse_args()

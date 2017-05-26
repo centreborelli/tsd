@@ -18,6 +18,7 @@ import shutil
 import argparse
 import multiprocessing
 import dateutil.parser
+import datetime
 import requests
 import bs4
 import geojson
@@ -25,6 +26,7 @@ import shapely.geometry
 
 import utils
 import parallel
+import search_devseed
 import search_scihub
 import search_planet
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -36,25 +38,33 @@ from stable.scripts import registration
 aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
 
 
-def date_and_mgrs_id_from_metadata_dict(d, api='planet'):
+def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     """
     Build a string using the image acquisition date and identifier.
     """
-    if api == 'planet':
+    if api == 'devseed':
+        mgrs_id = '{}{}{}'.format(d['utm_zone'], d['latitude_band'],
+                                  d['grid_square'])
+        date = dateutil.parser.parse(d['product_stop_time'])
+    elif api == 'planet':
         mgrs_id = d['properties']['mgrs_grid_id']
         date = dateutil.parser.parse(d['properties']['acquired'])
     elif api == 'scihub':
         # we assume the product name is formatted as in:
         # S2A_MSIL1C_20170410T171301_N0204_R112_T14SQE_20170410T172128
         # the mgrs_id (here 14SQE) is read from the product name in '_T14SQE_'
-        mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
         date_string = [a['content'] for a in d['date'] if a['name'] == 'beginposition'][0]
-        date = dateutil.parser.parse(date_string)
+        date = dateutil.parser.parse(date_string, ignoretz=True)
+        if date > datetime.datetime(2016, 12, 6):
+            mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
+        else:
+            #mgrs_id = '14SQE'
+            print('ERROR: scihub API cannot be used for Sentinel-2 searches before 2016-12-6')
     return date, mgrs_id
 
 
 
-def aws_url_from_metadata_dict(d, api='planet'):
+def aws_url_from_metadata_dict(d, api='devseed'):
     """
     Build the AWS url of a Sentinel-2 image from it's metadata.
     """
@@ -65,7 +75,7 @@ def aws_url_from_metadata_dict(d, api='planet'):
                                                   date.day)
 
 
-def filename_from_metadata_dict(d, api='planet'):
+def filename_from_metadata_dict(d, api='devseed'):
     """
     Build a string using the image acquisition date and identifier.
     """
@@ -81,7 +91,7 @@ def metadata_from_metadata_dict(d, api='planet'):
     if api == 'planet':
         sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
         sun_azimuth = d['properties']['sun_azimuth']
-    elif api == 'scihub':
+    elif api == 'scihub' or api == 'devseed':
         url = aws_url_from_metadata_dict(d, api)
         r = requests.get('{}metadata.xml'.format(url))
         if r.ok:
@@ -151,15 +161,19 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
-                    search_api='planet',
+                    search_api='devseed',
                     parallel_downloads=multiprocessing.cpu_count(),
                     register=False, equalize=False, debug=False):
     """
     Main function: download, crop and register a time series of Sentinel-2 images.
     """
     # list available images
-    if search_api == 'scihub':
-        images = search_scihub.search(aoi, start_date, end_date, satellite='Sentinel-2')
+    if search_api == 'devseed':
+        images = search_devseed.search(aoi, start_date, end_date,
+                                       'Sentinel-2')['results']
+    elif search_api == 'scihub':
+        images = search_scihub.search(aoi, start_date, end_date,
+                                      satellite='Sentinel-2')
     elif search_api == 'planet':
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])['features']
@@ -297,8 +311,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
                                                                     'intermediate '
                                                                     'images'))
-    parser.add_argument('--api', type=str, default='planet',
-                        help='search API')
+    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
+                        default='devseed', help='search API')
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
