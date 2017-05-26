@@ -12,6 +12,7 @@ from __future__ import print_function
 import argparse
 import datetime
 import json
+import sys
 import shapely.geometry
 from planet import api
 
@@ -55,7 +56,8 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
 
     for x in not_covering:
         results['features'].remove(x)
-    #print('removed {}'.format(len(not_covering)))
+    print('search_planet: removed {} results not covering the aoi'.format(len(not_covering)),
+          file=sys.stderr)
 
     return results
 
