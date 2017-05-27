@@ -1,9 +1,11 @@
 # Time Series Downloader (TSD)
 
+Automatic download and registration of Sentinel, Landsat and Planet crops.
+
 [Carlo de Franchis](mailto:carlo.de-franchis@ens-cachan.fr),
 CMLA, ENS Cachan, Université Paris-Saclay, 2016-17
 
-Automatic download and registration of Sentinel, Landsat and Planet crops.
+With contributions from [Enric Meinhardt-Llopis](mailto:enric.meinhardt@cmla.ens-cachan.fr), [Axel Davy](mailto:axel.davy@ens.fr) and [Tristan Dagobert](mailto:tristan.dagobert@cmla.ens-cachan.fr).
 
 # Installation and dependencies
 The main scripts are `get_landsat.py`, `get_sentinel1.py`, `get_sentinel2.py`
