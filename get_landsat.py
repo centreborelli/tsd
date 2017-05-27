@@ -20,13 +20,11 @@ import utm
 import dateutil.parser
 import tifffile
 
-import utils
-import parallel
 import search_devseed
 import search_planet
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from stable.scripts.midway import midway_on_files
-from stable.scripts import registration
+import utils
+import parallel
+import registration
 
 
 aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
