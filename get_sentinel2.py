@@ -161,7 +161,7 @@ def bands_files_are_valid(img, bands, search_api, directory):
 def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                     search_api='devseed',
                     parallel_downloads=multiprocessing.cpu_count(),
-                    register=False, equalize=False, debug=False):
+                    register=False, debug=False):
     """
     Main function: download, crop and register a time series of Sentinel-2 images.
     """
@@ -269,19 +269,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                 utils.crop_with_gdal_translate(f, f, ulx, uly, lrx, lry,
                                                utm_zone)
 
-    # equalize histograms through time, band per band
-    if equalize:
-        if debug:  # keep a copy of the images before equalization
-            bak = os.path.join(out_dir, 'no_midway')
-            utils.mkdir_p(bak)
-            for bands_fnames in crops:
-                for f in bands_fnames:
-                    shutil.copy(f, bak)
-
-        print('Equalizing...')
-        for i in xrange(len(bands)):
-            midway_on_files([crop[i] for crop in crops if len(crop) > i], out_dir)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
@@ -302,8 +289,6 @@ if __name__ == '__main__':
                         help=('list of spectral bands, default band 4 (red)'))
     parser.add_argument('-r', '--register', action='store_true',
                         help='register images through time')
-    parser.add_argument('-m', '--midway', action='store_true',
-                        help='equalize colors with midway')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
@@ -329,6 +314,5 @@ if __name__ == '__main__':
                                             args.height)
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                     bands=args.band, register=args.register,
-                    equalize=args.midway, out_dir=args.outdir,
-                    debug=args.debug, search_api=args.api,
+                    out_dir=args.outdir, debug=args.debug, search_api=args.api,
                     parallel_downloads=args.parallel_downloads)
