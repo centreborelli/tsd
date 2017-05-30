@@ -143,7 +143,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
         search_string = query_s2(lat, lon, start_date, end_date)
     url = '{}?search={}&limit=1000'.format(api_url, search_string)
 
-    # query Development Seed’s Landsat API
+    # query Development Seed’s API
     r = requests.get(url)
     if r.ok:
         d = r.json()
@@ -155,8 +155,9 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
     aoi = shapely.geometry.shape(aoi)
     not_covering = []
     for x in d['results']:
-        if not shapely.geometry.shape(x['data_geometry']).contains(aoi):
-            not_covering.append(x)
+        if 'data_geometry' in x:
+            if not shapely.geometry.shape(x['data_geometry']).contains(aoi):
+                not_covering.append(x)
 
     for x in not_covering:
         d['results'].remove(x)
