@@ -219,6 +219,33 @@ def merge_bands(infiles, outfile):
     tifffile.imsave(outfile, np.dstack(tifffile.imread(f) for f in infiles))
 
 
+def inplace_utm_reprojection_with_gdalwarp(src, utm_zone, ulx, uly, lrx, lry):
+    """
+    """
+    img = gdal.Open(src)
+    s = img.GetProjection()  # read geographic metadata
+    img = None  # gdal way of closing files
+    x = s.lower().split('utm zone ')[1][:2]  # hack to extract the UTM zone number
+    if int(x) != utm_zone:
+
+        # hack to allow the output to overwrite the input
+        fd, dst = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(src))
+        os.close(fd)
+
+        cmd = ['gdalwarp', '-t_srs', '+proj=utm +zone={}'.format(utm_zone),
+               '-te', str(ulx), str(lry), str(lrx), str(uly),  # xmin ymin xmax ymax
+               '-overwrite', src, dst]
+        print(' '.join(cmd))
+        try:
+            #print(' '.join(cmd))
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            shutil.move(dst, src)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: this command failed')
+            print(' '.join(cmd))
+            print(e.output)
+
+
 def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
     """
     Crop an image around a given geographic location.
@@ -272,6 +299,21 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
         print(' '.join(cmd))
         print(e.output)
 
+    if utm_zone is not None:
+        # if the image is not sampled on the desired UTM grid, remove it
+        img = gdal.Open(out)
+        s = img.GetProjection()  # read geographic metadata
+        img = None  # gdal way of closing files
+        x = s.lower().split('utm zone ')[1][:2]  # hack to extract the UTM zone number
+        if int(x) != utm_zone:
+            os.remove(out)
+            return
+
+        # a better alternative would be to resample the image on the desired
+        # UTM grid, but I don't know how to ensure that the resampled image will have
+        # the exact same geographic bounding box as the others.
+        #inplace_utm_reprojection_with_gdalwarp(out, utm_zone, ulx, uly, lrx, lry)
+
     if outpath == inpath:  # hack to allow the output to overwrite the input
         shutil.move(out, outpath)
 
@@ -304,7 +346,7 @@ def utm_bbx(aoi):
     """
     # compute the utm zone number of the first polygon vertex
     lon, lat = aoi['coordinates'][0][0]
-    zone_number = utm.from_latlon(lat, lon)[2]
+    zone_number = utm.latlon_to_zone_number(lat, lon)
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []
