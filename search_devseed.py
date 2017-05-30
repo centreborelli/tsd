@@ -9,6 +9,7 @@ Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
 """
 
 from __future__ import print_function
+import os
 import argparse
 import datetime
 import json
@@ -20,6 +21,7 @@ import utils
 
 
 api_url = 'https://api.developmentseed.org/satellites/landsat'
+s2_mgrs_grid = os.path.join(os.path.dirname(os.path.abspath(__file__)), 's2_mgrs_grid.txt')
 
 
 def query_l8(lat, lon, start_date=None, end_date=None):
@@ -57,7 +59,7 @@ def bytes2str(x):
     return np.str(x.decode())
 
 
-def parse_s2_tiling_grid(lon, lat, grid='sentinel2_tiling_grid.txt'):
+def parse_s2_tiling_grid(lon, lat, grid=s2_mgrs_grid):
     """
     Search in the sentinel-2 tiling grid a MGRS tile containing a given point.
 
