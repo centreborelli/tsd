@@ -346,7 +346,8 @@ def utm_bbx(aoi):
     """
     # compute the utm zone number of the first polygon vertex
     lon, lat = aoi['coordinates'][0][0]
-    zone_number = utm.latlon_to_zone_number(lat, lon)
+    zone_number = utm.from_latlon(lat, lon)[2]
+    #zone_number = utm.latlon_to_zone_number(lat, lon)  # fails on older versions
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []
