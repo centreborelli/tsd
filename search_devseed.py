@@ -182,16 +182,18 @@ if __name__ == '__main__':
                         help=('latitude of the center of the rectangle AOI'))
     parser.add_argument('--lon', type=utils.valid_lon,
                         help=('longitude of the center of the rectangle AOI'))
-    parser.add_argument('-w', '--width', type=int, help='width of the AOI (m)')
-    parser.add_argument('-l', '--height', type=int, help='height of the AOI (m)')
+    parser.add_argument('-w', '--width', type=int, default=5000,
+                        help='width of the AOI (m), default 5000 m')
+    parser.add_argument('-l', '--height', type=int, default=5000,
+                        help='height of the AOI (m), default 5000 m')
     parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     args = parser.parse_args()
 
-    if args.geom and (args.lat or args.lon or args.width or args.height):
-        parser.error('--geom and {--lat, --lon, -w, -l} are mutually exclusive')
+    if args.geom and (args.lat or args.lon):
+        parser.error('--geom and {--lat, --lon} are mutually exclusive')
 
     if not args.geom and (not args.lat or not args.lon):
         parser.error('either --geom or {--lat, --lon} must be defined')

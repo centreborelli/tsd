@@ -93,13 +93,10 @@ def valid_geojson(filepath):
             return geo['features'][0]['geometry']
 
 
-def geojson_geometry_object(lat, lon, w=None, h=None):
+def geojson_geometry_object(lat, lon, w, h):
     """
     """
-    if w is not None and h is not None:  # rectangle
-        return geojson.Polygon([lonlat_rectangle_centered_at(lon, lat, w, h)])
-    else:  # point
-        return geojson.Point([lon, lat])
+    return geojson.Polygon([lonlat_rectangle_centered_at(lon, lat, w, h)])
 
 
 def is_valid(f):
