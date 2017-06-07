@@ -147,9 +147,9 @@ if __name__ == '__main__':
                         help='width of the AOI (m), default 2000 m')
     parser.add_argument('-l', '--height', type=int, default=2000,
                         help='height of the AOI (m), default 2000 m')
-    parser.add_argument('-s', '--start-date', type=utils.valid_date,
+    parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
                         help='start date, YYYY-MM-DD')
-    parser.add_argument('-e', '--end-date', type=utils.valid_date,
+    parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('--item-types', nargs='*', default=['PSScene3Band'],
                         help=('choose from PSScene4Band, PSScene3Band, REScene,'
