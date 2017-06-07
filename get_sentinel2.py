@@ -78,7 +78,13 @@ def filename_from_metadata_dict(d, api='devseed'):
     Build a string using the image acquisition date and identifier.
     """
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
-    return '{}_tile_{}'.format(date.date().isoformat(), mgrs_id)
+    if api == 'devseed':
+        orbit = d['sensing_orbit_number']
+    elif api == 'planet':
+        orbit = d['properties']['rel_orbit_number']
+    elif api == 'scihub':
+        orbit = d['int'][1]['content']
+    return '{}_orbit_{}_tile_{}'.format(date.date().isoformat(), orbit, mgrs_id)
 
 
 def metadata_from_metadata_dict(d, api='planet'):
