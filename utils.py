@@ -19,6 +19,7 @@ import traceback
 import warnings
 import sys
 import geojson
+import requests
 import shapely.geometry
 gdal.UseExceptions()
 
@@ -292,9 +293,15 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
         #print(' '.join(cmd))
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
     except subprocess.CalledProcessError as e:
+        if inpath.startswith('/vsicurl/'):
+            url = inpath.split('vsicurl/')[1]
+            if not requests.head(url).ok:
+                print('{} is not available'.format(url))
+                return
         print('ERROR: this command failed')
         print(' '.join(cmd))
         print(e.output)
+        return
 
     if utm_zone is not None:
         # if the image is not sampled on the desired UTM grid, remove it
