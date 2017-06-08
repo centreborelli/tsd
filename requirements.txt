@@ -10,3 +10,4 @@ pyfftw
 shapely
 planet
 geojson
+rasterio
