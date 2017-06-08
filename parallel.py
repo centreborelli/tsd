@@ -4,6 +4,7 @@
 from __future__ import print_function
 import os
 import sys
+import multiprocessing
 import multiprocessing.pool
 
 
@@ -28,27 +29,34 @@ def show_progress(a):
     sys.stdout.flush()
 
 
-def run_calls(fun, list_of_args, nb_workers, timeout, *extra_args):
+def run_calls(pool_type, nb_workers, timeout, fun, list_of_args, *extra_args):
     """
     Run a function several times in parallel with different inputs.
 
     Args:
+        pool_type: either 'processes' or 'threads'
+        nb_workers: number of calls run simultaneously
+        timeout: number of seconds allowed per function call
         fun: function to be called several times in parallel.
         list_of_args: list of (first positional) arguments passed to fun, one
             per call
-        nb_workers: number of calls run simultaneously
-        timeout: number of seconds allowed per function call
         extra_args (optional): tuple containing extra arguments to be passed to
             fun (same value for all calls)
 
     Return:
         list of outputs
     """
+    if pool_type == 'processes':
+        pool = multiprocessing.Pool(nb_workers)
+    elif pool_type == 'threads':
+        pool = multiprocessing.pool.ThreadPool(nb_workers)
+    else:
+        print('ERROR: unknow pool_type "{}"'.format(pool_type))
+
     results = []
     outputs = []
     show_progress.counter = 0
     show_progress.total = len(list_of_args)
-    pool = multiprocessing.pool.ThreadPool(nb_workers)
     for x in list_of_args:
         if type(x) == tuple:
             args = x + extra_args

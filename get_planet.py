@@ -121,9 +121,9 @@ def get_time_series(aoi, start_date=None, end_date=None,
     # activate images and download crops
     utils.mkdir_p(out_dir)
     print('Downloading {} crops...'.format(len(images)), end=' ')
-    parallel.run_calls(download_crop, list(zip(fnames, images)),
-                       parallel_downloads, 120, asset_type,
-                       ulx, uly, lrx, lry, utm_zone)
+    parallel.run_calls('threads', parallel_downloads, 120, download_crop,
+                       list(zip(fnames, images)), asset_type, ulx, uly, lrx,
+                       lry, utm_zone)
 
     # embed some metadata in the image files
     for f, img in zip(fnames, images):  # embed some metadata as gdal geotiff tags
