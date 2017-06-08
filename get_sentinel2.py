@@ -268,7 +268,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                                                    utm_zone)
 
         print('Registering...')
-        registration.main(crops, crops, all_pairwise=True)
+        registration.main_lists(crops, crops, all_pairwise=True)
 
         for bands_fnames in crops:
             for f in bands_fnames:  # crop to remove the margin
