@@ -88,10 +88,13 @@ def valid_geojson(filepath):
     """
     with open(filepath, 'r') as f:
         geo = geojson.load(f)
-        if type(geo) in [geojson.geometry.Polygon, geojson.geometry.Point]:
-            return geo
-        elif type(geo) == geojson.feature.FeatureCollection:
-            return geo['features'][0]['geometry']
+    if type(geo) == geojson.geometry.Polygon:
+        return geo
+    if type(geo) == geojson.feature.FeatureCollection:
+        p = geo['features'][0]['geometry']
+        if type(p) == geojson.geometry.Polygon:
+            return p
+    raise argparse.ArgumentTypeError('Invalid geojson: only polygons are supported')
 
 
 def geojson_geometry_object(lat, lon, w, h):
