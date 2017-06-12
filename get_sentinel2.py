@@ -193,7 +193,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     print('Found {} images'.format(len(images)))
 
     # convert bands to uppercase strings of length 2: 1 --> '01', '8a' --> '8A'
-    bands = [str(b).zfill(2).upper() for b in args.band]
+    bands = [str(b).zfill(2).upper() for b in bands]
 
     # build urls and filenames
     urls = []
