@@ -277,6 +277,13 @@ def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
                                  str(lrx), str(lry)])
 
 
+def gdal_translate_version():
+    """
+    """
+    v = subprocess.check_output(['gdal_translate', '--version'])
+    return v.split()[1].split(',')[0]
+
+
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None):
     """
     """
@@ -290,7 +297,7 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
     env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
     cmd = ['gdal_translate', inpath, out, '-ot', 'UInt16', '-of', 'GTiff',
            '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
-    if utm_zone is not None:
+    if utm_zone is not None and gdal_translate_version() >= '2.0':
         cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
     try:
         #print(' '.join(cmd))
