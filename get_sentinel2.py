@@ -43,7 +43,7 @@ def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     if api == 'devseed':
         mgrs_id = '{}{}{}'.format(d['utm_zone'], d['latitude_band'],
                                   d['grid_square'])
-        date = dateutil.parser.parse(d['product_stop_time'])
+        date = dateutil.parser.parse(d['timestamp'])
     elif api == 'planet':
         mgrs_id = d['properties']['mgrs_grid_id']
         date = dateutil.parser.parse(d['properties']['acquired'])
@@ -79,7 +79,11 @@ def filename_from_metadata_dict(d, api='devseed'):
     """
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
     if api == 'devseed':
-        orbit = d['sensing_orbit_number']
+        s = re.search('_R([0-9]{3})_', d['product_id'])
+        if s:
+            orbit = s.group(1)
+        else:
+            orbit = '000'
     elif api == 'planet':
         orbit = d['properties']['rel_orbit_number']
     elif api == 'scihub':
