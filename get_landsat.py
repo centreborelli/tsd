@@ -164,15 +164,18 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                             seen.add(x['properties']['acquired']))]
     print('Found {} images'.format(len(images)))
 
-    # build urls and filenames
-    urls = []
+    # build urls
+    urls = parallel.run_calls('threads', parallel_downloads, 60,
+                              aws_url_from_metadata_dict, list(images),
+                              search_api)
+
+    # build gdal urls and filenames
+    gdal_urls = []
     fnames = []
-    for img in images:
-        url = aws_url_from_metadata_dict(img, search_api)
-        #url = google_url_from_metadata_dict(img, search_api)
+    for img, url in zip(images, urls):
         name = filename_from_metadata_dict(img, search_api)
         for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
-            urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
+            gdal_urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
     # convert aoi coordinates to utm
@@ -186,12 +189,12 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
 
     # download crops
     utils.mkdir_p(out_dir)
-    print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(gdal_urls),
                                                                      len(images),
                                                                      len(bands) + 1),
          end=' ')
     parallel.run_calls('threads', parallel_downloads, 60,
-                       utils.crop_with_gdal_translate, list(zip(fnames, urls)),
+                       utils.crop_with_gdal_translate, list(zip(fnames, gdal_urls)),
                        ulx, uly, lrx, lry, utm_zone)
 
     # discard images that failed to download
