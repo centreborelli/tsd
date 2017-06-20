@@ -29,7 +29,8 @@ def show_progress(a):
     sys.stdout.flush()
 
 
-def run_calls(pool_type, nb_workers, timeout, fun, list_of_args, *extra_args):
+def run_calls(pool_type, nb_workers, timeout, verbose, fun, list_of_args,
+              *extra_args):
     """
     Run a function several times in parallel with different inputs.
 
@@ -37,6 +38,7 @@ def run_calls(pool_type, nb_workers, timeout, fun, list_of_args, *extra_args):
         pool_type: either 'processes' or 'threads'
         nb_workers: number of calls run simultaneously
         timeout: number of seconds allowed per function call
+        verbose: either True (show the amount of computed calls) or False
         fun: function to be called several times in parallel.
         list_of_args: list of (first positional) arguments passed to fun, one
             per call
@@ -55,14 +57,16 @@ def run_calls(pool_type, nb_workers, timeout, fun, list_of_args, *extra_args):
 
     results = []
     outputs = []
-    show_progress.counter = 0
-    show_progress.total = len(list_of_args)
+    if verbose:
+        show_progress.counter = 0
+        show_progress.total = len(list_of_args)
     for x in list_of_args:
         if type(x) == tuple:
             args = x + extra_args
         else:
             args = (x,) + extra_args
-        results.append(pool.apply_async(fun, args=args, callback=show_progress))
+        results.append(pool.apply_async(fun, args=args,
+                                        callback=show_progress if verbose else None))
 
     for r in results:
         try:

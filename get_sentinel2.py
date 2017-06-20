@@ -224,7 +224,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                                                                      len(images),
                                                                      len(bands)),
           end=' ')
-    parallel.run_calls('threads', parallel_downloads, 60,
+    parallel.run_calls('threads', parallel_downloads, 60, True,
                        utils.crop_with_gdal_translate, list(zip(fnames, urls)),
                        ulx, uly, lrx, lry, utm_zone)
 
@@ -234,7 +234,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     # discard images that are totally covered by clouds
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
     urls = [aws_url_from_metadata_dict(img, search_api) for img in images]
-    cloudy = parallel.run_calls('threads', parallel_downloads, 60,
+    cloudy = parallel.run_calls('threads', parallel_downloads, 60, False
                                 is_image_cloudy_at_location, urls,
                                 utils.geojson_lonlat_to_utm(aoi))
     for img, cloud in zip(images, cloudy):
