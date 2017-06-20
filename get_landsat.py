@@ -17,6 +17,7 @@ import datetime
 import numpy as np
 import utm
 import dateutil.parser
+import requests
 import tifffile
 
 import search_devseed
@@ -29,19 +30,42 @@ import registration
 aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
 
 
+def google_url_from_metadata_dict(d, api='devseed'):
+    """
+    Build the Google url of a Landsat image from it's metadata.
+    """
+    if api == 'devseed':
+        return d['download_links']['google'][0].rsplit('_', 1)[0]
+
+
 def aws_url_from_metadata_dict(d, api='devseed'):
     """
     Build the AWS url of a Landsat image from it's metadata.
     """
-    if api == 'devseed':
-        path = d['path']
-        row = d['row']
-        scene_id = d['sceneID']
-    elif api == 'planet':
+    if api == 'devseed':  # currently fixed with a temporary ugly hack
+        # https://github.com/sat-utils/landsat8-metadata/issues/6
+        assert(d['aws_index'].endswith('index.html'))
+        url = d['aws_index'][:-1-len('index.html')]
+        if url.endswith(d['sceneID']):
+            path = d['path']
+            row = d['row']
+            for i in range(4):  # ugly hack for images before 2017-05-01, waiting for developmentseed fix
+                scene_id = '{}{}'.format(d['sceneID'][:-1], i)
+                u = '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, scene_id)
+                if requests.head('{}_B8.TIF'.format(u)).ok:
+                    break
+            else:
+                product_id = d['product_id']
+                u = '{0}/c1/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, product_id)
+            return u
+        else:
+            product_id = d['product_id']
+            return '{}/{}'.format(url, product_id)
+    elif api == 'planet':  # currently broken
         path = d['properties']['wrs_path']
         row = d['properties']['wrs_row']
         scene_id = d['id']
-    return '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, scene_id)
+        return '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, scene_id)
 
 
 def filename_from_metadata_dict(d, api='devseed'):
@@ -145,6 +169,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     fnames = []
     for img in images:
         url = aws_url_from_metadata_dict(img, search_api)
+        #url = google_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
             urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
