@@ -232,20 +232,20 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     images = [x for x in images if bands_files_are_valid(x, bands, search_api,
                                                          out_dir)]
     # discard images that are totally covered by clouds
-    cloudy = []
-    for img in images:
-        url = aws_url_from_metadata_dict(img, search_api)
+    utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+    urls = [aws_url_from_metadata_dict(img, search_api) for img in images]
+    cloudy = parallel.run_calls('threads', parallel_downloads, 60,
+                                is_image_cloudy_at_location, urls,
+                                utils.geojson_lonlat_to_utm(aoi))
+    for img, cloud in zip(images, cloudy):
         name = filename_from_metadata_dict(img, search_api)
-        if is_image_cloudy_at_location(url, utils.geojson_lonlat_to_utm(aoi)):
-            cloudy.append(img)
-            utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+        if cloud:
             for b in bands:
                 f = '{}_band_{}.tif'.format(name, b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
-    print('{} cloudy images out of {}'.format(len(cloudy), len(images)))
-    for x in cloudy:
-        images.remove(x)
+    print('{} cloudy images out of {}'.format(sum(cloudy), len(images)))
+    images = [i for i, c in zip(images, cloudy) if not c]
 
     # group band crops per image
     crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
