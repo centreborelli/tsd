@@ -281,7 +281,7 @@ def gdal_translate_version():
     """
     """
     v = subprocess.check_output(['gdal_translate', '--version'])
-    return v.split()[1].split(',')[0]
+    return v.decode().split()[1].split(',')[0]
 
 
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None):
