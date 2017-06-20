@@ -138,6 +138,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     """
     Main function: download, crop and register a time series of Landsat-8 images.
     """
+    utils.print_elapsed_time.t0 = datetime.datetime.now()
+
     # list available images
     seen = set()
     if search_api == 'devseed':
@@ -163,6 +165,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                             or  # seen.add() returns None
                                             seen.add(x['properties']['acquired']))]
     print('Found {} images'.format(len(images)))
+    utils.print_elapsed_time()
 
     # build urls
     urls = parallel.run_calls('threads', parallel_downloads, 60, False,
@@ -196,6 +199,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     parallel.run_calls('threads', parallel_downloads, 60, True,
                        utils.crop_with_gdal_translate, list(zip(fnames, gdal_urls)),
                        ulx, uly, lrx, lry, utm_zone)
+    utils.print_elapsed_time()
 
     # discard images that failed to download
     images = [x for x in images if bands_files_are_valid(x, bands + ['QA'],
@@ -214,6 +218,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                             os.path.join(out_dir, 'cloudy', f))
     print('{} cloudy images out of {}'.format(sum(cloudy), len(images)))
     images = [i for i, c in zip(images, cloudy) if not c]
+    utils.print_elapsed_time()
 
     # group band crops per image
     crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
@@ -242,6 +247,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
 
         print('Registering...', end=' ')
         registration.main_lists(crops, crops, all_pairwise=True)
+        utils.print_elapsed_time()
 
         for bands_fnames in crops:  # crop to remove the margin
             for f in bands_fnames:

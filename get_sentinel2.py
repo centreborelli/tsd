@@ -175,6 +175,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     """
     Main function: download, crop and register a time series of Sentinel-2 images.
     """
+    utils.print_elapsed_time.t0 = datetime.datetime.now()
+
     # list available images
     if search_api == 'devseed':
         images = search_devseed.search(aoi, start_date, end_date,
@@ -195,6 +197,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                                         or  # seen.add() returns None
                                         seen.add(date_and_mgrs_id_from_metadata_dict(x, search_api)[0]))]
     print('Found {} images'.format(len(images)))
+    utils.print_elapsed_time()
 
     # convert bands to uppercase strings of length 2: 1 --> '01', '8a' --> '8A'
     bands = [str(b).zfill(2).upper() for b in bands]
@@ -227,6 +230,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     parallel.run_calls('threads', parallel_downloads, 60, True,
                        utils.crop_with_gdal_translate, list(zip(fnames, urls)),
                        ulx, uly, lrx, lry, utm_zone)
+    utils.print_elapsed_time()
 
     # discard images that failed to download
     images = [x for x in images if bands_files_are_valid(x, bands, search_api,
@@ -234,7 +238,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     # discard images that are totally covered by clouds
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
     urls = [aws_url_from_metadata_dict(img, search_api) for img in images]
-    cloudy = parallel.run_calls('threads', parallel_downloads, 60, False
+    cloudy = parallel.run_calls('threads', parallel_downloads, 60, False,
                                 is_image_cloudy_at_location, urls,
                                 utils.geojson_lonlat_to_utm(aoi))
     for img, cloud in zip(images, cloudy):
@@ -246,6 +250,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                             os.path.join(out_dir, 'cloudy', f))
     print('{} cloudy images out of {}'.format(sum(cloudy), len(images)))
     images = [i for i, c in zip(images, cloudy) if not c]
+    utils.print_elapsed_time()
 
     # group band crops per image
     crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
@@ -274,6 +279,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
 
         print('Registering...')
         registration.main_lists(crops, crops, all_pairwise=True)
+        utils.print_elapsed_time()
 
         for bands_fnames in crops:
             for f in bands_fnames:  # crop to remove the margin

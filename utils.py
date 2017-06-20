@@ -428,6 +428,25 @@ def lonlat_rectangle_centered_at(lon, lat, w, h):
     return [p[::-1] for p in latlon_rectangle_centered_at(lat, lon, w, h)]
 
 
+def print_elapsed_time(since_first_call=False):
+    """
+    Print the elapsed time since the last call or since the first call.
+
+    Args:
+        since_first_call:
+    """
+    t2 = datetime.datetime.now()
+    if since_first_call:
+        print("Total elapsed time:", t2 - print_elapsed_time.t0)
+    else:
+        try:
+            print("Elapsed time:", t2 - print_elapsed_time.t1)
+        except AttributeError:
+            print("Elapsed time:", t2 - print_elapsed_time.t0)
+    print_elapsed_time.t1 = t2
+    print()
+
+
 def weighted_median(data, weights=None):
     """
     Return the weighted median of a 1D array.
