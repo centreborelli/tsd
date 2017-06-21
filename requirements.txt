@@ -11,3 +11,4 @@ shapely
 planet
 geojson
 rasterio
+scipy
