@@ -12,6 +12,7 @@ import os
 import zipfile
 import argparse
 import subprocess
+import dateutil.parser
 
 import bs4
 import requests
@@ -23,6 +24,7 @@ import search_scihub
 scihub_url = 'https://scihub.copernicus.eu/dhus'
 peps_url_search = 'https://peps.cnes.fr/resto/api/collections'
 peps_url_download = 'https://peps.cnes.fr/resto/collections'
+codede_url = 'https://code-de.org/Sentinel1'
 
 
 def query_data_hub(output_filename, url, verbose=False, user='carlodef',
@@ -41,7 +43,7 @@ def query_data_hub(output_filename, url, verbose=False, user='carlodef',
                      url])
 
 
-def download_sentinel_image(image, out_dir='', mirror='peps'):
+def download_sentinel_image(image, out_dir='', mirror='code-de'):
     """
     Download a Sentinel image.
     """
@@ -51,10 +53,20 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
     # download zip file
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))
+    date = [x['content'] for x in image['date'] if x['name'] == 'beginposition']
+    date = dateutil.parser.parse(date[0])
     if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
-        if mirror == 'scihub':
-            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, image['id'])
-            query_data_hub(zip_path, url, verbose=True)
+        if mirror == 'code-de':
+            url = '{}/{:04d}/{:02d}/{:02d}/{}.SAFE.zip'.format(codede_url,
+                                                               date.year,
+                                                               date.month,
+                                                               date.day,
+                                                               image['title'])
+            if requests.head(url).ok:  # download the file
+                subprocess.call(['wget', url])
+            else:  # switch to PEPS
+                print('WARNING: {} not available, trying from PEPS...'.format(url))
+                download_sentinel_image(image, out_dir, mirror='peps')
         elif mirror == 'peps':
             r = requests.get('{}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
             try:
@@ -67,6 +79,9 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
                 print('WARNING: will download from scihub mirror...')
                 download_sentinel_image(image, out_dir, mirror='scihub')
+        elif mirror == 'scihub':
+            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, image['id'])
+            query_data_hub(zip_path, url, verbose=True)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 
@@ -74,7 +89,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
-                    product_type='GRD', mirror='peps'):
+                    product_type='GRD', mirror='code-de'):
     """
     Main function: download a Sentinel-1 image time serie.
     """
@@ -113,8 +128,8 @@ if __name__ == '__main__':
                                                           'images'), default='')
     parser.add_argument('-t', '--product-type',
                         help='type of image: GRD, SLC, RAW', default='GRD')
-    parser.add_argument('--mirror', help='download mirror: peps or scihub',
-                        default='peps')
+    parser.add_argument('--mirror', help='download mirror: code-de, peps or scihub',
+                        default='code-de')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
