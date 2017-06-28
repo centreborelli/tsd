@@ -35,6 +35,9 @@ import registration
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
 
+# list of spectral bands
+all_bands = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
+             'B8A', 'B09', 'B10', 'B11', 'B12']
 
 def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     """
@@ -199,9 +202,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
     print('Found {} images'.format(len(images)))
     utils.print_elapsed_time()
 
-    # convert bands to uppercase strings of length 2: 1 --> '01', '8a' --> '8A'
-    bands = [str(b).zfill(2).upper() for b in bands]
-
     # build urls and filenames
     urls = []
     fnames = []
@@ -209,7 +209,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
         url = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         for b in bands:
-            urls.append('/vsicurl/{}B{}.jp2'.format(url, b))
+            urls.append('/vsicurl/{}{}.jp2'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
     # convert aoi coordates to utm
@@ -278,7 +278,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
                                                    utm_zone)
 
         print('Registering...')
-        registration.main_lists(crops, crops, all_pairwise=True)
+        if bands == ['TCI']:
+            paths = [x[0] for x in crops]
+            registration.main_paths(paths, paths, all_pairwise=True)
+        else:
+            registration.main_lists(crops, crops, all_pairwise=True)
         utils.print_elapsed_time()
 
         for bands_fnames in crops:
@@ -304,8 +308,11 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-b', '--band', nargs='*', default=[4],
-                        help=('list of spectral bands, default band 4 (red)'))
+    parser.add_argument('-b', '--band', nargs='*', default=['B04'],
+                        choices=all_bands, metavar='',
+                        help=('space separated list of spectral bands to'
+                              ' download. Default is B04 (red). Allowed values'
+                              ' are {}'.format(', '.join(all_bands))))
     parser.add_argument('-r', '--register', action='store_true',
                         help='register images through time')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '

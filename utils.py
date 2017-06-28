@@ -295,7 +295,7 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
 
     env = os.environ.copy()
     env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
-    cmd = ['gdal_translate', inpath, out, '-ot', 'UInt16', '-of', 'GTiff',
+    cmd = ['gdal_translate', inpath, out, '-of', 'GTiff',
            '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     if utm_zone is not None and gdal_translate_version() >= '2.0':
         cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
