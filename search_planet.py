@@ -78,7 +78,11 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('--item-types', nargs='*', default=ITEM_TYPES)
+    parser.add_argument('--item-types', nargs='*', choices=ITEM_TYPES,
+                        default=['PSScene3Band'], metavar='',
+                        help=('space separated list of item types to'
+                              ' search for. Default is PSScene3Band. Allowed'
+                              ' values are {}'.format(', '.join(ITEM_TYPES))))
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
