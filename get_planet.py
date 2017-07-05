@@ -46,11 +46,13 @@ def metadata_from_metadata_dict(d):
     sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
     sun_azimuth = d['properties']['sun_azimuth']
 
-    return {
+    out = {
         "IMAGING_DATE": imaging_date.strftime('%Y-%m-%dT%H:%M:%S'),
         "SUN_ZENITH": str(sun_zenith),
         "SUN_AZIMUTH": str(sun_azimuth)
     }
+    out.update({str(k): str(d['properties'][k]) for k in d['properties'].keys()})
+    return out
 
 
 def get_download_url(item, asset_type):
