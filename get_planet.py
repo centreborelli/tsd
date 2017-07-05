@@ -25,6 +25,21 @@ import utils
 import parallel
 import search_planet
 
+ITEM_TYPES = search_planet.ITEM_TYPES
+ASSETS = ['udm',
+          'visual',
+          'visual_xml',
+          'analytic',
+          'analytic_xml',
+          'analytic_dn',
+          'analytic_dn_xml',
+          'basic_udm',
+          'basic_analytic',
+          'basic_analytic_xml',
+          'basic_analytic_rpc',
+          'basic_analytic_dn',
+          'basic_analytic_dn_xml',
+          'basic_analytic_dn_rpc']
 client = search_planet.client
     
 
@@ -153,12 +168,15 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('--item-types', nargs='*', default=['PSScene3Band'],
-                        help=('choose from PSScene4Band, PSScene3Band, REScene,'
-                              'REOrthoTile, Sentinel2L1C, PSOrthoTile,'
-                              'Landsat8L1G'))
-    parser.add_argument('--asset', default='analytic',
-                        help=('choose from analytic, visual, basic'))
+    parser.add_argument('--item-types', nargs='*', choices=ITEM_TYPES,
+                        default=['PSScene3Band'], metavar='',
+                        help=('space separated list of item types to'
+                              ' download. Default is PSScene3Band. Allowed'
+                              ' values are {}'.format(', '.join(ITEM_TYPES))))
+    parser.add_argument('--asset', default='analytic', metavar='',
+                        choices=ASSETS,
+                        help=('asset item type to download. Default is analytic.'
+                              ' Allowed values are {}'.format(', '.join(ASSETS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '

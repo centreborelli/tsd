@@ -20,7 +20,7 @@ import utils
 
 
 client = api.ClientV1()
-ITEM_TYPES = ['PSScene4Band', 'PSScene3Band', 'PSOrthoTile', 'REScene', 'REOrthoTile',
+ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrthoTile',
               'Sentinel2L1C', 'Landsat8L1G']
 
 
