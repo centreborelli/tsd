@@ -14,7 +14,6 @@ import tifffile
 from osgeo import gdal, osr
 import numpy as np
 import utm
-import matplotlib.pyplot as plt
 import traceback
 import warnings
 import sys
@@ -471,23 +470,23 @@ def weighted_median(data, weights=None):
         return 0.5 * (sorted_data[i] + sorted_data[i+1])
 
 
-def show(img):
-    """
-    """
-    fig, ax = plt.subplots()
-    ax.imshow(img, interpolation='nearest')
-
-    def format_coord(x, y):
-        col = int(x + 0.5)
-        row = int(y + 0.5)
-        if col >= 0 and col < img.shape[1] and row >= 0 and row < img.shape[0]:
-            z = img[row, col]
-            return 'x={}, y={}, z={}'.format(col, row, z)
-        else:
-            return 'x={}, y={}'.format(col, row)
-
-    ax.format_coord = format_coord
-    plt.show()
+#def show(img):
+#    """
+#    """
+#    fig, ax = plt.subplots()
+#    ax.imshow(img, interpolation='nearest')
+#
+#    def format_coord(x, y):
+#        col = int(x + 0.5)
+#        row = int(y + 0.5)
+#        if col >= 0 and col < img.shape[1] and row >= 0 and row < img.shape[0]:
+#            z = img[row, col]
+#            return 'x={}, y={}, z={}'.format(col, row, z)
+#        else:
+#            return 'x={}, y={}'.format(col, row)
+#
+#    ax.format_coord = format_coord
+#    plt.show()
 
 
 def warn_with_traceback(message, category, filename, lineno, file=None,

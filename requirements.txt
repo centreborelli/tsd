@@ -4,7 +4,6 @@ utm
 mgrs
 python-dateutil
 tifffile
-matplotlib
 future
 pyfftw
 shapely
