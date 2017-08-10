@@ -102,8 +102,13 @@ def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None):
     """
     url = get_download_url(item, asset)
     if url is not None:
-        utils.crop_with_gdal_translate(outfile, '/vsicurl/{}'.format(url), ulx,
-                                       uly, lrx, lry, utm_zone)
+        if asset.endswith(('_xml', '_rpc')):
+            os.system('wget {} -O {}'.format(url, outfile))
+        elif asset.startswith('basic'):
+            os.system('wget {} -O {}'.format(url, outfile))
+        else:
+            utils.crop_with_gdal_translate(outfile, '/vsicurl/{}'.format(url),
+                                           ulx, uly, lrx, lry, utm_zone)
 
 
 def get_time_series(aoi, start_date=None, end_date=None,
@@ -116,16 +121,6 @@ def get_time_series(aoi, start_date=None, end_date=None,
     # list available images
     images = search_planet.search(aoi, start_date, end_date,
                                   item_types=item_types)['features']
-    # Choose from:
-    #   all
-    #   PSScene4Band
-    #   PSScene3Band
-    #   REScene
-    #   REOrthoTile
-    #   Sentinel2L1C
-    #   PSOrthoTile
-    #   Landsat8L1G
-
     print('Found {} images'.format(len(images)))
 
     # build filenames
