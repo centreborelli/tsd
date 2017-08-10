@@ -1,3 +1,5 @@
+numpy
+lxml
 requests
 bs4
 utm
