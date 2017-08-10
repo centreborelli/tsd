@@ -1,0 +1,15 @@
+fast_finish: true
+
+matrix:
+  include:
+    - os: osx
+      language: generic
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gdal --with-complete --with-python3; fi
+
+install:
+  pip install -r requirements.txt
+
+script:
+  bash tests/download_tests.sh
