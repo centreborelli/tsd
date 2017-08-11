@@ -14,41 +14,64 @@ and `get_planet.py`.
 They use the Python modules `search_devseed.py`, `search_scihub.py`,
 `search_peps.py`, `search_planet.py` and `register.py`.
 
-## Python packages
-The required Python packages are listed in the file `requirements.txt`. They
-can be installed with `pip`:
+_Note_: a shell script installing all the needed stuff (`brew`, `python`,
+`gdal`...) on an empty macOS is given in the file
+[macos_install_from_scratch.sh](macos_install_from_scratch.sh).
 
-    pip install -r requirements.txt
+## GDAL
+The toughest dependency to install is GDAL. All the others are easily installed
+with `pip` as shown in the [next section](#python-packages).
 
-## GDAL (on macOS)
-There are at least two ways of installing `gdal`:
+### On macOS
+There are several ways of installing `gdal`. I recommend option 1: it
+gives a version of gdal 2.1 that works with JP2 files, plus bindings
+for both python 2 and 3.
 
-### Using brew
+#### Option 1: using the GDAL Complete Compatibility Framework.
 
-    brew install gdal --with-complete --with-python3 --HEAD
-
-Note that this version doesn't support JP2 files (hence it will fail to get
-Sentinel-2 crops from AWS).
-
-### Using the [GDAL Complete Compatibility Framework](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.1.dmg).
-
-Download and install the `.dmg` file from the link above. Don't forget to
-update your `PATH` and `PYTHONPATH` after the installation by copying these lines
-in your `~/.profile`:
+[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.1.dmg)
+and install the `.dmg` file. Update your `PATH` after the installation by
+running this command:
 
     export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"
-    export PYTHONPATH="/Library/Frameworks/GDAL.framework/Versions/2.1/Python/2.7/site-packages:$PYTHONPATH"
 
-Note that this version supports JP2 files, but Python bindings are available only for Python 2.
+Copy it in your `~/.profile`.
 
+Then install the GDAL Python bindings and the rasterio package with pip:
 
-## GDAL (Linux)
+    pip install rasterio gdal==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/
+
+_Note_: installation of `rasterio` with Python 3 requires `numpy`.
+
+The `gdal-config --version | awk -F'[.]' '{print $1"."$2}'` command retrieves
+the fist two digits of your gdal version. This information is needed to install
+the same version of the python bindings.
+
+The four `--global-option build_ext` options tell `pip` where to find gdal
+headers and libraries.
+
+#### Option 2: using brew
+
+    brew install gdal --with-complete --with-python3
+
+This installs gdal and bindings for python 2 and 3. Note that this version
+doesn't support JP2 files (hence it will fail to get Sentinel-2 crops from
+AWS). Moreover, the version currently bottled in brew is only 1.11 (as of
+08/2017).
+
+### On Linux
 On Linux `gdal` and its Python bindings are usually straightforward to install
 through your package manager.
 
     sudo apt-get update
     sudo apt-get install libgdal-dev gdal-bin python-gdal
 
+
+## Python packages
+The required Python packages are listed in the file `requirements.txt`. They
+can be installed with `pip`:
+
+    pip install -r requirements.txt
 
 # Usage
 
