@@ -1,5 +1,7 @@
 # Time Series Downloader (TSD)
 
+[![Build Status](https://travis-ci.com/carlodef/tsd.svg?token=q3ppoFukgX6NERpM7HRM&branch=master)](https://travis-ci.com/carlodef/tsd)
+
 Automatic download and registration of Sentinel, Landsat and Planet crops.
 
 [Carlo de Franchis](mailto:carlo.de-franchis@ens-cachan.fr),
