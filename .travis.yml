@@ -18,3 +18,5 @@ install:
 
 script:
   bash tests/download_tests.sh
+  bash tests/registration_test.sh
+  python tests/registration_test.py
