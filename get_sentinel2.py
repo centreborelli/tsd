@@ -171,8 +171,8 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 
 
-def get_time_series(aoi, start_date=None, end_date=None, bands=[4], out_dir='',
-                    search_api='devseed',
+def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
+                    out_dir='', search_api='devseed',
                     parallel_downloads=multiprocessing.cpu_count(),
                     register=False, debug=False):
     """
