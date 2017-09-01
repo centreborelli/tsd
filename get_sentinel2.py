@@ -209,7 +209,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         url = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         for b in bands:
-            urls.append('/vsicurl/{}{}.jp2'.format(url, b))
+            urls.append('{}{}.jp2'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
     # convert aoi coordates to utm

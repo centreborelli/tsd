@@ -107,8 +107,8 @@ def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None):
         elif asset.startswith('basic'):
             os.system('wget {} -O {}'.format(url, outfile))
         else:
-            utils.crop_with_gdal_translate(outfile, '/vsicurl/{}'.format(url),
-                                           ulx, uly, lrx, lry, utm_zone)
+            utils.crop_with_gdal_translate(outfile, url, ulx, uly, lrx, lry,
+                                           utm_zone)
 
 
 def get_time_series(aoi, start_date=None, end_date=None,

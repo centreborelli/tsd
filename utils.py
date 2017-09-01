@@ -293,18 +293,23 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
         out = outpath
 
     env = os.environ.copy()
-    env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
-    cmd = ['gdal_translate', inpath, out, '-of', 'GTiff',
-           '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
+    if inpath.startswith(('http://', 'https://')):
+        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
+        path = '/vsicurl/{}'.format(inpath)
+    else:
+        path = inpath
+
+    cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-projwin', str(ulx),
+           str(uly), str(lrx), str(lry)]
     if utm_zone is not None and gdal_translate_version() >= '2.0':
         cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
+
     try:
         #print(' '.join(cmd))
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
     except subprocess.CalledProcessError as e:
-        if inpath.startswith('/vsicurl/'):
-            url = inpath.split('vsicurl/')[1]
-            if not requests.head(url).ok:
+        if inpath.startswith(('http://', 'https://')):
+            if not requests.head(inpath).ok:
                 print('{} is not available'.format(url))
                 return
         print('ERROR: this command failed')

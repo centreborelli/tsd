@@ -178,7 +178,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     for img, url in zip(images, urls):
         name = filename_from_metadata_dict(img, search_api)
         for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
-            gdal_urls.append('/vsicurl/{}_B{}.TIF'.format(url, b))
+            gdal_urls.append('{}_B{}.TIF'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
     # convert aoi coordinates to utm
