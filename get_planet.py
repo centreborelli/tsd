@@ -76,6 +76,9 @@ def get_download_url(item, asset_type):
     assets = client.get_assets(item).get()
 
     if asset_type not in assets:
+        print("WARNING: no permission to get asset '{}' of {}".format(asset_type,
+                                                                     item['_links']['_self']))
+        print("\tPermissions for this item are:", item['_permissions'])
         return
 
     asset = assets[asset_type]
