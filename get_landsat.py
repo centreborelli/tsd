@@ -168,9 +168,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     utils.print_elapsed_time()
 
     # build urls
-    urls = parallel.run_calls('threads', parallel_downloads, 60, False,
-                              aws_url_from_metadata_dict, list(images),
-                              search_api)
+    urls = parallel.run_calls(aws_url_from_metadata_dict, list(images),
+                              extra_args=(search_api,), pool_type='threads',
+                              nb_workers=parallel_downloads, verbose=False)
 
     # build gdal urls and filenames
     gdal_urls = []
@@ -196,9 +196,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                                                      len(images),
                                                                      len(bands) + 1),
          end=' ')
-    parallel.run_calls('threads', parallel_downloads, 60, True,
-                       utils.crop_with_gdal_translate, list(zip(fnames, gdal_urls)),
-                       ulx, uly, lrx, lry, utm_zone)
+    parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, gdal_urls)),
+                       extra_args=(ulx, uly, lrx, lry, utm_zone), pool_type='threads',
+                       nb_workers=parallel_downloads)
     utils.print_elapsed_time()
 
     # discard images that failed to download
@@ -208,8 +208,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
     names = [filename_from_metadata_dict(img, search_api) for img in images]
     qa_names = [os.path.join(out_dir, '{}_band_QA.tif'.format(f)) for f in names]
-    cloudy = parallel.run_calls('processes', parallel_downloads, 60, False,
-                                is_image_cloudy, qa_names)
+    cloudy = parallel.run_calls(is_image_cloudy, qa_names,
+                                pool_type='processes',
+                                nb_workers=parallel_downloads, verbose=False)
     for name, cloud in zip(names, cloudy):
         if cloud:
             for b in bands + ['QA']:

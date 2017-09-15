@@ -29,21 +29,22 @@ def show_progress(a):
     sys.stdout.flush()
 
 
-def run_calls(pool_type, nb_workers, timeout, verbose, fun, list_of_args,
-              *extra_args, initializer=None, initargs=None):
+def run_calls(fun, list_of_args, extra_args=(), pool_type='processes',
+              nb_workers=multiprocessing.cpu_count(), timeout=60, verbose=True,
+              initializer=None, initargs=None):
     """
     Run a function several times in parallel with different inputs.
 
     Args:
+        fun: function to be called several times in parallel.
+        list_of_args: list of (first positional) arguments passed to fun, one
+            per call
+        extra_args: tuple containing extra arguments to be passed to fun
+            (same value for all calls)
         pool_type: either 'processes' or 'threads'
         nb_workers: number of calls run simultaneously
         timeout: number of seconds allowed per function call
         verbose: either True (show the amount of computed calls) or False
-        fun: function to be called several times in parallel.
-        extra_args (optional): tuple containing extra arguments to be passed to
-            fun (same value for all calls)
-        list_of_args: list of (first positional) arguments passed to fun, one
-            per call
         initializer, initargs (optional): if initializer is not None then each
             worker process will call initializer(*initargs) when it starts
 
