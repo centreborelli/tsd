@@ -3,7 +3,7 @@
 # pylint: disable=C0103
 
 """
-Automatic download, crop and registration of Landsat images.
+Automatic crop and download of Landsat timeseries.
 
 Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
 """
@@ -24,7 +24,6 @@ import search_devseed
 import search_planet
 import utils
 import parallel
-import registration
 
 
 aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
@@ -134,9 +133,9 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                     out_dir='', search_api='devseed', parallel_downloads=100,
-                    register=False, debug=False):
+                    debug=False):
     """
-    Main function: download, crop and register a time series of Landsat-8 images.
+    Main function: crop and download a time series of Landsat-8 images.
     """
     utils.print_elapsed_time.t0 = datetime.datetime.now()
 
@@ -184,12 +183,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     # convert aoi coordinates to utm
     ulx, uly, lrx, lry, utm_zone = utils.utm_bbx(aoi)
 
-    if register:  # take 100 meters margin in case of forthcoming shift
-        ulx -= 50
-        uly += 50
-        lrx += 50
-        lry -= 50
-
     # download crops
     utils.mkdir_p(out_dir)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(gdal_urls),
@@ -234,32 +227,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
             for k, v in metadata_from_metadata_dict(img, search_api).items():
                 utils.set_geotif_metadata_item(f, k, v)
 
-    # register the images through time
-    if register:
-        ulx, uly, lrx, lry = utils.utm_bbx(aoi)[:4]
-        if debug:  # keep a copy of the cropped images before registration
-            bak = os.path.join(out_dir, 'no_registration')
-            utils.mkdir_p(bak)
-            for bands_fnames in crops:
-                for f in bands_fnames:  # crop to remove the margin
-                    o = os.path.join(bak, os.path.basename(f))
-                    utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry,
-                                                   utm_zone)
-
-        print('Registering...', end=' ')
-        registration.main_lists(crops, crops, all_pairwise=True)
-        utils.print_elapsed_time()
-
-        for bands_fnames in crops:  # crop to remove the margin
-            for f in bands_fnames:
-                utils.crop_with_gdal_translate(f, f, ulx, uly, lrx, lry, utm_zone)
-        cloudy = os.path.join(out_dir, 'cloudy')
-        if os.path.isdir(cloudy):
-            for f in os.listdir(cloudy):
-                utils.crop_with_gdal_translate(os.path.join(cloudy, f),
-                                               os.path.join(cloudy, f),
-                                               ulx, uly, lrx, lry, utm_zone)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
@@ -280,8 +247,6 @@ if __name__ == '__main__':
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-b', '--band', nargs='*', default=[8],
                         help=('list of spectral bands, default band 8 (panchro)'))
-    parser.add_argument('-r', '--register', action='store_true',
-                        help='register images through time')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
@@ -305,6 +270,6 @@ if __name__ == '__main__':
         aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
                                             args.height)
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-                    bands=args.band, register=args.register,
-                    out_dir=args.outdir, debug=args.debug, search_api=args.api,
+                    bands=args.band, out_dir=args.outdir, debug=args.debug,
+                    search_api=args.api,
                     parallel_downloads=args.parallel_downloads)

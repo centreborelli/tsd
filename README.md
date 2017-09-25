@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.com/carlodef/tsd.svg?token=q3ppoFukgX6NERpM7HRM&branch=master)](https://travis-ci.com/carlodef/tsd)
 
-Automatic download and registration of Sentinel, Landsat and Planet crops.
+Automatic download of Sentinel, Landsat and Planet crops.
 
 [Carlo de Franchis](mailto:carlo.de-franchis@ens-cachan.fr),
 CMLA, ENS Cachan, Université Paris-Saclay, 2016-17
@@ -14,7 +14,7 @@ The main scripts are `get_landsat.py`, `get_sentinel1.py`, `get_sentinel2.py`
 and `get_planet.py`.
 
 They use the Python modules `search_devseed.py`, `search_scihub.py`,
-`search_peps.py`, `search_planet.py` and `register.py`.
+`search_peps.py` and `search_planet.py`.
 
 _Note_: a shell script installing all the needed stuff (`brew`, `python`,
 `gdal`...) on an empty macOS is given in the file
@@ -82,25 +82,24 @@ The pipeline can be used from the command line through the Python scripts
 `get_*.py`. For instance, to download and process Sentinel-2 images of the
 Jamnagar refinery, located at latitude 22.34806 and longitude 69.86889, run
 
-    python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b 2 3 4 -r -o test
+    python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b 2 3 4 -o test
 
 This will download crops of size 5000 x 5000 meters from the bands 2, 3 and 4,
-corresponding to the blue, green and red channels, and register them through
-time. To specify the desired bands, use the `-b` or `--band` flag. The crop
-size can be changed with the `--width` and `--height` flags. For instance
+corresponding to the blue, green and red channels. To specify the desired
+bands, use the `-b` or `--band` flag. The crop size can be changed with the
+`--width` and `--height` flags. For instance
 
     python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b 11 12 --width 8000 --height 6000
 
 will download crops of size 8000 x 6000 meters, only for the SWIR channels (bands 11
-and 12), without registration (no option `-r`).
+and 12).
 
 All the available options are listed when using the `-h` or `--help` flag:
 
     python get_sentinel2.py -h
 
-You can also run any of the `search_*.py` scripts or `registration.py` from
-the command line separately to use only single blocks of the pipeline. Run them
-with `-h` to get the list of available options.
+You can also run any of the `search_*.py` scripts from the command line
+separately. Run them with `-h` to get the list of available options.
 
 ## As Python modules
 

@@ -310,7 +310,7 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
     except subprocess.CalledProcessError as e:
         if inpath.startswith(('http://', 'https://')):
             if not requests.head(inpath).ok:
-                print('{} is not available'.format(url))
+                print('{} is not available'.format(inpath))
                 return
         print('ERROR: this command failed')
         print(' '.join(cmd))

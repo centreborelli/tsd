@@ -3,7 +3,7 @@
 # pylint: disable=C0103
 
 """
-Search of Landsat images.
+Search of Landsat-8 and Sentinel-2 images using Development Seed API.
 
 Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
 """
@@ -21,6 +21,7 @@ import utils
 
 
 api_url = 'https://api.developmentseed.org/satellites/landsat'
+api_url = 'https://api.developmentseed.org/satellites/'
 s2_mgrs_grid = os.path.join(os.path.dirname(os.path.abspath(__file__)), 's2_mgrs_grid.txt')
 
 
@@ -108,7 +109,7 @@ def query_s2(lat, lon, start_date=None, end_date=None):
     Returns:
         string
     """
-    x = 'satellite_name:sentinel-2'
+    x = 'satellite_name=sentinel-2'
 
     # relevant MGRS tiles
     x += '+AND+({})'.format('+OR+'.join(mgrs_id_query_string(x) for x in

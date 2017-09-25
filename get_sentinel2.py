@@ -3,11 +3,9 @@
 # pylint: disable=C0103
 
 """
-Automatic download, crop, registration, filtering, and equalization of
-Sentinel-2 images.
+Automatic crop and download of Sentinel-2 images.
 
 Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
-Copyright (C) 2016, Axel Davy <axel.davy@ens.fr>
 """
 
 from __future__ import print_function
@@ -29,7 +27,6 @@ import parallel
 import search_devseed
 import search_scihub
 import search_planet
-import registration
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
@@ -64,7 +61,6 @@ def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     return date, mgrs_id
 
 
-
 def aws_url_from_metadata_dict(d, api='devseed'):
     """
     Build the AWS url of a Sentinel-2 image from it's metadata.
@@ -74,7 +70,6 @@ def aws_url_from_metadata_dict(d, api='devseed'):
     return '{}/tiles/{}/{}/{}/{}/{}/{}/0/'.format(aws_url, utm_code, lat_band,
                                                   sqid, date.year, date.month,
                                                   date.day)
-
 
 def filename_from_metadata_dict(d, api='devseed'):
     """
@@ -173,10 +168,9 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                     out_dir='', search_api='devseed',
-                    parallel_downloads=multiprocessing.cpu_count(),
-                    register=False, debug=False):
+                    parallel_downloads=multiprocessing.cpu_count()):
     """
-    Main function: download, crop and register a time series of Sentinel-2 images.
+    Main function: crop and download a time series of Sentinel-2 images.
     """
     utils.print_elapsed_time.t0 = datetime.datetime.now()
 
@@ -214,12 +208,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # convert aoi coordates to utm
     ulx, uly, lrx, lry, utm_zone = utils.utm_bbx(aoi)
-
-    if register:  # take 100 meters margin in case of forthcoming shift
-        ulx -= 50
-        uly += 50
-        lrx += 50
-        lry -= 50
 
     # download crops
     utils.mkdir_p(out_dir)
@@ -266,31 +254,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
             for k, v in metadata_from_metadata_dict(img, search_api).items():
                 utils.set_geotif_metadata_item(f, k, v)
 
-    # register the images through time
-    if register:
-        ulx, uly, lrx, lry = utils.utm_bbx(aoi)[:4]
-        if debug:  # keep a copy of the cropped images before registration
-            bak = os.path.join(out_dir, 'no_registration')
-            utils.mkdir_p(bak)
-            for bands_fnames in crops:
-                for f in bands_fnames:  # crop to remove the margin
-                    o = os.path.join(bak, os.path.basename(f))
-                    utils.crop_with_gdal_translate(o, f, ulx, uly, lrx, lry,
-                                                   utm_zone)
-
-        print('Registering...')
-        if bands == ['TCI']:
-            paths = [x[0] for x in crops]
-            registration.main_paths(paths, paths, all_pairwise=True)
-        else:
-            registration.main_lists(crops, crops, all_pairwise=True)
-        utils.print_elapsed_time()
-
-        for bands_fnames in crops:
-            for f in bands_fnames:  # crop to remove the margin
-                utils.crop_with_gdal_translate(f, f, ulx, uly, lrx, lry,
-                                               utm_zone)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
@@ -314,13 +277,8 @@ if __name__ == '__main__':
                         help=('space separated list of spectral bands to'
                               ' download. Default is B04 (red). Allowed values'
                               ' are {}'.format(', '.join(all_bands))))
-    parser.add_argument('-r', '--register', action='store_true',
-                        help='register images through time')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('-d', '--debug', action='store_true', help=('save '
-                                                                    'intermediate '
-                                                                    'images'))
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
                         default='devseed', help='search API')
     parser.add_argument('--parallel-downloads', type=int,
@@ -340,6 +298,5 @@ if __name__ == '__main__':
         aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
                                             args.height)
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-                    bands=args.band, register=args.register,
-                    out_dir=args.outdir, debug=args.debug, search_api=args.api,
+                    bands=args.band, out_dir=args.outdir, search_api=args.api,
                     parallel_downloads=args.parallel_downloads)

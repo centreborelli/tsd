@@ -7,7 +7,6 @@ matrix:
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink gdal; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install fftw; fi
 
 install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.1.dmg; fi
@@ -19,5 +18,3 @@ install:
 
 script:
   - bash tests/download_tests.sh
-  - bash tests/registration_test.sh
-  - python tests/registration_test.py

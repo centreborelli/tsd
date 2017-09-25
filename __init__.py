@@ -10,4 +10,3 @@ import get_landsat
 import get_sentinel1
 import get_sentinel2
 import get_planet
-import registration
