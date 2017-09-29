@@ -1,6 +1,0 @@
-numpy>=1.12
-tifffile
-future
-pyfftw
-scipy
-rasterio
