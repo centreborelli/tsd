@@ -62,8 +62,8 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
 
     # build the url used to query the scihub API
     query = 'platformname:{}'.format(satellite)
+    query += ' AND producttype:{}'.format(product_type)
     if satellite == 'Sentinel-1':
-        query += ' AND producttype:{}'.format(product_type)
         query += ' AND sensoroperationalmode:{}'.format(operational_mode)
     query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
                                                       end_date.isoformat())
@@ -107,6 +107,9 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
+    if satellite == 'Sentinel-2' and product_type not in ['S2MSI1C', 'S2MSI2Ap']:
+        product_type = 'S2MSI1C'
+
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode)
     results = load_query(query, api_urls[api])
@@ -144,7 +147,7 @@ if __name__ == '__main__':
     parser.add_argument('--satellite', default='Sentinel-1',
                         help='which satellite: Sentinel-1 or Sentinel-2')
     parser.add_argument('--product-type', default='GRD',
-                        help='(for S1) type of image: GRD or SLC')
+                        help='type of image: RAW, SLC, GRD, OCN (for S1), S2MSI1C, S2MSI2Ap (for S2)')
     parser.add_argument('--operational-mode', default='IW',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--api', default='copernicus',
