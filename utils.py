@@ -272,7 +272,8 @@ def gdal_translate_version():
     return v.decode().split()[1].split(',')[0]
 
 
-def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None):
+def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
+                             utm_zone=None, output_type=None):
     """
     """
     if outpath == inpath:  # hack to allow the output to overwrite the input
@@ -290,6 +291,8 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry, utm_zone=None)
 
     cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-projwin', str(ulx),
            str(uly), str(lrx), str(lry)]
+    if output_type is not None:
+        cmd += ['-ot', output_type]
     if utm_zone is not None and gdal_translate_version() >= '2.0':
         cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
 

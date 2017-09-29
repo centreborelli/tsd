@@ -216,8 +216,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                                                                      len(bands)),
           end=' ')
     parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, urls)),
-                       extra_args=(ulx, uly, lrx, lry, utm_zone), pool_type='threads',
-                       nb_workers=parallel_downloads)
+                       extra_args=(ulx, uly, lrx, lry, utm_zone, 'UInt16'),
+                       pool_type='threads', nb_workers=parallel_downloads)
     utils.print_elapsed_time()
 
     # discard images that failed to download
@@ -226,10 +226,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     # discard images that are totally covered by clouds
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
     urls = [aws_url_from_metadata_dict(img, search_api) for img in images]
+    print('Reading {} cloud masks...'.format(len(urls)), end=' ')
     cloudy = parallel.run_calls(is_image_cloudy_at_location, urls,
                                 extra_args=(utils.geojson_lonlat_to_utm(aoi),),
                                 pool_type='threads',
-                                nb_workers=parallel_downloads, verbose=False)
+                                nb_workers=parallel_downloads, verbose=True)
     for img, cloud in zip(images, cloudy):
         name = filename_from_metadata_dict(img, search_api)
         if cloud:
