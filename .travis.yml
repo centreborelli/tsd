@@ -17,4 +17,4 @@ install:
   - pip install -r requirements.txt
 
 script:
-  - bash tests/download_tests.sh
+  - bash download_tests.sh
