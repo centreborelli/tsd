@@ -27,9 +27,27 @@ Jamnagar refinery, located at latitude 22.34806 and longitude 69.86889, run
     python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b B02 B03 B04 -o test
 
 This downloads crops of size 5000 x 5000 meters from the bands 2, 3 and 4,
-corresponding to the blue, green and red channels. To specify the desired
-bands, use the `-b` or `--band` flag. The crop size can be changed with the
-`--width` and `--height` flags. For instance
+corresponding to the blue, green and red channels, and stores them in geotif
+files in the `test` directory.
+
+It should print something like this on `stdout` (the number of images might vary):
+
+    Found 22 images
+    Elapsed time: 0:00:02.301129
+
+    Downloading 66 crops (22 images with 3 bands)... 66 / 66
+    Elapsed time: 0:00:57.620805
+
+    Reading 22 cloud masks... 22 / 22
+    6 cloudy images out of 22
+    Elapsed time: 0:00:15.066992
+
+Images with more than half of the pixels covered by clouds (according to the
+cloud polygons available in Sentinel-2 images metadata, or Landsat-8 images
+quality bands) are moved in the `test/cloudy` subfolder.
+
+To specify the desired bands, use the `-b` or `--band` flag. The crop size can
+be changed with the `--width` and `--height` flags. For instance
 
     python get_sentinel2.py --lat 22.34806 --lon 69.86889 -b B11 B12 --width 8000 --height 6000
 
