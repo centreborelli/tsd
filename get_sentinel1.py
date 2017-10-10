@@ -44,6 +44,36 @@ def query_data_hub(output_filename, url, verbose=False,
                      url])
 
 
+def download_safe_from_peps(safe_name, out_dir=''):
+    """
+    """
+    try:
+        login, password = os.environ['PEPS_LOGIN'], os.environ['PEPS_PASSWORD']
+    except KeyError:
+        print("Downloading from PEPS requires the PEPS_LOGIN and".format(__file__),
+              "PEPS_PASSWORD environment variables to be defined with valid",
+              "credentials for https://peps.cnes.fr/. Create an account if",
+              "you don't have one (it's free) then edit the relevant configuration",
+              "files (eg .bashrc) to define these environment variables.")
+        return
+
+    query = '{}/S1/search.atom?identifier={}'.format(peps_url_search, safe_name)
+    r = requests.get(query)
+
+    if not r.ok:
+        print('WARNING: request {} failed'.format(query))
+        return
+
+    img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
+    peps_id = img.find('id').text
+    url = "{}/S1/{}/download".format(peps_url_download, peps_id)
+    zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(safe_name))
+    cmd = "curl -k --basic -u {}:{} {} -o {}".format(login, password,
+                                                     url, zip_path)
+    print(cmd)
+    os.system(cmd)
+
+
 def download_sentinel_image(image, out_dir='', mirror='code-de'):
     """
     Download a Sentinel image.
@@ -69,24 +99,8 @@ def download_sentinel_image(image, out_dir='', mirror='code-de'):
                 print('WARNING: {} not available, trying from PEPS...'.format(url))
                 download_sentinel_image(image, out_dir, mirror='peps')
         elif mirror == 'peps':
-            r = requests.get('{}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
             try:
-                login, password = os.environ['PEPS_LOGIN'], os.environ['PEPS_PASSWORD']
-            except KeyError:
-                print("Downloading from PEPS requires the PEPS_LOGIN and".format(__file__),
-                      "PEPS_PASSWORD environment variables to be defined with valid",
-                      "credentials for https://peps.cnes.fr/. Create an account if",
-                      "you don't have one (it's free) then edit the relevant configuration",
-                      "files (eg .bashrc) to define these environment variables.")
-                sys.exit(1)
-            try:
-                img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
-                peps_id = img.find('id').text
-                url = "{}/S1/{}/download".format(peps_url_download, peps_id)
-                cmd = "curl -k --basic -u {}:{} {} -o {}".format(login, password,
-                                                                 url, zip_path)
-                print(cmd)
-                os.system(cmd)
+                download_safe_from_peps(image['title'], out_dir=out_dir)
             except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
                 print('WARNING: will download from scihub mirror...')
@@ -136,6 +150,7 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
+    parser.add_argument('--title', help='image title (filename.SAFE)')
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-t', '--product-type',
@@ -147,14 +162,20 @@ if __name__ == '__main__':
     if args.geom and (args.lat or args.lon):
         parser.error('--geom and {--lat, --lon} are mutually exclusive')
 
-    if not args.geom and (not args.lat or not args.lon):
-        parser.error('either --geom or {--lat, --lon} must be defined')
+    if args.title and (args.geom or args.lat or args.lon):
+        parser.error('--title, --geom and {--lat, --lon} are mutually exclusive')
 
-    if args.geom:
-        aoi = args.geom
+    if not args.geom and (not args.lat or not args.lon) and (not args.title):
+        parser.error('either --geom, {--lat, --lon} or --title must be defined')
+
+    if args.title:
+        download_safe_from_peps(args.title, args.outdir)
     else:
-        aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
-                                            args.height)
-    get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-                    out_dir=args.outdir, product_type=args.product_type,
-                    mirror=args.mirror)
+        if args.geom:
+            aoi = args.geom
+        else:
+            aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
+                                                args.height)
+        get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
+                        out_dir=args.outdir, product_type=args.product_type,
+                        mirror=args.mirror)
