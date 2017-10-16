@@ -21,7 +21,6 @@ import requests
 import tifffile
 
 import search_devseed
-import search_planet
 import utils
 import parallel
 
@@ -151,6 +150,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                             or  # seen.add() returns None
                                             seen.add(x['acquisitionDate']))]
     elif search_api == 'planet':
+        import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Landsat8L1G'])['features']
 

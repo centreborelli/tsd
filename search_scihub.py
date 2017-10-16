@@ -9,6 +9,7 @@ Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 """
 
 from __future__ import print_function
+import os
 import sys
 import argparse
 import datetime
@@ -20,6 +21,18 @@ import requests
 import utils
 
 
+# check the Copernicus Open Access Hub credentials
+try:
+    login = os.environ['COPERNICUS_LOGIN']
+    password = os.environ['COPERNICUS_PASSWORD']
+except KeyError:
+    print("The {} module requires the COPERNICUS_LOGIN and".format(__file__),
+          "COPERNICUS_PASSWORD environment variables to be defined with valid",
+          "credentials for https://scihub.copernicus.eu/. Create an account if",
+          "you don't have one (it's free) then edit the relevant configuration",
+          "files (eg .bashrc) to define these environment variables.")
+    sys.exit(1)
+
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
 api_urls = {
@@ -29,7 +42,7 @@ api_urls = {
 }
 
 
-def post_scihub(url, query, user='carlodef', password='kayrros_cmla'):
+def post_scihub(url, query, user=login, password=password):
     """
     Send a POST request to scihub.
     """

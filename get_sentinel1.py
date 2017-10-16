@@ -27,8 +27,9 @@ peps_url_download = 'https://peps.cnes.fr/resto/collections'
 codede_url = 'https://code-de.org/Sentinel1'
 
 
-def query_data_hub(output_filename, url, verbose=False, user='carlodef',
-                   password='kayrros_cmla'):
+def query_data_hub(output_filename, url, verbose=False,
+                   user=search_scihub.login,
+                   password=search_scihub.password):
     """
     Download a file from the Copernicus data hub.
     """
@@ -70,11 +71,22 @@ def download_sentinel_image(image, out_dir='', mirror='code-de'):
         elif mirror == 'peps':
             r = requests.get('{}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
             try:
+                login, password = os.environ['PEPS_LOGIN'], os.environ['PEPS_PASSWORD']
+            except KeyError:
+                print("Downloading from PEPS requires the PEPS_LOGIN and".format(__file__),
+                      "PEPS_PASSWORD environment variables to be defined with valid",
+                      "credentials for https://peps.cnes.fr/. Create an account if",
+                      "you don't have one (it's free) then edit the relevant configuration",
+                      "files (eg .bashrc) to define these environment variables.")
+                sys.exit(1)
+            try:
                 img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
                 peps_id = img.find('id').text
                 url = "{}/S1/{}/download".format(peps_url_download, peps_id)
-                print("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
-                os.system("curl -k --basic -u carlodef@gmail.com:kayrros_cmla {} -o {}".format(url, zip_path))
+                cmd = "curl -k --basic -u {}:{} {} -o {}".format(login, password,
+                                                                 url, zip_path)
+                print(cmd)
+                os.system(cmd)
             except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
                 print('WARNING: will download from scihub mirror...')

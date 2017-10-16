@@ -9,6 +9,7 @@ Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
 """
 
 from __future__ import print_function
+import os
 import argparse
 import datetime
 import json
@@ -18,6 +19,17 @@ from planet import api
 
 import utils
 
+
+# check the Planet API key
+try:
+    os.environ['PL_API_KEY']
+except KeyError:
+    print("The {} module requires the PL_API_KEY".format(__file__),
+          "environment variable to be defined with valid",
+          "credentials for https://www.planet.com/. Create an account if",
+          "you don't have one (it's free) then edit the relevant configuration",
+          "files (eg .bashrc) to define this environment variable.")
+    sys.exit(1)
 
 client = api.ClientV1()
 ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrthoTile',

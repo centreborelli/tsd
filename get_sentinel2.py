@@ -25,8 +25,6 @@ import shapely.geometry
 import utils
 import parallel
 import search_devseed
-import search_scihub
-import search_planet
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
@@ -179,9 +177,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         images = search_devseed.search(aoi, start_date, end_date,
                                        'Sentinel-2')['results']
     elif search_api == 'scihub':
+        import search_scihub
         images = search_scihub.search(aoi, start_date, end_date,
                                       satellite='Sentinel-2')
     elif search_api == 'planet':
+        import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])['features']
 
