@@ -309,21 +309,6 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         print(e.output)
         return
 
-    if utm_zone is not None:
-        # if the image is not sampled on the desired UTM grid, remove it
-        img = gdal.Open(out)
-        s = img.GetProjection()  # read geographic metadata
-        img = None  # gdal way of closing files
-        x = s.lower().split('utm zone ')[1][:2]  # hack to extract the UTM zone number
-        if int(x) != utm_zone:
-            os.remove(out)
-            return
-
-        # a better alternative would be to resample the image on the desired
-        # UTM grid, but I don't know how to ensure that the resampled image will have
-        # the exact same geographic bounding box as the others.
-        #inplace_utm_reprojection_with_gdalwarp(out, utm_zone, ulx, uly, lrx, lry)
-
     if outpath == inpath:  # hack to allow the output to overwrite the input
         shutil.move(out, outpath)
 
@@ -334,6 +319,16 @@ def crop_with_gdalwarp(outpath, inpath, geojson_path):
     cmd = ['gdalwarp', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
            '-overwrite', '-crop_to_cutline', '-cutline', geojson_path]
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+
+
+def get_image_utm_zone(img_path):
+    """
+    Read the UTM zone from a geotif metadata.
+    """
+    img = gdal.Open(img_path)
+    s = img.GetProjection()  # read geographic metadata
+    img = None  # gdal way of closing files
+    return s.lower().split('utm zone ')[1][:2]
 
 
 def geojson_lonlat_to_utm(aoi):
