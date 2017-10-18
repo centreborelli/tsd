@@ -181,7 +181,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
     # convert aoi coordinates to utm
-    ulx, uly, lrx, lry, utm_zone = utils.utm_bbx(aoi)
+    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
 
     # download crops
     utils.mkdir_p(out_dir)
@@ -190,8 +190,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                                                      len(bands) + 1),
          end=' ')
     parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, gdal_urls)),
-                       extra_args=(ulx, uly, lrx, lry, utm_zone), pool_type='threads',
-                       nb_workers=parallel_downloads)
+                       extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
+                       pool_type='threads', nb_workers=parallel_downloads)
     utils.print_elapsed_time()
 
     # discard images that failed to download

@@ -100,7 +100,8 @@ def get_download_url(item, asset_type):
         return asset['location']
 
 
-def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None):
+def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None,
+                  lat_band=None):
     """
     """
     url = get_download_url(item, asset)
@@ -111,7 +112,7 @@ def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None):
             os.system('wget {} -O {}'.format(url, outfile))
         else:
             utils.crop_with_gdal_translate(outfile, url, ulx, uly, lrx, lry,
-                                           utm_zone)
+                                           utm_zone, lat_band)
 
 
 def get_time_series(aoi, start_date=None, end_date=None,
@@ -131,13 +132,14 @@ def get_time_series(aoi, start_date=None, end_date=None,
               for x in images]
 
     # convert aoi coordinates to utm
-    ulx, uly, lrx, lry, utm_zone = utils.utm_bbx(aoi)
+    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
 
     # activate images and download crops
     utils.mkdir_p(out_dir)
     print('Downloading {} crops...'.format(len(images)), end=' ')
     parallel.run_calls(download_crop, list(zip(fnames, images)),
-                       extra_args=(asset_type, ulx, uly, lrx, lry, utm_zone),
+                       extra_args=(asset_type, ulx, uly, lrx, lry, utm_zone,
+                                   lat_band),
                        pool_type='threads', nb_workers=parallel_downloads,
                        timeout=300)
 

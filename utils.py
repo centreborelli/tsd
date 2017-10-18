@@ -273,7 +273,7 @@ def gdal_translate_version():
 
 
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
-                             utm_zone=None, output_type=None):
+                             utm_zone=None, lat_band=None, output_type=None):
     """
     """
     if outpath == inpath:  # hack to allow the output to overwrite the input
@@ -294,8 +294,11 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
     if output_type is not None:
         cmd += ['-ot', output_type]
     if utm_zone is not None and gdal_translate_version() >= '2.0':
-        cmd += ['-projwin_srs', '+proj=utm +zone={}'.format(utm_zone)]
-
+        srs = '+proj=utm +zone={}'.format(utm_zone)
+        # latitude bands in the southern hemisphere range from 'C' to 'M'
+        if lat_band and lat_band < 'N':
+            srs += ' +south'
+        cmd += ['-projwin_srs', srs]
     try:
         #print(' '.join(cmd))
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
@@ -336,12 +339,12 @@ def geojson_lonlat_to_utm(aoi):
     """
     # compute the utm zone number of the first polygon vertex
     lon, lat = aoi['coordinates'][0][0]
-    zone_number = utm.from_latlon(lat, lon)[2]
+    utm_zone = utm.from_latlon(lat, lon)[2]
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []
     for lon, lat in aoi['coordinates'][0]:
-        c.append(utm.from_latlon(lat, lon, force_zone_number=zone_number)[:2])
+        c.append(utm.from_latlon(lat, lon, force_zone_number=utm_zone)[:2])
 
     return geojson.Polygon([c])
 
@@ -351,17 +354,16 @@ def utm_bbx(aoi):
     """
     # compute the utm zone number of the first polygon vertex
     lon, lat = aoi['coordinates'][0][0]
-    zone_number = utm.from_latlon(lat, lon)[2]
-    #zone_number = utm.latlon_to_zone_number(lat, lon)  # fails on older versions
+    utm_zone, lat_band = utm.from_latlon(lat, lon)[2:]
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []
     for lon, lat in aoi['coordinates'][0]:
-        c.append(utm.from_latlon(lat, lon, force_zone_number=zone_number)[:2])
+        c.append(utm.from_latlon(lat, lon, force_zone_number=utm_zone)[:2])
 
     # return the utm bounding box
     bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
-    return bbx[0], bbx[3], bbx[2], bbx[1], zone_number  # minx, maxy, maxx, miny
+    return bbx[0], bbx[3], bbx[2], bbx[1], utm_zone, lat_band  # minx, maxy, maxx, miny
 
 
 def latlon_to_pix(img, lat, lon):
