@@ -293,12 +293,15 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
            str(uly), str(lrx), str(lry)]
     if output_type is not None:
         cmd += ['-ot', output_type]
-    if utm_zone is not None and gdal_translate_version() >= '2.0':
-        srs = '+proj=utm +zone={}'.format(utm_zone)
-        # latitude bands in the southern hemisphere range from 'C' to 'M'
-        if lat_band and lat_band < 'N':
-            srs += ' +south'
-        cmd += ['-projwin_srs', srs]
+    if utm_zone is not None:
+        if gdal_translate_version() < '2.0':
+            print('WARNING: utils.crop_with_gdal_translate argument utm_zone requires gdal >= 2.0')
+        else:
+            srs = '+proj=utm +zone={}'.format(utm_zone)
+            # latitude bands in the southern hemisphere range from 'C' to 'M'
+            if lat_band and lat_band < 'N':
+                srs += ' +south'
+            cmd += ['-projwin_srs', srs]
     try:
         #print(' '.join(cmd))
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
