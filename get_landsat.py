@@ -152,7 +152,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     elif search_api == 'planet':
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
-                                      item_types=['Landsat8L1G'])['features']
+                                      item_types=['Landsat8L1G'])
 
         # sort images by acquisition date, then by acquisiton row and path
         images.sort(key=lambda k: (k['properties']['acquired'],

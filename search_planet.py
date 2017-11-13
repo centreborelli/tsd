@@ -58,19 +58,14 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
     request = api.filters.build_search_request(query, item_types)
 
     # this will cause an exception if there are any API related errors
-    results = client.quick_search(request).get()
+    response = client.quick_search(request)
 
-    # check if the image footprint contains the AOI
+    # keep only the images that actually contain the full AOI
     aoi = shapely.geometry.shape(aoi)
-    not_covering = []
-    for x in results['features']:
-        if not shapely.geometry.shape(x['geometry']).contains(aoi):
-            not_covering.append(x)
-
-    for x in not_covering:
-        results['features'].remove(x)
-    print('search_planet: removed {} results not covering the aoi'.format(len(not_covering)),
-          file=sys.stderr)
+    results = []
+    for x in response.items_iter(limit=None):
+        if shapely.geometry.shape(x['geometry']).contains(aoi):
+            results.append(x)
 
     return results
 

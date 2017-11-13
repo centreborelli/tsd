@@ -124,7 +124,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
     """
     # list available images
     images = search_planet.search(aoi, start_date, end_date,
-                                  item_types=item_types)['features']
+                                  item_types=item_types)
     print('Found {} images'.format(len(images)))
 
     # build filenames

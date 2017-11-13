@@ -183,7 +183,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     elif search_api == 'planet':
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
-                                      item_types=['Sentinel2L1C'])['features']
+                                      item_types=['Sentinel2L1C'])
 
     # sort images by acquisition date, then by mgrs id
     images.sort(key=lambda k: date_and_mgrs_id_from_metadata_dict(k, search_api))
