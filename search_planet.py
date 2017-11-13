@@ -53,7 +53,8 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
     # build a search request with filters for the AOI and the date range
     geom_filter = api.filters.geom_filter(aoi)
     date_filter = api.filters.date_range('acquired', gte=start_date, lte=end_date)
-    query = api.filters.and_filter(geom_filter, date_filter)
+    quality_filter = api.filters.string_filter('quality_category', 'standard')
+    query = api.filters.and_filter(geom_filter, date_filter, quality_filter)
     request = api.filters.build_search_request(query, item_types)
 
     # this will cause an exception if there are any API related errors
