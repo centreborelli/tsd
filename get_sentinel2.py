@@ -59,7 +59,7 @@ def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     return date, mgrs_id
 
 
-def aws_url_from_metadata_dict(d, api='devseed'):
+def aws_url_from_metadata_dict_backend(d, api='devseed'):
     """
     Build the AWS url of a Sentinel-2 image from it's metadata.
     """
@@ -68,6 +68,18 @@ def aws_url_from_metadata_dict(d, api='devseed'):
     return '{}/tiles/{}/{}/{}/{}/{}/{}/0/'.format(aws_url, utm_code, lat_band,
                                                   sqid, date.year, date.month,
                                                   date.day)
+
+
+def aws_url_from_metadata_dict(d, api='devseed', band=None):
+    """
+    Build the AWS url (including band) of a Sentinel-2 image from it's metadata
+    """
+    baseurl = aws_url_from_metadata_dict_backend(d, api)
+    if band and band in all_bands:
+        return '{}{}.jp2'.format(baseurl,band)
+    else:
+        return baseurl
+
 
 def filename_from_metadata_dict(d, api='devseed'):
     """

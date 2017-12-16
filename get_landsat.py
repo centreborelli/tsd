@@ -27,8 +27,11 @@ import parallel
 
 aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
 
+# list of spectral bands
+all_bands = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
+             '10', '11', '12']
 
-def google_url_from_metadata_dict(d, api='devseed'):
+def google_url_from_metadata_dicti_backend(d, api='devseed'):
     """
     Build the Google url of a Landsat image from it's metadata.
     """
@@ -36,7 +39,18 @@ def google_url_from_metadata_dict(d, api='devseed'):
         return d['download_links']['google'][0].rsplit('_', 1)[0]
 
 
-def aws_url_from_metadata_dict(d, api='devseed'):
+def google_url_from_metadata_dict(d, api='devseed', band=None):
+    """
+    Build the Google url of a Landsat image from it's metadata.
+    """
+    baseurl = google_url_from_metadata_dict_backend(d, api)
+    if band and band in all_bands:
+        return '{}_B{}.TIF'.format(baseurl, band)
+    else:
+        return baseurl
+
+
+def aws_url_from_metadata_dict_backend(d, api='devseed'):
     """
     Build the AWS url of a Landsat image from it's metadata.
     """
@@ -64,6 +78,17 @@ def aws_url_from_metadata_dict(d, api='devseed'):
         row = d['properties']['wrs_row']
         scene_id = d['id']
         return '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, scene_id)
+
+
+def aws_url_from_metadata_dict(d, api='devseed', band=None):
+    """
+    Build the AWS url  (including band)  of a Landsat image from it's metadata.
+    """
+    baseurl = aws_url_from_metadata_dict_backend(d, api)
+    if band and band in all_bands:
+        return '{}_B{}.TIF'.format(baseurl, band)
+    else:
+        return baseurl
 
 
 def filename_from_metadata_dict(d, api='devseed'):
