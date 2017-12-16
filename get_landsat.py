@@ -31,7 +31,7 @@ aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
 all_bands = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
              '10', '11', '12']
 
-def google_url_from_metadata_dicti_backend(d, api='devseed'):
+def google_url_from_metadata_dict_backend(d, api='devseed'):
     """
     Build the Google url of a Landsat image from it's metadata.
     """
