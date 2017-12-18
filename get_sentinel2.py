@@ -64,7 +64,7 @@ def aws_url_from_metadata_dict_backend(d, api='devseed'):
     Build the AWS url of a Sentinel-2 image from it's metadata.
     """
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
-    utm_code, lat_band, sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
+    _, utm_code, lat_band, sqid,_ = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)',mgrs_id)
     return '{}/tiles/{}/{}/{}/{}/{}/{}/0/'.format(aws_url, utm_code, lat_band,
                                                   sqid, date.year, date.month,
                                                   date.day)
