@@ -92,11 +92,17 @@ def filename_from_metadata_dict(d, api='devseed'):
             orbit = s.group(1)
         else:
             orbit = '000'
+        satellite = d['satellite_name']
+        satellite = satellite.replace("Sentinel-", "S")  # Sentinel-2B --> S2B
     elif api == 'planet':
         orbit = d['properties']['rel_orbit_number']
+        satellite = d['properties']['satellite_id']
+        satellite = satellite.replace("Sentinel-", "S")  # Sentinel-2A --> S2A
     elif api == 'scihub':
         orbit = d['int'][1]['content']
-    return '{}_orbit_{}_tile_{}'.format(date.date().isoformat(), orbit, mgrs_id)
+        satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
+    return '{}_{}_orbit_{}_tile_{}'.format(date.date().isoformat(), satellite,
+                                           orbit, mgrs_id)
 
 
 def metadata_from_metadata_dict(d, api='planet'):
