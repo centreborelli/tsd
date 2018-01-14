@@ -352,7 +352,7 @@ def geojson_lonlat_to_utm(aoi):
     return geojson.Polygon([c])
 
 
-def utm_bbx(aoi):
+def utm_bbx(aoi, r=None):
     """
     """
     # compute the utm zone number of the first polygon vertex
@@ -364,9 +364,17 @@ def utm_bbx(aoi):
     for lon, lat in aoi['coordinates'][0]:
         c.append(utm.from_latlon(lat, lon, force_zone_number=utm_zone)[:2])
 
-    # return the utm bounding box
+    # utm bounding box
     bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
-    return bbx[0], bbx[3], bbx[2], bbx[1], utm_zone, lat_band  # minx, maxy, maxx, miny
+    ulx, uly, lrx, lry = bbx[0], bbx[3], bbx[2], bbx[1]  # minx, maxy, maxx, miny
+
+    if r is not None:  # round to multiples of the given resolution
+        ulx = r * np.floor(ulx / r)
+        uly = r * np.ceil(uly / r)
+        lrx = r * np.ceil(lrx / r)
+        lry = r * np.floor(lry / r)
+
+    return ulx, uly, lrx, lry, utm_zone, lat_band
 
 
 def latlon_to_pix(img, lat, lon):

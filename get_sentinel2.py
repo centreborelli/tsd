@@ -64,7 +64,7 @@ def aws_url_from_metadata_dict_backend(d, api='devseed'):
     Build the AWS url of a Sentinel-2 image from it's metadata.
     """
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
-    _, utm_code, lat_band, sqid,_ = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)',mgrs_id)
+    _, utm_code, lat_band, sqid, _ = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', mgrs_id)
     return '{}/tiles/{}/{}/{}/{}/{}/{}/0/'.format(aws_url, utm_code, lat_band,
                                                   sqid, date.year, date.month,
                                                   date.day)
@@ -224,8 +224,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
             urls.append('{}{}.jp2'.format(url, b))
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
-    # convert aoi coordates to utm
-    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
+    # convert aoi coordates to utm and round to multiples of 60 (B01 resolution)
+    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi, r=60)
 
     # download crops
     utils.mkdir_p(out_dir)
