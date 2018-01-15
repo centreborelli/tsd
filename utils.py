@@ -352,12 +352,14 @@ def geojson_lonlat_to_utm(aoi):
     return geojson.Polygon([c])
 
 
-def utm_bbx(aoi, r=None):
+def utm_bbx(aoi, utm_zone=None, r=None):
     """
     """
-    # compute the utm zone number of the first polygon vertex
     lon, lat = aoi['coordinates'][0][0]
-    utm_zone, lat_band = utm.from_latlon(lat, lon)[2:]
+    if utm_zone is None:  # compute the utm zone number of the first vertex
+        utm_zone, lat_band = utm.from_latlon(lat, lon)[2:]
+    else:
+        lat_band = utm.from_latlon(lat, lon, force_zone_number=utm_zone)[3]
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []

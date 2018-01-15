@@ -34,6 +34,30 @@ aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
 all_bands = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
 
+
+def utm_zone_from_metadata_dict(d, api='devseed'):
+    """
+    Read the UTM zone number in the dictionary metadata dict.
+    """
+    if api == 'devseed':
+        return d['utm_zone']
+    elif api == 'planet':
+        mgrs_id = d['properties']['mgrs_grid_id']
+        return mgrs_id[:2]
+    elif api == 'scihub':
+        # we assume the product name is formatted as in:
+        # S2A_MSIL1C_20170410T171301_N0204_R112_T14SQE_20170410T172128
+        # the mgrs_id (here 14SQE) is read from the product name in '_T14SQE_'
+        date_string = [a['content'] for a in d['date'] if a['name'] == 'beginposition'][0]
+        date = dateutil.parser.parse(date_string, ignoretz=True)
+        if date > datetime.datetime(2016, 12, 6):
+            mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
+            return mgrs_id[:2]
+        else:
+            #mgrs_id = '14SQE'
+            print('ERROR: scihub API cannot be used for Sentinel-2 searches before 2016-12-6')
+
+
 def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     """
     Build a string using the image acquisition date and identifier.
@@ -214,28 +238,28 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     print('Found {} images'.format(len(images)))
     utils.print_elapsed_time()
 
-    # build urls and filenames
-    urls = []
-    fnames = []
+    # build urls, filenames and crops coordinates
+    crops_args = []
     for img in images:
-        url = aws_url_from_metadata_dict(img, search_api)
+        url_base = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
+        coords = utils.utm_bbx(aoi,  # convert aoi coordates to utm
+                               utm_zone=int(utm_zone_from_metadata_dict(img)),
+                               r=60)  # round to multiples of 60 (B01 resolution)
         for b in bands:
-            urls.append('{}{}.jp2'.format(url, b))
-            fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
-
-    # convert aoi coordates to utm and round to multiples of 60 (B01 resolution)
-    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi, r=60)
+            fname = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
+            url = '{}{}.jp2'.format(url_base, b)
+            crops_args.append((fname, url, *coords))
 
     # download crops
     utils.mkdir_p(out_dir)
-    print('Downloading {} crops ({} images with {} bands)...'.format(len(urls),
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
                                                                      len(images),
                                                                      len(bands)),
           end=' ')
-    parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, urls)),
-                       extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band, 'UInt16'),
-                       pool_type='threads', nb_workers=parallel_downloads)
+    parallel.run_calls(utils.crop_with_gdal_translate, crops_args,
+                       extra_args=('UInt16',), pool_type='threads',
+                       nb_workers=parallel_downloads)
     utils.print_elapsed_time()
 
     # discard images that failed to download
