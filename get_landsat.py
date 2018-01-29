@@ -220,7 +220,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     utils.print_elapsed_time()
 
     # discard images that failed to download
-    images = [x for x in images if bands_files_are_valid(x, bands + ['QA'],
+    images = [x for x in images if bands_files_are_valid(x, list(set(bands + ['QA'])),
                                                          search_api, out_dir)]
     # discard images that are totally covered by clouds
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
@@ -231,7 +231,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                 nb_workers=parallel_downloads, verbose=False)
     for name, cloud in zip(names, cloudy):
         if cloud:
-            for b in bands + ['QA']:
+            for b in list(set(bands + ['QA'])):
                 f = '{}_band_{}.tif'.format(name, b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
