@@ -29,7 +29,7 @@ aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
 
 # list of spectral bands
 all_bands = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
-             '10', '11', '12']
+             '10', '11', 'QA']
 
 def google_url_from_metadata_dict_backend(d, api='devseed'):
     """
