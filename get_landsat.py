@@ -270,8 +270,11 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-b', '--band', nargs='*', default=[8],
-                        help=('list of spectral bands, default band 8 (panchro)'))
+    parser.add_argument('-b', '--band', nargs='*', default=['8'],
+                        choices=all_bands + ['all'], metavar='',
+                        help=('space separated list of spectral bands to'
+                              ' download. Default is 8 (panchro). Allowed values'
+                              ' are {}'.format(', '.join(all_bands))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
@@ -282,6 +285,9 @@ if __name__ == '__main__':
     parser.add_argument('--parallel-downloads', type=int, default=100,
                         help='max number of parallel crops downloads')
     args = parser.parse_args()
+
+    if 'all' in args.band:
+        args.band = all_bands
 
     if args.geom and (args.lat or args.lon):
         parser.error('--geom and {--lat, --lon} are mutually exclusive')

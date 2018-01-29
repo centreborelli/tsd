@@ -316,7 +316,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-b', '--band', nargs='*', default=['B04'],
-                        choices=all_bands, metavar='',
+                        choices=all_bands + ['all'], metavar='',
                         help=('space separated list of spectral bands to'
                               ' download. Default is B04 (red). Allowed values'
                               ' are {}'.format(', '.join(all_bands))))
@@ -328,6 +328,9 @@ if __name__ == '__main__':
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
     args = parser.parse_args()
+
+    if 'all' in args.band:
+        args.band = all_bands
 
     if args.geom and (args.lat or args.lon):
         parser.error('--geom and {--lat, --lon} are mutually exclusive')
