@@ -245,12 +245,14 @@ def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
     print('Have permissions for {} images'.format(len(assets)))
 
     # activate the allowed assets
-    print('Activating {} images...'.format(len(assets)), end=' ')
+    print('Requesting activation of {} images...'.format(len(assets)),
+          flush=True, end=' ')
     parallel.run_calls(activate, [x[1] for x in assets], pool_type='threads',
                        nb_workers=5, timeout=10)  # short timeout as "activate" doesn't wait
 
     # request clips
-    print('Clipping {} images...'.format(len(assets)), end=' ')
+    print('Requesting clip of {} images...'.format(len(assets)),
+          flush=True, end=' ')
     clips = parallel.run_calls(clip, assets, extra_args=(aoi,),
                                pool_type='threads', nb_workers=5, timeout=600)
 
@@ -261,11 +263,12 @@ def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
     # warn user about quota
     n = len(clips)
     a = area.area(aoi) / 1e6
-    print('Your current quota usage is {}'.format(quota()))
-    print('Downloading these {} clips will increase it by {:.3f} km².'.format(n, n*a))
+    print('Your current quota usage is {}'.format(quota()), flush=True)
+    print('Downloading these {} clips will increase it by {:.3f} km²'.format(n, n*a),
+          flush=True)
 
     # download clips
-    print('Downloading {} clips...'.format(len(clips)), end=' ')
+    print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
     parallel.run_calls(download, list(zip(clips, fnames)), pool_type='threads',
                        nb_workers=5, timeout=600)
 

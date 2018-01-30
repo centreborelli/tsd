@@ -27,6 +27,7 @@ def download(from_url, to_file, auth=('', '')):
     """
     Download a file from an url to a file.
     """
+    mkdir_p(os.path.dirname(to_file))
     response = requests.get(from_url, stream=True, auth=auth)
     with open(to_file, 'wb') as handle:
         for data in response.iter_content():
