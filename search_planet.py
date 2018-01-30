@@ -15,6 +15,7 @@ import datetime
 import json
 import sys
 import shapely.geometry
+import dateutil.parser
 from planet import api
 
 import utils
@@ -67,7 +68,18 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
         if shapely.geometry.shape(x['geometry']).contains(aoi):
             results.append(x)
 
-    return results
+    # sort results by acquisition date
+    dates = [dateutil.parser.parse(x['properties']['acquired']) for x in results]
+    results = [r for d, r in sorted(zip(dates, results))]
+    dates.sort()
+
+    # remove duplicates (two images are said to be duplicates if within 5 minutes)
+    to_remove = []
+    for i, (d, r) in enumerate(list(zip(dates, results))[:-1]):
+        if dates[i+1] - d < datetime.timedelta(seconds=300):
+            to_remove.append(r)
+
+    return [r for r in results if r not in to_remove]
 
 
 if __name__ == '__main__':
