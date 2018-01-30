@@ -33,7 +33,7 @@ except KeyError:
 
 client = api.ClientV1()
 ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrthoTile',
-              'Sentinel2L1C', 'Landsat8L1G']
+              'Sentinel2L1C', 'Landsat8L1G', 'Sentinel1', 'SkySatScene']
 
 
 def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):

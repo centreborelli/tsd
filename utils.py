@@ -23,6 +23,16 @@ import shapely.geometry
 gdal.UseExceptions()
 
 
+def download(from_url, to_file, auth=('', '')):
+    """
+    Download a file from an url to a file.
+    """
+    response = requests.get(from_url, stream=True, auth=auth)
+    with open(to_file, 'wb') as handle:
+        for data in response.iter_content():
+            handle.write(data)
+
+
 def valid_datetime(s):
     """
     Check if a string is a well-formatted datetime.
@@ -135,10 +145,11 @@ def mkdir_p(path):
     if path:
         try:
             os.makedirs(path)
-        except OSError as exc: # requires Python > 2.5
+        except OSError as exc:  # requires Python > 2.5
             if exc.errno == errno.EEXIST and os.path.isdir(path):
                 pass
-            else: raise
+            else:
+                raise
 
 
 def pixel_size(filename):

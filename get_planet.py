@@ -18,6 +18,9 @@ import multiprocessing
 import numpy as np
 import utm
 import dateutil.parser
+import json
+import requests
+import area
 
 import planet
 
@@ -33,6 +36,7 @@ ASSETS = ['udm',
           'analytic_xml',
           'analytic_dn',
           'analytic_dn_xml',
+          'analytic_sr',
           'basic_udm',
           'basic_analytic',
           'basic_analytic_xml',
@@ -41,7 +45,24 @@ ASSETS = ['udm',
           'basic_analytic_dn_xml',
           'basic_analytic_dn_rpc']
 client = search_planet.client
-    
+
+cas_url = 'https://api.planet.com/compute/ops/clips/v1'  # clip and ship
+quota_url = 'https://api.planet.com/auth/v1/experimental/public/my/subscriptions'
+
+
+def quota():
+    """
+    Print current quota usage.
+    """
+    r = requests.get(quota_url, auth=(os.getenv('PL_API_KEY'), ''))
+    if r.ok:
+        l = r.json()
+        #assert(l[0]['plan']['name'] == 'Education and Research Standard (PlanetScope)')
+        return '{:.3f} / {} km²'.format(l[0]['quota_used'], l[0]['quota_sqkm'])
+    else:
+        print('ERROR: {} returned {}'.format(quota_url, r.status_code))
+        return
+
 
 def fname_from_metadata(d):
     """
@@ -70,41 +91,11 @@ def metadata_from_metadata_dict(d):
     return out
 
 
-def get_download_url(item, asset_type):
-    """
-    """
-    assets = client.get_assets(item).get()
-
-    if asset_type not in assets:
-        print("WARNING: no permission to get asset '{}' of {}".format(asset_type,
-                                                                     item['_links']['_self']))
-        print("\tPermissions for this item are:", item['_permissions'])
-        return
-
-    asset = assets[asset_type]
-    if asset['status'] == 'inactive':
-        activation = client.activate(asset)
-        r = activation.response.status_code
-        if r != 202:
-            print('activation of item {} asset {} returned {}'.format(item['id'],
-                                                                      asset_type,
-                                                                      r))
-        else:
-            return get_download_url(item, asset_type)
-
-    elif asset['status'] == 'activating':
-        time.sleep(3)
-        return get_download_url(item, asset_type)
-
-    elif asset['status'] == 'active':
-        return asset['location']
-
-
 def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None,
                   lat_band=None):
     """
     """
-    url = get_download_url(item, asset)
+    url = activate(item, asset)
     if url is not None:
         if asset.endswith(('_xml', '_rpc')):
             os.system('wget {} -O {}'.format(url, outfile))
@@ -113,6 +104,170 @@ def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None,
         else:
             utils.crop_with_gdal_translate(outfile, url, ulx, uly, lrx, lry,
                                            utm_zone, lat_band)
+
+
+def activate(asset):
+    """
+    """
+    activation = client.activate(asset)
+    r = activation.response.status_code
+    if r not in [202, 204]:  # 202: activation started
+                             # 204: already active
+        print('WARNING: activation of asset {} returned {}'.format(asset, r))
+
+
+def poll_activation(asset):
+    """
+    """
+    # refresh the asset info
+    r = requests.get(asset['_links']['_self'], auth=(os.environ['PL_API_KEY'], ''))
+    if r.ok:
+        asset = r.json()
+    elif r.status_code == 429:  # rate limit
+        time.sleep(3)
+        return poll_activation(asset)
+    else:
+        print('ERROR: got {} error code when requesting {}'.format(r.status_code,
+                                                                   asset['_links']['_self']))
+        return
+
+    # decide what to do next depending on the asset status
+    if asset['status'] == 'active':
+        return asset['location']
+    elif asset['status'] == 'activating':
+        time.sleep(3)
+        return poll_activation(asset)
+    elif asset['status'] == 'inactive':
+        activate(asset)
+        time.sleep(3)
+        return poll_activation(asset)
+    else:
+        print('ERROR: unknown asset status {}'.format(asset['status']))
+
+
+def clip(item, asset, aoi, active=False):
+    """
+    Args:
+        item:
+        asset:
+        aoi: dictionary containing a geojson polygon (eg output of
+            utils.geojson_geometry_object)
+        active: boolean
+
+    Return:
+        download url
+    """
+    if not active:  # wait for the asset to be actived
+        poll_activation(asset)
+
+    # request the clip
+    d = {
+        "aoi": aoi,
+        "targets": [
+            {
+                "item_id": item['id'],
+                "item_type": item['properties']['item_type'],
+                "asset_type": asset['type']
+            }
+        ]
+    }
+    headers = {'content-type': 'application/json'}
+    r = requests.post(cas_url,
+                      headers=headers, data=json.dumps(d),
+                      auth=(os.environ['PL_API_KEY'], ''))
+    if r.ok:
+        return r.json()
+    elif r.status_code == 429:  # rate limit
+        time.sleep(3)
+        return clip(item, asset, aoi, active=True)
+    else:
+        print('ERROR: got {} error code when requesting {}'.format(r.status_code, d))
+
+
+def poll_clip(clip_json):
+    """
+    """
+    # refresh the clip info
+    clip_request_url = clip_json['_links']['_self']
+    r = requests.get(clip_request_url, auth=(os.environ['PL_API_KEY'], ''))
+    if r.ok:
+        j = r.json()
+    elif r.status_code == 429:  # rate limit
+        time.sleep(3)
+        return poll_clip(clip_json)
+    else:
+        print('ERROR: got {} error code when requesting {}'.format(r.status_code, clip_request_url))
+        return
+
+    # decide what to do next depending on the clip status
+    if j['state'] == 'succeeded':
+        return j['_links']['results'][0]
+    elif j['state'] == 'running':
+        time.sleep(3)
+        return poll_clip(clip_json)
+    else:
+        print('ERROR: unknown state "{}" of clip request {}'.format(j['state'],
+                                                                    clip_request_url))
+
+
+def download(clip_info, outpath):
+    """
+    Args:
+        clip_info: dictionary containing the clip info
+        outpath: path where to store the downloaded zip file
+    """
+    url = poll_clip(clip_info)
+    utils.download(url, outpath, auth=(os.environ['PL_API_KEY'], ''))
+
+
+def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
+                                       item_types=['PSScene3Band'],
+                                       asset_type='analytic', out_dir='',
+                                       parallel_downloads=multiprocessing.cpu_count()):
+    """
+    Main function: download and crop of Planet images.
+    """
+    # list available images
+    images = search_planet.search(aoi, start_date, end_date,
+                                  item_types=item_types)
+    print('Found {} images'.format(len(images)))
+
+    # list the requested asset for each available and allowed image
+    assets = []
+    for item in images:
+        allowed_assets = client.get_assets(item).get()
+        if asset_type not in allowed_assets:
+            print('WARNING: no permission to get asset "{}" of {}'.format(asset_type,
+                                                                          item['_links']['_self']))
+            #print("\tPermissions for this item are:", item['_permissions'])
+        else:
+            assets.append((item, allowed_assets[asset_type]))
+    print('Have permissions for {} images'.format(len(assets)))
+
+    # activate the allowed assets
+    print('Activating {} images...'.format(len(assets)), end=' ')
+    parallel.run_calls(activate, [x[1] for x in assets], pool_type='threads',
+                       nb_workers=5, timeout=10)  # short timeout as "activate" doesn't wait
+
+    # request clips
+    print('Clipping {} images...'.format(len(assets)), end=' ')
+    clips = parallel.run_calls(clip, assets, extra_args=(aoi,),
+                               pool_type='threads', nb_workers=5, timeout=600)
+
+    # build filenames
+    fnames = [os.path.join(out_dir, '{}.zip'.format(fname_from_metadata(i)))
+              for i, a in assets]
+
+    # warn user about quota
+    n = len(clips)
+    a = area.area(aoi) / 1e6
+    print('Your current quota usage is {}'.format(quota()))
+    print('Downloading these {} clips will increase it by {:.3f} km².'.format(n, n*a))
+
+    # download clips
+    print('Downloading {} clips...'.format(len(clips)), end=' ')
+    parallel.run_calls(download, list(zip(clips, fnames)), pool_type='threads',
+                       nb_workers=5, timeout=600)
 
 
 def get_time_series(aoi, start_date=None, end_date=None,
@@ -149,7 +304,6 @@ def get_time_series(aoi, start_date=None, end_date=None,
             for k, v in metadata_from_metadata_dict(img).items():
                 utils.set_geotif_metadata_item(f, k, v)
 
-    return
 
 
 if __name__ == '__main__':
@@ -198,6 +352,12 @@ if __name__ == '__main__':
     else:
         aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
                                             args.height)
-    get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-                    item_types=args.item_types, asset_type=args.asset,
-                    out_dir=args.outdir, parallel_downloads=args.parallel_downloads)
+    #get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
+    #                item_types=args.item_types, asset_type=args.asset,
+    #                out_dir=args.outdir, parallel_downloads=args.parallel_downloads)
+    get_time_series_with_clip_and_ship(aoi, start_date=args.start_date,
+                                       end_date=args.end_date,
+                                       item_types=args.item_types,
+                                       asset_type=args.asset,
+                                       out_dir=args.outdir,
+                                       parallel_downloads=args.parallel_downloads)
