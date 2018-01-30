@@ -248,7 +248,7 @@ def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
     print('Requesting activation of {} images...'.format(len(assets)),
           flush=True, end=' ')
     parallel.run_calls(activate, [x[1] for x in assets], pool_type='threads',
-                       nb_workers=5, timeout=10)  # short timeout as "activate" doesn't wait
+                       nb_workers=5, timeout=30)  # short timeout as "activate" doesn't wait
 
     # request clips
     print('Requesting clip of {} images...'.format(len(assets)),
