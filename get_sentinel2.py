@@ -284,18 +284,15 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     images = [i for i, c in zip(images, cloudy) if not c]
     utils.print_elapsed_time()
 
-    # group band crops per image
-    crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
+    # embed some metadata in the remaining image files
+    print('Embedding metadata in geotiff headers...')
     for img in images:
         name = filename_from_metadata_dict(img, search_api)
-        crops.append([os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
-                      for b in bands])
-
-    # embed some metadata in the remaining image files
-    for bands_fnames in crops:
-        for f in bands_fnames:  # embed some metadata as gdal geotiff tags
-            for k, v in metadata_from_metadata_dict(img, search_api).items():
-                utils.set_geotif_metadata_item(f, k, v)
+        d = metadata_from_metadata_dict(img, search_api)
+        for b in bands:  # embed some metadata as gdal geotiff tags
+            f = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
+            utils.set_geotif_metadata(f, metadata=d)
+    utils.print_elapsed_time()
 
 
 if __name__ == '__main__':
