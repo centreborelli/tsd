@@ -70,7 +70,7 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
 
     # sort results by acquisition date
     dates = [dateutil.parser.parse(x['properties']['acquired']) for x in results]
-    results = [r for d, r in sorted(zip(dates, results))]
+    results = [r for d, r in sorted(zip(dates, results), key=lambda t:t[0])]
     dates.sort()
 
     # remove duplicates (two images are said to be duplicates if within 5 minutes)
