@@ -129,29 +129,41 @@ def filename_from_metadata_dict(d, api='devseed'):
                                            orbit, mgrs_id)
 
 
-def metadata_from_metadata_dict(d, api='planet'):
+def sun_angles(img, api='planet'):
     """
-    Return a dict containing some string-formatted metadata.
+    Return the azimuth and elevation sun angles.
+
+    Args:
+        img:
+        api:
+
+    Return:
+        tuple of length 2 (azimuth, elevation)
     """
-    imaging_date = date_and_mgrs_id_from_metadata_dict(d, api)[0]
     if api == 'planet':
-        sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
-        sun_azimuth = d['properties']['sun_azimuth']
-    elif api == 'scihub' or api == 'devseed':
+        p = img['properties']
+        return p['sun_azimuth'], p['sun_elevation']
+    elif api in ['scihub', 'devseed']:
         url = aws_url_from_metadata_dict(d, api)
         r = requests.get('{}metadata.xml'.format(url))
         if r.ok:
             soup = bs4.BeautifulSoup(r.text, 'xml')
-            sun_zenith = float(soup.Mean_Sun_Angle.ZENITH_ANGLE.text)
             sun_azimuth = float(soup.Mean_Sun_Angle.AZIMUTH_ANGLE.text)
+            sun_zenith = float(soup.Mean_Sun_Angle.ZENITH_ANGLE.text)
         else:
             print("WARNING: couldn't retrieve sun azimuth and zenith", url)
             sun_zenith, sun_azimuth = 90, 0
-    return {
-        "IMAGING_DATE": imaging_date.strftime('%Y-%m-%dT%H:%M:%S'),
-        "SUN_ZENITH": str(sun_zenith),
-        "SUN_AZIMUTH": str(sun_azimuth)
-    }
+        return sun_azimuth, 90 - sun_zenith  # elevation and zenith are complementary
+
+
+def format_metadata_dict(d):
+    """
+    Return a copy of the input dict with all values converted to strings.
+    """
+    out = {}
+    for k in d:
+        out[k] = str(d[k])
+    return out
 
 
 def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
@@ -288,7 +300,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     print('Embedding metadata in geotiff headers...')
     for img in images:
         name = filename_from_metadata_dict(img, search_api)
-        d = metadata_from_metadata_dict(img, search_api)
+        d = format_metadata_dict(img)
         for b in bands:  # embed some metadata as gdal geotiff tags
             f = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
             utils.set_geotif_metadata(f, metadata=d)
