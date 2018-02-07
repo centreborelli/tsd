@@ -28,7 +28,8 @@ import search_devseed
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
-aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
+aws_http_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
+aws_s3_url = 's3://sentinel-s2-l1c'
 
 # list of spectral bands
 all_bands = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
@@ -83,24 +84,34 @@ def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     return date, mgrs_id
 
 
-def aws_url_from_metadata_dict_backend(d, api='devseed'):
+def aws_path_from_metadata_dict(d, api='devseed'):
     """
-    Build the AWS url of a Sentinel-2 image from it's metadata.
+    Build the AWS path of a Sentinel-2 image from its metadata.
     """
+    if 'aws_path' in d:
+        return d['aws_path']
+
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
-    _, utm_code, lat_band, sqid, _ = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', mgrs_id)
-    return '{}/tiles/{}/{}/{}/{}/{}/{}/0/'.format(aws_url, utm_code, lat_band,
-                                                  sqid, date.year, date.month,
-                                                  date.day)
+    utm_code, lat_band, sqid = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)',
+                                        mgrs_id)[1:4]
+    return 'tiles/{}/{}/{}/{}/{}/{}/0'.format(utm_code, lat_band, sqid,
+                                              date.year, date.month, date.day)
 
 
-def aws_url_from_metadata_dict(d, api='devseed', band=None):
+def aws_s3_url_from_metadata_dict(d, api='devseed'):
     """
-    Build the AWS url (including band) of a Sentinel-2 image from it's metadata
+    Build the AWS s3 url of a Sentinel-2 image from its metadata.
     """
-    baseurl = aws_url_from_metadata_dict_backend(d, api)
+    return '{}/{}'.format(aws_s3_url, aws_path_from_metadata_dict(d, api))
+
+
+def aws_http_url_from_metadata_dict(d, api='devseed', band=None):
+    """
+    Build the AWS http url of a Sentinel-2 image from its metadata.
+    """
+    baseurl = '{}/{}'.format(aws_http_url, aws_path_from_metadata_dict(d, api))
     if band and band in all_bands:
-        return '{}{}.jp2'.format(baseurl,band)
+        return '{}/{}.jp2'.format(baseurl, band)
     else:
         return baseurl
 
@@ -144,8 +155,8 @@ def sun_angles(img, api='planet'):
         p = img['properties']
         return p['sun_azimuth'], p['sun_elevation']
     elif api in ['scihub', 'devseed']:
-        url = aws_url_from_metadata_dict(d, api)
-        r = requests.get('{}metadata.xml'.format(url))
+        url = aws_http_url_from_metadata_dict(d, api)
+        r = requests.get('{}/metadata.xml'.format(url))
         if r.ok:
             soup = bs4.BeautifulSoup(r.text, 'xml')
             sun_azimuth = float(soup.Mean_Sun_Angle.AZIMUTH_ANGLE.text)
@@ -179,7 +190,7 @@ def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
         p: fraction threshold
     """
     polygons = []
-    url = requests.compat.urljoin(image_aws_url, 'qi/MSK_CLOUDS_B00.gml')
+    url = '{}/qi/MSK_CLOUDS_B00.gml'.format(image_aws_url)
     r = requests.get(url)
     if r.ok:
         soup = bs4.BeautifulSoup(r.text, 'xml')
@@ -253,14 +264,14 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     # build urls, filenames and crops coordinates
     crops_args = []
     for img in images:
-        url_base = aws_url_from_metadata_dict(img, search_api)
+        url_base = aws_s3_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         coords = utils.utm_bbx(aoi,  # convert aoi coordates to utm
                                utm_zone=int(utm_zone_from_metadata_dict(img)),
                                r=60)  # round to multiples of 60 (B01 resolution)
         for b in bands:
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
-            url = '{}{}.jp2'.format(url_base, b)
+            url = '{}/{}.jp2'.format(url_base, b)
             crops_args.append((fname, url, *coords))
 
     # download crops
@@ -279,7 +290,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                                                          out_dir)]
     # discard images that are totally covered by clouds
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
-    urls = [aws_url_from_metadata_dict(img, search_api) for img in images]
+    urls = [aws_http_url_from_metadata_dict(img, search_api) for img in images]
     print('Reading {} cloud masks...'.format(len(urls)), end=' ')
     cloudy = parallel.run_calls(is_image_cloudy_at_location, urls,
                                 extra_args=(utils.geojson_lonlat_to_utm(aoi),),

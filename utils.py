@@ -298,6 +298,12 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
     if inpath.startswith(('http://', 'https://')):
         env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
         path = '/vsicurl/{}'.format(inpath)
+    elif inpath.startswith('s3://'):
+        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
+        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
+        env['VSI_CACHE'] = 'TRUE'
+        env['AWS_REQUEST_PAYER'] = 'requester'
+        path = '/vsis3/{}'.format(inpath[len('s3://'):])
     else:
         path = inpath
 
