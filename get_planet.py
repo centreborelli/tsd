@@ -106,6 +106,20 @@ def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None,
                                            utm_zone, lat_band)
 
 
+def get_asset(item, asset_type, verbose=False):
+    """
+    """
+    allowed_assets = client.get_assets(item).get()
+    if asset_type not in allowed_assets:
+        if verbose:
+            print('WARNING: no permission to get asset "{}" of {}'.format(asset_type,
+                                                                          item['_links']['_self']))
+            print("\tPermissions for this item are:", item['_permissions'])
+        return
+    else:
+        return item, allowed_assets[asset_type]
+
+
 def activate(asset):
     """
     """
@@ -124,7 +138,7 @@ def poll_activation(asset):
     if r.ok:
         asset = r.json()
     elif r.status_code == 429:  # rate limit
-        time.sleep(3)
+        time.sleep(1)
         return poll_activation(asset)
     else:
         print('ERROR: got {} error code when requesting {}'.format(r.status_code,
@@ -178,7 +192,7 @@ def clip(item, asset, aoi, active=False):
     if r.ok:
         return r.json()
     elif r.status_code == 429:  # rate limit
-        time.sleep(3)
+        time.sleep(1)
         return clip(item, asset, aoi, active=True)
     else:
         print('ERROR: got {} error code when requesting {}'.format(r.status_code, d))
@@ -193,7 +207,7 @@ def poll_clip(clip_json):
     if r.ok:
         j = r.json()
     elif r.status_code == 429:  # rate limit
-        time.sleep(3)
+        time.sleep(1)
         return poll_clip(clip_json)
     else:
         print('ERROR: got {} error code when requesting {}'.format(r.status_code, clip_request_url))
@@ -233,28 +247,24 @@ def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
     print('Found {} images'.format(len(images)))
 
     # list the requested asset for each available and allowed image
-    assets = []
-    for item in images:
-        allowed_assets = client.get_assets(item).get()
-        if asset_type not in allowed_assets:
-            print('WARNING: no permission to get asset "{}" of {}'.format(asset_type,
-                                                                          item['_links']['_self']))
-            #print("\tPermissions for this item are:", item['_permissions'])
-        else:
-            assets.append((item, allowed_assets[asset_type]))
+    print('Listing available {} assets...'.format(asset_type), flush=True,
+          end=' ')
+    assets = parallel.run_calls(get_asset, images, extra_args=(asset_type,),
+                                pool_type='threads', nb_workers=parallel_downloads, timeout=600)
+    assets = [a for a in assets if a]  # remove 'None' elements
     print('Have permissions for {} images'.format(len(assets)))
 
     # activate the allowed assets
     print('Requesting activation of {} images...'.format(len(assets)),
           flush=True, end=' ')
     parallel.run_calls(activate, [x[1] for x in assets], pool_type='threads',
-                       nb_workers=5, timeout=30)  # short timeout as "activate" doesn't wait
+                       nb_workers=parallel_downloads, timeout=600)
 
     # request clips
     print('Requesting clip of {} images...'.format(len(assets)),
           flush=True, end=' ')
     clips = parallel.run_calls(clip, assets, extra_args=(aoi,),
-                               pool_type='threads', nb_workers=5, timeout=600)
+                               pool_type='threads', nb_workers=parallel_downloads, timeout=3600)
 
     # build filenames
     fnames = [os.path.join(out_dir, '{}.zip'.format(fname_from_metadata(i)))
@@ -270,7 +280,7 @@ def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
     # download clips
     print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
     parallel.run_calls(download, list(zip(clips, fnames)), pool_type='threads',
-                       nb_workers=5, timeout=600)
+                       nb_workers=parallel_downloads, timeout=3600)
 
 
 def get_time_series(aoi, start_date=None, end_date=None,
