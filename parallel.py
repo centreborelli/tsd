@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (C) 2017, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
 from __future__ import print_function
