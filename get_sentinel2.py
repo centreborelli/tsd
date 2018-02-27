@@ -171,10 +171,7 @@ def format_metadata_dict(d):
     """
     Return a copy of the input dict with all values converted to strings.
     """
-    out = {}
-    for k in d:
-        out[k] = str(d[k])
-    return out
+    return {k: str(d[k]) for k in d}
 
 
 def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
@@ -228,7 +225,6 @@ def bands_files_are_valid(img, bands, search_api, directory):
     return all(utils.is_valid(p) for p in paths)
 
 
-
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                     out_dir='', search_api='devseed',
                     parallel_downloads=multiprocessing.cpu_count()):
@@ -261,10 +257,16 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     print('Found {} images'.format(len(images)))
     utils.print_elapsed_time()
 
+    # choose wether to use http or s3
+    if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
+        aws_url_from_metadata_dict = aws_s3_url_from_metadata_dict
+    else:
+        aws_url_from_metadata_dict = aws_http_url_from_metadata_dict
+
     # build urls, filenames and crops coordinates
     crops_args = []
     for img in images:
-        url_base = aws_s3_url_from_metadata_dict(img, search_api)
+        url_base = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         coords = utils.utm_bbx(aoi,  # convert aoi coordates to utm
                                utm_zone=int(utm_zone_from_metadata_dict(img)),

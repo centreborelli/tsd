@@ -20,7 +20,6 @@ import numpy as np
 import utils
 
 
-api_url = 'https://api.developmentseed.org/satellites/landsat'
 api_url = 'https://api.developmentseed.org/satellites/'
 s2_mgrs_grid = os.path.join(os.path.dirname(os.path.abspath(__file__)), 's2_mgrs_grid.txt')
 

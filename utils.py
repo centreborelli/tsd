@@ -297,6 +297,8 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
     env = os.environ.copy()
     if inpath.startswith(('http://', 'https://')):
         env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
+        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
+        env['VSI_CACHE'] = 'TRUE'
         path = '/vsicurl/{}'.format(inpath)
     elif inpath.startswith('s3://'):
         env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
