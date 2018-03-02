@@ -107,7 +107,7 @@ def download_sentinel_image(image, out_dir='', mirror='code-de'):
                 download_sentinel_image(image, out_dir, mirror='scihub')
         elif mirror == 'scihub':
             url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, image['id'])
-            query_data_hub(zip_path, url, verbose=True)
+            query_data_hub(zip_path, url, verbose=False)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 
