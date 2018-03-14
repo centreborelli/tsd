@@ -6,7 +6,7 @@ matrix:
       language: generic
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink gdal; brew install python3; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink gdal; brew upgrade python; fi
 
 install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.1.dmg; fi
