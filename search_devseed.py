@@ -163,11 +163,6 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
         d['results'].remove(x)
         d['meta']['found'] -= 1
 
-    # remove 'crs' fields to make the json dict compatible with geojsonio
-    if satellite == 'Landsat-8':
-        for x in d['results']:
-            x['data_geometry'].pop('crs')
-
     return d
 
 
