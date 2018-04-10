@@ -74,7 +74,7 @@ def download_safe_from_peps(safe_name, out_dir=''):
     os.system(cmd)
 
 
-def download_sentinel_image(image, out_dir='', mirror='code-de'):
+def download_sentinel_image(image, out_dir='', mirror='peps'):
     """
     Download a Sentinel image.
     """
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--product-type',
                         help='type of image: GRD, SLC, RAW', default='GRD')
     parser.add_argument('--mirror', help='download mirror: code-de, peps or scihub',
-                        default='code-de')
+                        default='peps')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
