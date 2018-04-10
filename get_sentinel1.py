@@ -115,7 +115,7 @@ def download_sentinel_image(image, out_dir='', mirror='code-de'):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
-                    product_type='GRD', mirror='code-de'):
+                    product_type='GRD', mirror='peps'):
     """
     Main function: download a Sentinel-1 image time serie.
     """
