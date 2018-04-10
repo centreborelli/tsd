@@ -124,13 +124,8 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                                   product_type=product_type)
 
     # download
-    zips = []
     for image in images:
-        zips.append(download_sentinel_image(image, out_dir, mirror))
-
-    # unzip
-    for z in zips:
-        zipfile.ZipFile(z, 'r').extractall(path=out_dir)
+        download_sentinel_image(image, out_dir, mirror)
 
 
 if __name__ == '__main__':
