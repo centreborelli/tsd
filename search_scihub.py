@@ -164,7 +164,7 @@ if __name__ == '__main__':
     parser.add_argument('--operational-mode', default='IW',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--api', default='copernicus',
-                        help='mirror to use: copernicus, austria of finland')
+                        help='mirror to use: copernicus, austria or finland')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):

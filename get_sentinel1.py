@@ -31,7 +31,7 @@ def query_data_hub(output_filename, url, verbose=False,
                    user=search_scihub.login,
                    password=search_scihub.password):
     """
-    Download a file from the Copernicus data hub.
+    Download a file from the Copernicus data hub or one of its true mirrors.
     """
     verbosity = '--verbose' if verbose else '--no-verbose'  # intermediate verbosity with --quiet
     subprocess.call(['wget',
@@ -103,10 +103,11 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
                 download_safe_from_peps(image['title'], out_dir=out_dir)
             except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
-                print('WARNING: will download from scihub mirror...')
-                download_sentinel_image(image, out_dir, mirror='scihub')
-        elif mirror == 'scihub':
-            url = "{}/odata/v1/Products('{}')/$value".format(scihub_url, image['id'])
+                print('WARNING: will download from copernicus mirror...')
+                download_sentinel_image(image, out_dir, mirror='copernicus')
+        elif mirror in search_scihub.api_urls:
+            url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.api_urls[mirror],
+                                                             image['id'])
             query_data_hub(zip_path, url, verbose=True)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
@@ -115,17 +116,18 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
-                    product_type='GRD', mirror='peps'):
+                    product_type='GRD', search_api='copernicus',
+                    download_mirror='peps'):
     """
     Main function: download a Sentinel-1 image time serie.
     """
     # list available images
     images = search_scihub.search(aoi, start_date, end_date,
-                                  product_type=product_type)
+                                  product_type=product_type, api=search_api)
 
     # download
     for image in images:
-        download_sentinel_image(image, out_dir, mirror)
+        download_sentinel_image(image, out_dir, download_mirror)
 
 
 if __name__ == '__main__':
@@ -150,8 +152,10 @@ if __name__ == '__main__':
                                                           'images'), default='')
     parser.add_argument('-t', '--product-type',
                         help='type of image: GRD, SLC, RAW', default='GRD')
-    parser.add_argument('--mirror', help='download mirror: code-de, peps or scihub',
-                        default='peps')
+    parser.add_argument('--api', default='copernicus',
+                        help='search API to use: copernicus, austria or finland')
+    parser.add_argument('--mirror', default='peps',
+                        help='download mirror: peps, copernicus, austria or finland')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
@@ -173,4 +177,4 @@ if __name__ == '__main__':
                                                 args.height)
         get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                         out_dir=args.outdir, product_type=args.product_type,
-                        mirror=args.mirror)
+                        search_api=args.api, download_mirror=args.mirror)
