@@ -61,17 +61,17 @@ def bytes2str(x):
 
 def parse_s2_tiling_grid(lon, lat, grid=s2_mgrs_grid):
     """
-    Search in the sentinel-2 tiling grid a MGRS tile containing a given point.
+    Search in the sentinel-2 tiling grid all the MGRS tiles containing a point.
 
     Args:
-        lat, lon: geographic coordinates of the input geographic location
+        lat, lon: geographic coordinates of the input point
 
     Returns:
-        The MGRS identifier of a tile. It's a string of lenght 5. The first two
-        characters indicate the utm code ranging from 01 to 60 (indicating a
-        longitude band), the next is an uppercase letter indicating the utm
-        latitude band, and the last two are two uppercase letters giving a
-        100,000-meter square MGRS identifier.
+        List of MGRS identifiers. Each MGRS identifier is a string of lenght 5.
+        The first two characters indicate the utm code ranging from 01 to 60
+        (indicating a longitude band), the next is an uppercase letter
+        indicating the utm latitude band, and the last two are two uppercase
+        letters giving a 100,000-meter square MGRS identifier.
     """
     # load the list of lon lat bounding boxes of MGRS tiles used by sentinel-2
     mgrsid = np.loadtxt(grid, usecols=[0], converters={0:bytes2str}, dtype=np.str)
