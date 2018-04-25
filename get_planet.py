@@ -10,19 +10,15 @@ Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
 from __future__ import print_function
 import os
-import sys
 import time
-import shutil
+import json
 import argparse
 import multiprocessing
-import numpy as np
-import utm
-import dateutil.parser
-import json
-import requests
-import area
 
-import planet
+import area
+import requests
+import numpy as np
+import dateutil.parser
 
 import utils
 import parallel
@@ -52,21 +48,22 @@ quota_url = 'https://api.planet.com/auth/v1/experimental/public/my/subscriptions
 
 def get_quota():
     """
-    Get current quota usage.
+    Return a string giving the current quota usage.
     """
     r = requests.get(quota_url, auth=(os.getenv('PL_API_KEY'), ''))
     if r.ok:
         l = r.json()
         #assert(l[0]['plan']['name'] == 'Education and Research Standard (PlanetScope)')
         return '{:.3f} / {} km²'.format(l[0]['quota_used'], l[0]['quota_sqkm'])
-    else:
-        print('ERROR: {} returned {}'.format(quota_url, r.status_code))
-        return
+    print('ERROR: {} returned {}'.format(quota_url, r.status_code))
 
 
 def fname_from_metadata(d):
     """
-    Build a string using the image acquisition date and identifier.
+    Return a string containing the image acquisition date and identifier.
+
+    Args:
+        d (dict): dictionary containing a Planet item information
     """
     scene_id = d['id']
     date_str = d['properties']['acquired']
@@ -77,6 +74,9 @@ def fname_from_metadata(d):
 def metadata_from_metadata_dict(d):
     """
     Return a dict containing some string-formatted metadata.
+
+    Args:
+        d (dict): dictionary containing a Planet item information
     """
     imaging_date = dateutil.parser.parse(d['properties']['acquired'])
     sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
@@ -94,6 +94,16 @@ def metadata_from_metadata_dict(d):
 def download_crop_with_gdal(outfile, asset, ulx, uly, lrx, lry, utm_zone=None,
                             lat_band=None):
     """
+    Download a crop defined in UTM coordinates, using gdal_translate.
+
+    Args:
+        outfile (string): path to the output file
+        asset (dict): dictionary containing the image information
+        ulx, uly (floats): x/y UTM coordinates of the upper left (ul) corner
+        lrx, lry (floats): x/y UTM coordinates of the lower right (lr) corner
+        utm_zone (int): number between 1 and 60 indicating the UTM zone with
+            respect to which the UTM coordinates have to be interpreted.
+        lat_band (string): letter between C and X indicating the latitude band.
     """
     url = poll_activation(asset)
     if url is not None:
@@ -106,8 +116,16 @@ def download_crop_with_gdal(outfile, asset, ulx, uly, lrx, lry, utm_zone=None,
                                        utm_zone, lat_band)
 
 
-def list_assets(item, asset_type, verbose=False):
+def get_item_asset_info(item, asset_type, verbose=False):
     """
+    Get item asset details if we have download permissions.
+
+    Args:
+        item (dict): dictionary containing the item info
+        asset_type (string): desired asset
+
+    Return:
+        (dict): dictionary containing the item asset information
     """
     allowed_assets = client.get_assets(item).get()
     if asset_type not in allowed_assets:
@@ -115,13 +133,17 @@ def list_assets(item, asset_type, verbose=False):
             print('WARNING: no permission to get asset "{}" of {}'.format(asset_type,
                                                                           item['_links']['_self']))
             print("\tPermissions for this item are:", item['_permissions'])
-        return
+        return None
     else:
         return item, allowed_assets[asset_type]
 
 
 def request_activation(asset):
     """
+    Request the activation of an asset to Planet data API.
+
+    Args:
+        asset (dict): dictionary containing the image information
     """
     activation = client.activate(asset)
     r = activation.response.status_code
@@ -132,6 +154,13 @@ def request_activation(asset):
 
 def poll_activation(asset):
     """
+    Wait for an asset, requested to Planet data API, to be ready for download.
+
+    Args:
+        asset (dict): dictionary containing the asset info
+
+    Return:
+        (string): url to the file ready for download
     """
     # refresh the asset info
     r = requests.get(asset['_links']['_self'], auth=(os.environ['PL_API_KEY'], ''))
@@ -161,15 +190,17 @@ def poll_activation(asset):
 
 def request_clip(item, asset, aoi, active=False):
     """
+    Request a clip to Planet clip & ship API.
+
     Args:
-        item:
-        asset:
-        aoi: dictionary containing a geojson polygon (eg output of
+        item (dict): dictionary containing the item info
+        asset (dict): dictionary containing the asset info
+        aoi (dict): dictionary containing a geojson polygon (e.g. output of
             utils.geojson_geometry_object)
-        active: boolean
+        active (bool): boolean
 
     Return:
-        download url
+        (dict): dictionary containing the clip info
     """
     if not active:  # wait for the asset to be actived
         poll_activation(asset)
@@ -200,6 +231,13 @@ def request_clip(item, asset, aoi, active=False):
 
 def poll_clip(clip_json):
     """
+    Wait for a clip, requested to Planet clip & ship API, to be ready.
+
+    Args:
+        clip_json (dict): dictionary containing the clip info
+
+    Return:
+        (string): url to the zipfile containing the clipped data.
     """
     # refresh the clip info
     clip_request_url = clip_json['_links']['_self']
@@ -226,9 +264,11 @@ def poll_clip(clip_json):
 
 def download_clip(clip_info, outpath):
     """
+    Download a zipfile from Planet clip & ship endpoint after a clip request.
+
     Args:
-        clip_info: dictionary containing the clip info
-        outpath: path where to store the downloaded zip file
+        clip_info (dict): dictionary containing the clip info
+        outpath (string): path where to store the downloaded zip file
     """
     url = poll_clip(clip_info)
     utils.download(url, outpath, auth=(os.environ['PL_API_KEY'], ''))
@@ -248,8 +288,8 @@ def get_time_series(aoi, start_date=None, end_date=None,
 
     # list the requested asset for each available (and allowed) image
     print('Listing available {} assets...'.format(asset_type), flush=True, end=' ')
-    assets = parallel.run_calls(list_assets, images, extra_args=(asset_type,),
-                                pool_type='threads',
+    assets = parallel.run_calls(get_item_asset_info, images,
+                                extra_args=(asset_type,), pool_type='threads',
                                 nb_workers=parallel_downloads, timeout=600)
     assets = [a for a in assets if a]  # remove 'None' elements
     print('Have permissions for {} images'.format(len(assets)))
@@ -334,9 +374,6 @@ if __name__ == '__main__':
                               ' Allowed values are {}'.format(', '.join(ASSETS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('-d', '--debug', action='store_true', help=('save '
-                                                                    'intermediate '
-                                                                    'images'))
     parser.add_argument('--parallel-downloads', type=int, default=10,
                         help='max number of parallel crops downloads')
     parser.add_argument('--clip-and-ship', action='store_true', help=('use the '
@@ -344,8 +381,8 @@ if __name__ == '__main__':
                                                                       'ship API'))
     args = parser.parse_args()
 
-    if args.geom and (args.lat or args.lon):
-        parser.error('--geom and {--lat, --lon} are mutually exclusive')
+    if args.geom and (args.lat or args.lon or args.width or args.height):
+        parser.error('--geom and {--lat, --lon, -w, -l} are mutually exclusive')
 
     if not args.geom and (not args.lat or not args.lon):
         parser.error('either --geom or {--lat, --lon} must be defined')
