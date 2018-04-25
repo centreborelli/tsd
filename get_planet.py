@@ -5,7 +5,7 @@
 """
 Automatic download and crop Planet images.
 
-Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
 """
 
 from __future__ import print_function
@@ -50,9 +50,9 @@ cas_url = 'https://api.planet.com/compute/ops/clips/v1'  # clip and ship
 quota_url = 'https://api.planet.com/auth/v1/experimental/public/my/subscriptions'
 
 
-def quota():
+def get_quota():
     """
-    Print current quota usage.
+    Get current quota usage.
     """
     r = requests.get(quota_url, auth=(os.getenv('PL_API_KEY'), ''))
     if r.ok:
@@ -91,22 +91,22 @@ def metadata_from_metadata_dict(d):
     return out
 
 
-def download_crop(outfile, item, asset, ulx, uly, lrx, lry, utm_zone=None,
-                  lat_band=None):
+def download_crop_with_gdal(outfile, asset, ulx, uly, lrx, lry, utm_zone=None,
+                            lat_band=None):
     """
     """
-    url = activate(item, asset)
+    url = poll_activation(asset)
     if url is not None:
-        if asset.endswith(('_xml', '_rpc')):
-            os.system('wget {} -O {}'.format(url, outfile))
-        elif asset.startswith('basic'):
-            os.system('wget {} -O {}'.format(url, outfile))
-        else:
-            utils.crop_with_gdal_translate(outfile, url, ulx, uly, lrx, lry,
-                                           utm_zone, lat_band)
+        #if asset.endswith(('_xml', '_rpc')):
+        #    os.system('wget {} -O {}'.format(url, outfile))
+        #elif asset.startswith('basic'):
+        #    os.system('wget {} -O {}'.format(url, outfile))
+        #else:
+        utils.crop_with_gdal_translate(outfile, url, ulx, uly, lrx, lry,
+                                       utm_zone, lat_band)
 
 
-def get_asset(item, asset_type, verbose=False):
+def list_assets(item, asset_type, verbose=False):
     """
     """
     allowed_assets = client.get_assets(item).get()
@@ -120,7 +120,7 @@ def get_asset(item, asset_type, verbose=False):
         return item, allowed_assets[asset_type]
 
 
-def activate(asset):
+def request_activation(asset):
     """
     """
     activation = client.activate(asset)
@@ -152,14 +152,14 @@ def poll_activation(asset):
         time.sleep(3)
         return poll_activation(asset)
     elif asset['status'] == 'inactive':
-        activate(asset)
+        request_activation(asset)
         time.sleep(3)
         return poll_activation(asset)
     else:
         print('ERROR: unknown asset status {}'.format(asset['status']))
 
 
-def clip(item, asset, aoi, active=False):
+def request_clip(item, asset, aoi, active=False):
     """
     Args:
         item:
@@ -193,7 +193,7 @@ def clip(item, asset, aoi, active=False):
         return r.json()
     elif r.status_code == 429:  # rate limit
         time.sleep(1)
-        return clip(item, asset, aoi, active=True)
+        return request_clip(item, asset, aoi, active=True)
     else:
         print('ERROR: got {} error code when requesting {}'.format(r.status_code, d))
 
@@ -224,7 +224,7 @@ def poll_clip(clip_json):
                                                                     clip_request_url))
 
 
-def download(clip_info, outpath):
+def download_clip(clip_info, outpath):
     """
     Args:
         clip_info: dictionary containing the clip info
@@ -234,89 +234,76 @@ def download(clip_info, outpath):
     utils.download(url, outpath, auth=(os.environ['PL_API_KEY'], ''))
 
 
-def get_time_series_with_clip_and_ship(aoi, start_date=None, end_date=None,
-                                       item_types=['PSScene3Band'],
-                                       asset_type='analytic', out_dir='',
-                                       parallel_downloads=multiprocessing.cpu_count()):
+def get_time_series(aoi, start_date=None, end_date=None,
+                    item_types=['PSScene3Band'], asset_type='analytic',
+                    out_dir='',
+                    parallel_downloads=multiprocessing.cpu_count(),
+                    clip_and_ship=True):
     """
-    Main function: download and crop of Planet images.
+    Main function: crop and download Planet images.
     """
     # list available images
-    images = search_planet.search(aoi, start_date, end_date,
-                                  item_types=item_types)
+    images = search_planet.search(aoi, start_date, end_date, item_types=item_types)
     print('Found {} images'.format(len(images)))
 
-    # list the requested asset for each available and allowed image
-    print('Listing available {} assets...'.format(asset_type), flush=True,
-          end=' ')
-    assets = parallel.run_calls(get_asset, images, extra_args=(asset_type,),
-                                pool_type='threads', nb_workers=parallel_downloads, timeout=600)
+    # list the requested asset for each available (and allowed) image
+    print('Listing available {} assets...'.format(asset_type), flush=True, end=' ')
+    assets = parallel.run_calls(list_assets, images, extra_args=(asset_type,),
+                                pool_type='threads',
+                                nb_workers=parallel_downloads, timeout=600)
     assets = [a for a in assets if a]  # remove 'None' elements
     print('Have permissions for {} images'.format(len(assets)))
 
     # activate the allowed assets
     print('Requesting activation of {} images...'.format(len(assets)),
           flush=True, end=' ')
-    parallel.run_calls(activate, [x[1] for x in assets], pool_type='threads',
+    parallel.run_calls(request_activation, [x[1] for x in assets], pool_type='threads',
                        nb_workers=parallel_downloads, timeout=600)
 
-    # request clips
-    print('Requesting clip of {} images...'.format(len(assets)),
-          flush=True, end=' ')
-    clips = parallel.run_calls(clip, assets, extra_args=(aoi,),
-                               pool_type='threads', nb_workers=parallel_downloads, timeout=3600)
-
-    # build filenames
-    fnames = [os.path.join(out_dir, '{}.zip'.format(fname_from_metadata(i)))
-              for i, a in assets]
-
-    # warn user about quota
-    n = len(clips)
-    a = area.area(aoi) / 1e6
-    print('Your current quota usage is {}'.format(quota()), flush=True)
-    print('Downloading these {} clips will increase it by {:.3f} km²'.format(n, n*a),
+    # warn user about quota usage
+    n = len(assets)
+    if clip_and_ship:
+        a = area.area(aoi)
+    else:
+        a = np.sum(area.area(i['geometry']) for i, a in assets)
+    print('Your current quota usage is {}'.format(get_quota()), flush=True)
+    print('Downloading these {} images will increase it by {:.3f} km²'.format(n, n*a/1e6),
           flush=True)
 
-    # download clips
-    print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
-    parallel.run_calls(download, list(zip(clips, fnames)), pool_type='threads',
-                       nb_workers=parallel_downloads, timeout=3600)
-
-
-def get_time_series(aoi, start_date=None, end_date=None,
-                    item_types=['PSScene3Band'], asset_type='analytic',
-                    out_dir='',
-                    parallel_downloads=multiprocessing.cpu_count()):
-    """
-    Main function: download and crop of Planet images.
-    """
-    # list available images
-    images = search_planet.search(aoi, start_date, end_date,
-                                  item_types=item_types)
-    print('Found {} images'.format(len(images)))
-
     # build filenames
-    fnames = [os.path.join(out_dir, '{}.tif'.format(fname_from_metadata(x)))
-              for x in images]
+    ext = 'zip' if clip_and_ship else 'tif'
+    fnames = [os.path.join(out_dir, '{}.{}'.format(fname_from_metadata(i),
+                                                   ext)) for i, a in assets]
 
-    # convert aoi coordinates to utm
-    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
+    if clip_and_ship:
+        print('Requesting clip of {} images...'.format(len(assets)),
+              flush=True, end=' ')
+        clips = parallel.run_calls(request_clip, assets, extra_args=(aoi,),
+                                   pool_type='threads',
+                                   nb_workers=parallel_downloads, timeout=3600)
 
-    # activate images and download crops
-    utils.mkdir_p(out_dir)
-    print('Downloading {} crops...'.format(len(images)), end=' ')
-    parallel.run_calls(download_crop, list(zip(fnames, images)),
-                       extra_args=(asset_type, ulx, uly, lrx, lry, utm_zone,
-                                   lat_band),
-                       pool_type='threads', nb_workers=parallel_downloads,
-                       timeout=300)
+        print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
+        parallel.run_calls(download_clip, list(zip(clips, fnames)),
+                           pool_type='threads', nb_workers=parallel_downloads,
+                           timeout=3600)
 
-    # embed some metadata in the image files
-    for f, img in zip(fnames, images):  # embed some metadata as gdal geotiff tags
-        if os.path.isfile(f):
-            for k, v in metadata_from_metadata_dict(img).items():
-                utils.set_geotif_metadata_item(f, k, v)
+    else:
+        # convert aoi coordinates to utm
+        ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
 
+        # download crops with gdal through vsicurl
+        utils.mkdir_p(out_dir)
+        print('Downloading {} crops...'.format(len(images)), end=' ')
+        parallel.run_calls(download_crop_with_gdal, list(zip(fnames, [a[1] for a in assets])),
+                           extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
+                           pool_type='threads', nb_workers=parallel_downloads,
+                           timeout=300)
+
+        # embed some metadata in the image files
+        for f, img in zip(fnames, images):  # embed some metadata as gdal geotiff tags
+            if os.path.isfile(f):
+                for k, v in metadata_from_metadata_dict(img).items():
+                    utils.set_geotif_metadata_item(f, k, v)
 
 
 if __name__ == '__main__':
@@ -352,6 +339,9 @@ if __name__ == '__main__':
                                                                     'images'))
     parser.add_argument('--parallel-downloads', type=int, default=10,
                         help='max number of parallel crops downloads')
+    parser.add_argument('--clip-and-ship', action='store_true', help=('use the '
+                                                                      'clip and '
+                                                                      'ship API'))
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
@@ -365,12 +355,8 @@ if __name__ == '__main__':
     else:
         aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
                                             args.height)
-    #get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-    #                item_types=args.item_types, asset_type=args.asset,
-    #                out_dir=args.outdir, parallel_downloads=args.parallel_downloads)
-    get_time_series_with_clip_and_ship(aoi, start_date=args.start_date,
-                                       end_date=args.end_date,
-                                       item_types=args.item_types,
-                                       asset_type=args.asset,
-                                       out_dir=args.outdir,
-                                       parallel_downloads=args.parallel_downloads)
+    get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
+                    item_types=args.item_types, asset_type=args.asset,
+                    out_dir=args.outdir,
+                    parallel_downloads=args.parallel_downloads,
+                    clip_and_ship=args.clip_and_ship)
