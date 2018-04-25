@@ -3,7 +3,7 @@
 # pylint: disable=C0103
 
 """
-Automatic download and crop Planet images.
+Automatic download and crop of Planet images.
 
 Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
 """
@@ -135,7 +135,7 @@ def get_item_asset_info(item, asset_type, verbose=False):
             print("\tPermissions for this item are:", item['_permissions'])
         return None
     else:
-        return item, allowed_assets[asset_type]
+        return allowed_assets[asset_type]
 
 
 def request_activation(asset):
@@ -283,21 +283,24 @@ def get_time_series(aoi, start_date=None, end_date=None,
     Main function: crop and download Planet images.
     """
     # list available images
-    images = search_planet.search(aoi, start_date, end_date, item_types=item_types)
-    print('Found {} images'.format(len(images)))
+    items = search_planet.search(aoi, start_date, end_date, item_types=item_types)
+    print('Found {} images'.format(len(items)))
 
     # list the requested asset for each available (and allowed) image
     print('Listing available {} assets...'.format(asset_type), flush=True, end=' ')
-    assets = parallel.run_calls(get_item_asset_info, images,
+    assets = parallel.run_calls(get_item_asset_info, items,
                                 extra_args=(asset_type,), pool_type='threads',
                                 nb_workers=parallel_downloads, timeout=600)
-    assets = [a for a in assets if a]  # remove 'None' elements
-    print('Have permissions for {} images'.format(len(assets)))
+
+    # remove 'None' (ie not allowed) assets and corresponding items
+    items = [i for (i, a) in zip(items, assets) if a]
+    assets = [a for a in assets if a]
+    print('Have permissions for {} images'.format(len(items)))
 
     # activate the allowed assets
     print('Requesting activation of {} images...'.format(len(assets)),
           flush=True, end=' ')
-    parallel.run_calls(request_activation, [x[1] for x in assets], pool_type='threads',
+    parallel.run_calls(request_activation, assets, pool_type='threads',
                        nb_workers=parallel_downloads, timeout=600)
 
     # warn user about quota usage
@@ -305,7 +308,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
     if clip_and_ship:
         a = area.area(aoi)
     else:
-        a = np.sum(area.area(i['geometry']) for i, a in assets)
+        a = np.sum(area.area(i['geometry']) for i in items)
     print('Your current quota usage is {}'.format(get_quota()), flush=True)
     print('Downloading these {} images will increase it by {:.3f} km²'.format(n, n*a/1e6),
           flush=True)
@@ -313,13 +316,13 @@ def get_time_series(aoi, start_date=None, end_date=None,
     # build filenames
     ext = 'zip' if clip_and_ship else 'tif'
     fnames = [os.path.join(out_dir, '{}.{}'.format(fname_from_metadata(i),
-                                                   ext)) for i, a in assets]
+                                                   ext)) for i in items]
 
     if clip_and_ship:
         print('Requesting clip of {} images...'.format(len(assets)),
               flush=True, end=' ')
-        clips = parallel.run_calls(request_clip, assets, extra_args=(aoi,),
-                                   pool_type='threads',
+        clips = parallel.run_calls(request_clip, list(zip(items, assets)),
+                                   extra_args=(aoi,), pool_type='threads',
                                    nb_workers=parallel_downloads, timeout=3600)
 
         print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
@@ -333,14 +336,14 @@ def get_time_series(aoi, start_date=None, end_date=None,
 
         # download crops with gdal through vsicurl
         utils.mkdir_p(out_dir)
-        print('Downloading {} crops...'.format(len(images)), end=' ')
-        parallel.run_calls(download_crop_with_gdal, list(zip(fnames, [a[1] for a in assets])),
+        print('Downloading {} crops...'.format(len(assets)), end=' ')
+        parallel.run_calls(download_crop_with_gdal, list(zip(fnames, assets)),
                            extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
                            pool_type='threads', nb_workers=parallel_downloads,
                            timeout=300)
 
         # embed some metadata in the image files
-        for f, img in zip(fnames, images):  # embed some metadata as gdal geotiff tags
+        for f, img in zip(fnames, items):  # embed some metadata as gdal geotiff tags
             if os.path.isfile(f):
                 for k, v in metadata_from_metadata_dict(img).items():
                     utils.set_geotif_metadata_item(f, k, v)
@@ -381,8 +384,8 @@ if __name__ == '__main__':
                                                                       'ship API'))
     args = parser.parse_args()
 
-    if args.geom and (args.lat or args.lon or args.width or args.height):
-        parser.error('--geom and {--lat, --lon, -w, -l} are mutually exclusive')
+    if args.geom and (args.lat or args.lon):
+        parser.error('--geom and {--lat, --lon} are mutually exclusive')
 
     if not args.geom and (not args.lat or not args.lon):
         parser.error('either --geom or {--lat, --lon} must be defined')
