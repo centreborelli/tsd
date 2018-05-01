@@ -19,6 +19,8 @@ import dateutil.parser
 import datetime
 import requests
 import bs4
+import boto3
+import botocore
 import geojson
 import shapely.geometry
 
@@ -34,6 +36,22 @@ AWS_S3_URL = 's3://sentinel-s2-l1c'
 # list of spectral bands
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
+
+
+def we_can_access_aws_through_s3():
+    """
+    Test if we can access AWS through s3.
+    """
+    if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
+        try:
+            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL[5:])
+            return True
+        except botocore.exceptions.ClientError:
+            pass
+    return False
+
+
+WE_CAN_ACCESS_AWS_THROUGH_S3 = we_can_access_aws_through_s3()
 
 
 def utm_zone_from_metadata_dict(d, api='devseed'):
@@ -258,7 +276,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     utils.print_elapsed_time()
 
     # choose wether to use http or s3
-    if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
+    if WE_CAN_ACCESS_AWS_THROUGH_S3:
         aws_url_from_metadata_dict = aws_s3_url_from_metadata_dict
     else:
         aws_url_from_metadata_dict = aws_http_url_from_metadata_dict
