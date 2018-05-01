@@ -50,6 +50,8 @@ def query_l8(lat, lon, start_date=None, end_date=None):
         start_date = end_date - datetime.timedelta(365)
     x += '+AND+acquisitionDate:[{}+TO+{}]'.format(start_date.isoformat(),
                                                   end_date.isoformat())
+
+    # https://landsat.usgs.gov/what-are-landsat-collection-1-tiers
     return x
 
 
@@ -151,16 +153,23 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
         print('WARNING: request to {} returned {}'.format(url, r.status_code))
         return
 
+    # for Landsat-8 keep only T1 and RT collection tiers:
+    # https://landsat.usgs.gov/what-are-landsat-collection-1-tiers
+    to_remove = set()
+    if satellite == 'Landsat-8':
+        for i, x in enumerate(d['results']):
+            if x['COLLECTION_CATEGORY'] not in ['T1', 'RT']:
+                to_remove.add(i)
+
     # check if the image footprint contains the area of interest
     aoi = shapely.geometry.shape(aoi)
-    not_covering = []
-    for x in d['results']:
+    for i, x in enumerate(d['results']):
         if 'data_geometry' in x:
             if not shapely.geometry.shape(x['data_geometry']).contains(aoi):
-                not_covering.append(x)
+                to_remove.add(i)
 
-    for x in not_covering:
-        d['results'].remove(x)
+    for i in sorted(to_remove, reverse=True):  # delete the higher index first
+        del d['results'][i]
         d['meta']['found'] -= 1
 
     return d

@@ -16,6 +16,8 @@ import argparse
 import datetime
 import numpy as np
 import utm
+import boto3
+import botocore
 import dateutil.parser
 import requests
 import tifffile
@@ -25,11 +27,29 @@ import utils
 import parallel
 
 
-AWS_URL = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
+# https://landsatonaws.com/
+AWS_HTTP_URL = 'http://landsat-pds.s3.amazonaws.com'
+AWS_S3_URL = 's3://landsat-pds'
 
 # list of spectral bands
 ALL_BANDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
              '10', '11', 'QA']
+
+def we_can_access_aws_through_s3():
+    """
+    Test if we can access AWS through s3.
+    """
+    if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
+        try:
+            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL[5:])
+            return True
+        except botocore.exceptions.ClientError:
+            pass
+    return False
+
+
+WE_CAN_ACCESS_AWS_THROUGH_S3 = we_can_access_aws_through_s3()
+
 
 def google_url_from_metadata_dict_backend(d, api='devseed'):
     """
@@ -50,45 +70,31 @@ def google_url_from_metadata_dict(d, api='devseed', band=None):
         return baseurl
 
 
-def aws_url_from_metadata_dict_backend(d, api='devseed'):
+def aws_paths_from_metadata_dict(d, api='devseed'):
     """
-    Build the AWS url of a Landsat image from it's metadata.
+    Build the AWS path of a Landsat-8 image from its metadata.
     """
-    if api == 'devseed':  # currently fixed with a temporary ugly hack
+    if api == 'devseed':
+        # remove the http://landsat-pds.s3.amazonaws.com/ prefix from the urls
+        return ['/'.join(url.split('/')[3:]) for url in d['download_links']['aws_s3']]
+        # Is this issue still a problem?
         # https://github.com/sat-utils/landsat8-metadata/issues/6
-        assert(d['aws_index'].endswith('index.html'))
-        url = d['aws_index'][:-1-len('index.html')]
-        if url.endswith(d['sceneID']):
-            path = d['path']
-            row = d['row']
-            for i in range(4):  # ugly hack for images before 2017-05-01, waiting for developmentseed fix
-                scene_id = '{}{}'.format(d['sceneID'][:-1], i)
-                u = '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(AWS_URL, path, row, scene_id)
-                if requests.head('{}_B8.TIF'.format(u)).ok:
-                    break
-            else:
-                product_id = d['product_id']
-                u = '{0}/c1/L8/{1:03d}/{2:03d}/{3}/{3}'.format(AWS_URL, path, row, product_id)
-            return u
-        else:
-            product_id = d['product_id']
-            return '{}/{}'.format(url, product_id)
     elif api == 'planet':  # currently broken
-        path = d['properties']['wrs_path']
+        col = d['properties']['wrs_path']
         row = d['properties']['wrs_row']
         scene_id = d['id']
-        return '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(AWS_URL, path, row, scene_id)
+        return 'L8/{0:03d}/{1:03d}/{2}/{2}'.format(col, row, scene_id)
 
 
-def aws_url_from_metadata_dict(d, api='devseed', band=None):
+def aws_urls_from_metadata_dict(d, api='devseed'):
     """
-    Build the AWS url  (including band)  of a Landsat image from it's metadata.
+    Build the AWS s3 or http urls of the 12 bands of a Landsat-8 image.
     """
-    baseurl = aws_url_from_metadata_dict_backend(d, api)
-    if band and band in ALL_BANDS:
-        return '{}_B{}.TIF'.format(baseurl, band)
+    if WE_CAN_ACCESS_AWS_THROUGH_S3:
+        aws_url = AWS_S3_URL
     else:
-        return baseurl
+        aws_url = AWS_HTTP_URL
+    return ['{}/{}'.format(aws_url, p) for p in aws_paths_from_metadata_dict(d, api)]
 
 
 def filename_from_metadata_dict(d, api='devseed'):
@@ -192,17 +198,17 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     utils.print_elapsed_time()
 
     # build urls
-    urls = parallel.run_calls(aws_url_from_metadata_dict, list(images),
+    urls = parallel.run_calls(aws_urls_from_metadata_dict, list(images),
                               extra_args=(search_api,), pool_type='threads',
                               nb_workers=parallel_downloads, verbose=False)
 
     # build gdal urls and filenames
-    gdal_urls = []
+    download_urls = []
     fnames = []
-    for img, url in zip(images, urls):
+    for img, bands_urls in zip(images, urls):
         name = filename_from_metadata_dict(img, search_api)
         for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
-            gdal_urls.append('{}_B{}.TIF'.format(url, b))
+            download_urls += [s for s in bands_urls if s.endswith('B{}.TIF'.format(b))]
             fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
 
     # convert aoi coordinates to utm
@@ -210,11 +216,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
 
     # download crops
     utils.mkdir_p(out_dir)
-    print('Downloading {} crops ({} images with {} bands)...'.format(len(gdal_urls),
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(download_urls),
                                                                      len(images),
                                                                      len(bands) + 1),
          end=' ')
-    parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, gdal_urls)),
+    parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, download_urls)),
                        extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
                        pool_type='threads', nb_workers=parallel_downloads)
     utils.print_elapsed_time()
