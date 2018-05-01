@@ -25,10 +25,10 @@ import utils
 import parallel
 
 
-aws_url = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
+AWS_URL = 'http://landsat-pds.s3.amazonaws.com'  # https://landsatonaws.com/
 
 # list of spectral bands
-all_bands = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
+ALL_BANDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
              '10', '11', 'QA']
 
 def google_url_from_metadata_dict_backend(d, api='devseed'):
@@ -44,7 +44,7 @@ def google_url_from_metadata_dict(d, api='devseed', band=None):
     Build the Google url of a Landsat image from it's metadata.
     """
     baseurl = google_url_from_metadata_dict_backend(d, api)
-    if band and band in all_bands:
+    if band and band in ALL_BANDS:
         return '{}_B{}.TIF'.format(baseurl, band)
     else:
         return baseurl
@@ -63,12 +63,12 @@ def aws_url_from_metadata_dict_backend(d, api='devseed'):
             row = d['row']
             for i in range(4):  # ugly hack for images before 2017-05-01, waiting for developmentseed fix
                 scene_id = '{}{}'.format(d['sceneID'][:-1], i)
-                u = '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, scene_id)
+                u = '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(AWS_URL, path, row, scene_id)
                 if requests.head('{}_B8.TIF'.format(u)).ok:
                     break
             else:
                 product_id = d['product_id']
-                u = '{0}/c1/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, product_id)
+                u = '{0}/c1/L8/{1:03d}/{2:03d}/{3}/{3}'.format(AWS_URL, path, row, product_id)
             return u
         else:
             product_id = d['product_id']
@@ -77,7 +77,7 @@ def aws_url_from_metadata_dict_backend(d, api='devseed'):
         path = d['properties']['wrs_path']
         row = d['properties']['wrs_row']
         scene_id = d['id']
-        return '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(aws_url, path, row, scene_id)
+        return '{0}/L8/{1:03d}/{2:03d}/{3}/{3}'.format(AWS_URL, path, row, scene_id)
 
 
 def aws_url_from_metadata_dict(d, api='devseed', band=None):
@@ -85,7 +85,7 @@ def aws_url_from_metadata_dict(d, api='devseed', band=None):
     Build the AWS url  (including band)  of a Landsat image from it's metadata.
     """
     baseurl = aws_url_from_metadata_dict_backend(d, api)
-    if band and band in all_bands:
+    if band and band in ALL_BANDS:
         return '{}_B{}.TIF'.format(baseurl, band)
     else:
         return baseurl
@@ -271,10 +271,10 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-b', '--band', nargs='*', default=['8'],
-                        choices=all_bands + ['all'], metavar='',
+                        choices=ALL_BANDS + ['all'], metavar='',
                         help=('space separated list of spectral bands to'
                               ' download. Default is 8 (panchro). Allowed values'
-                              ' are {}'.format(', '.join(all_bands))))
+                              ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('-d', '--debug', action='store_true', help=('save '
@@ -287,7 +287,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if 'all' in args.band:
-        args.band = all_bands
+        args.band = ALL_BANDS
 
     if args.geom and (args.lat or args.lon):
         parser.error('--geom and {--lat, --lon} are mutually exclusive')

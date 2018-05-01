@@ -34,8 +34,7 @@ except KeyError:
     sys.exit(1)
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
-aws_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
-api_urls = {
+API_URLS = {
     'copernicus': 'https://scihub.copernicus.eu/dhus/',
     'austria': 'https://data.sentinel.zamg.ac.at/',
     'finland': 'https://finhub.nsdc.fmi.fi/'
@@ -125,7 +124,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode)
-    results = load_query(query, api_urls[api])
+    results = load_query(query, API_URLS[api])
 
     # check if the image footprint contains the area of interest
     not_covering = []

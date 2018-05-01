@@ -21,10 +21,9 @@ import utils
 import search_scihub
 
 
-scihub_url = 'https://scihub.copernicus.eu/dhus'
-peps_url_search = 'https://peps.cnes.fr/resto/api/collections'
-peps_url_download = 'https://peps.cnes.fr/resto/collections'
-codede_url = 'https://code-de.org/Sentinel1'
+PEPS_URL_SEARCH = 'https://peps.cnes.fr/resto/api/collections'
+PEPS_URL_DOWNLOAD = 'https://peps.cnes.fr/resto/collections'
+CODEDE_URL = 'https://code-de.org/Sentinel1'
 
 
 def query_data_hub(output_filename, url, verbose=False,
@@ -57,7 +56,7 @@ def download_safe_from_peps(safe_name, out_dir=''):
               "files (eg .bashrc) to define these environment variables.")
         return
 
-    query = '{}/S1/search.atom?identifier={}'.format(peps_url_search, safe_name)
+    query = '{}/S1/search.atom?identifier={}'.format(PEPS_URL_SEARCH, safe_name)
     r = requests.get(query)
 
     if not r.ok:
@@ -66,7 +65,7 @@ def download_safe_from_peps(safe_name, out_dir=''):
 
     img = bs4.BeautifulSoup(r.text, 'xml').find_all('entry')[0]
     peps_id = img.find('id').text
-    url = "{}/S1/{}/download".format(peps_url_download, peps_id)
+    url = "{}/S1/{}/download".format(PEPS_URL_DOWNLOAD, peps_id)
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(safe_name))
     cmd = "curl -k --basic -u {}:{} {} -o {}".format(login, password,
                                                      url, zip_path)
@@ -88,7 +87,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
     date = dateutil.parser.parse(date[0])
     if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
         if mirror == 'code-de':
-            url = '{}/{:04d}/{:02d}/{:02d}/{}.SAFE.zip'.format(codede_url,
+            url = '{}/{:04d}/{:02d}/{:02d}/{}.SAFE.zip'.format(CODEDE_URL,
                                                                date.year,
                                                                date.month,
                                                                date.day,
@@ -102,11 +101,11 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
             try:
                 download_safe_from_peps(image['title'], out_dir=out_dir)
             except Exception:
-                print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(peps_url_search, image['title']))
+                print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(PEPS_URL_SEARCH, image['title']))
                 print('WARNING: will download from copernicus mirror...')
                 download_sentinel_image(image, out_dir, mirror='copernicus')
-        elif mirror in search_scihub.api_urls:
-            url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.api_urls[mirror],
+        elif mirror in search_scihub.API_URLS:
+            url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.API_URLS[mirror],
                                                              image['id'])
             query_data_hub(zip_path, url, verbose=True)
         else:

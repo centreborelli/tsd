@@ -20,8 +20,8 @@ import numpy as np
 import utils
 
 
-api_url = 'https://api.developmentseed.org/satellites/'
-s2_mgrs_grid = os.path.join(os.path.dirname(os.path.abspath(__file__)), 's2_mgrs_grid.txt')
+API_URL = 'https://api.developmentseed.org/satellites/'
+S2_MGRS_GRID = os.path.join(os.path.dirname(os.path.abspath(__file__)), 's2_mgrs_grid.txt')
 
 
 def query_l8(lat, lon, start_date=None, end_date=None):
@@ -59,7 +59,7 @@ def bytes2str(x):
     return np.str(x.decode())
 
 
-def parse_s2_tiling_grid(lon, lat, grid=s2_mgrs_grid):
+def parse_s2_tiling_grid(lon, lat, grid=S2_MGRS_GRID):
     """
     Search in the sentinel-2 tiling grid all the MGRS tiles containing a point.
 
@@ -141,7 +141,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
         search_string = query_l8(lat, lon, start_date, end_date)
     elif satellite == 'Sentinel-2':
         search_string = query_s2(lat, lon, start_date, end_date)
-    url = '{}?search={}&limit=1000'.format(api_url, search_string)
+    url = '{}?search={}&limit=1000'.format(API_URL, search_string)
 
     # query Development Seed’s API
     r = requests.get(url)

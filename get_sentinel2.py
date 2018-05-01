@@ -28,11 +28,11 @@ import search_devseed
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
-aws_http_url = 'http://sentinel-s2-l1c.s3.amazonaws.com'
-aws_s3_url = 's3://sentinel-s2-l1c'
+AWS_HTTP_URL = 'http://sentinel-s2-l1c.s3.amazonaws.com'
+AWS_S3_URL = 's3://sentinel-s2-l1c'
 
 # list of spectral bands
-all_bands = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
+ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
 
 
@@ -102,15 +102,15 @@ def aws_s3_url_from_metadata_dict(d, api='devseed'):
     """
     Build the AWS s3 url of a Sentinel-2 image from its metadata.
     """
-    return '{}/{}'.format(aws_s3_url, aws_path_from_metadata_dict(d, api))
+    return '{}/{}'.format(AWS_S3_URL, aws_path_from_metadata_dict(d, api))
 
 
 def aws_http_url_from_metadata_dict(d, api='devseed', band=None):
     """
     Build the AWS http url of a Sentinel-2 image from its metadata.
     """
-    baseurl = '{}/{}'.format(aws_http_url, aws_path_from_metadata_dict(d, api))
-    if band and band in all_bands:
+    baseurl = '{}/{}'.format(AWS_HTTP_URL, aws_path_from_metadata_dict(d, api))
+    if band and band in ALL_BANDS:
         return '{}/{}.jp2'.format(baseurl, band)
     else:
         return baseurl
@@ -338,10 +338,10 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-b', '--band', nargs='*', default=['B04'],
-                        choices=all_bands + ['all'], metavar='',
+                        choices=ALL_BANDS + ['all'], metavar='',
                         help=('space separated list of spectral bands to'
                               ' download. Default is B04 (red). Allowed values'
-                              ' are {}'.format(', '.join(all_bands))))
+                              ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
@@ -352,7 +352,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if 'all' in args.band:
-        args.band = all_bands
+        args.band = ALL_BANDS
 
     if args.geom and (args.lat or args.lon):
         parser.error('--geom and {--lat, --lon} are mutually exclusive')

@@ -42,20 +42,20 @@ ASSETS = ['udm',
           'basic_analytic_dn_rpc']
 client = search_planet.client
 
-cas_url = 'https://api.planet.com/compute/ops/clips/v1'  # clip and ship
-quota_url = 'https://api.planet.com/auth/v1/experimental/public/my/subscriptions'
+CAS_URL = 'https://api.planet.com/compute/ops/clips/v1'  # clip and ship
+QUOTA_URL = 'https://api.planet.com/auth/v1/experimental/public/my/subscriptions'
 
 
 def get_quota():
     """
     Return a string giving the current quota usage.
     """
-    r = requests.get(quota_url, auth=(os.getenv('PL_API_KEY'), ''))
+    r = requests.get(QUOTA_URL, auth=(os.getenv('PL_API_KEY'), ''))
     if r.ok:
         l = r.json()
         #assert(l[0]['plan']['name'] == 'Education and Research Standard (PlanetScope)')
         return '{:.3f} / {} km²'.format(l[0]['quota_used'], l[0]['quota_sqkm'])
-    print('ERROR: {} returned {}'.format(quota_url, r.status_code))
+    print('ERROR: {} returned {}'.format(QUOTA_URL, r.status_code))
 
 
 def fname_from_metadata(d):
@@ -217,7 +217,7 @@ def request_clip(item, asset, aoi, active=False):
         ]
     }
     headers = {'content-type': 'application/json'}
-    r = requests.post(cas_url,
+    r = requests.post(CAS_URL,
                       headers=headers, data=json.dumps(d),
                       auth=(os.environ['PL_API_KEY'], ''))
     if r.ok:
