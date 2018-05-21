@@ -115,14 +115,16 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
-                    product_type='GRD', search_api='copernicus',
-                    download_mirror='peps'):
+                    product_type='GRD', operational_mode='IW',
+                    search_api='copernicus', download_mirror='peps'):
     """
     Main function: download a Sentinel-1 image time serie.
     """
     # list available images
     images = search_scihub.search(aoi, start_date, end_date,
-                                  product_type=product_type, api=search_api)
+                                  product_type=product_type,
+                                  operational_mode=operational_mode,
+                                  api=search_api)
 
     # download
     for image in images:
@@ -151,6 +153,8 @@ if __name__ == '__main__':
                                                           'images'), default='')
     parser.add_argument('-t', '--product-type',
                         help='type of image: GRD, SLC, RAW', default='GRD')
+    parser.add_argument('-m', '--operational-mode', default='IW',
+                        help='acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--api', default='copernicus',
                         help='search API to use: copernicus, austria or finland')
     parser.add_argument('--mirror', default='peps',
@@ -176,4 +180,5 @@ if __name__ == '__main__':
                                                 args.height)
         get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                         out_dir=args.outdir, product_type=args.product_type,
+                        operational_mode=args.operational_mode,
                         search_api=args.api, download_mirror=args.mirror)
