@@ -91,29 +91,29 @@ def metadata_from_metadata_dict(d):
     return out
 
 
-def download_crop_with_gdal(outfile, asset, ulx, uly, lrx, lry, utm_zone=None,
-                            lat_band=None):
+def download_crop(outfile, asset, aoi, aoi_type):
     """
-    Download a crop defined in UTM coordinates, using gdal_translate.
+    Download a crop defined in geographic coordinates using gdal or rasterio.
 
     Args:
         outfile (string): path to the output file
         asset (dict): dictionary containing the image information
-        ulx, uly (floats): x/y UTM coordinates of the upper left (ul) corner
-        lrx, lry (floats): x/y UTM coordinates of the lower right (lr) corner
-        utm_zone (int): number between 1 and 60 indicating the UTM zone with
-            respect to which the UTM coordinates have to be interpreted.
-        lat_band (string): letter between C and X indicating the latitude band.
+        aoi (geojson.Polygon or 6-tuple): either a (lon, lat) polygon or a UTM
+            rectangle (ulx, uly, lrx, lry, utm_zone, lat_band), where
+            ulx, uly (floats): x/y UTM coordinates of the upper left (ul) corner
+            lrx, lry (floats): x/y UTM coordinates of the lower right (lr) corner
+            utm_zone (int): number between 1 and 60 indicating the UTM zone with
+                respect to which the UTM coordinates have to be interpreted.
+            lat_band (string): letter between C and X indicating the latitude band.
+        aoi_type (string): "lonlat_polygon" or "utm_rectangle"
     """
     url = poll_activation(asset)
     if url is not None:
-        #if asset.endswith(('_xml', '_rpc')):
-        #    os.system('wget {} -O {}'.format(url, outfile))
-        #elif asset.startswith('basic'):
-        #    os.system('wget {} -O {}'.format(url, outfile))
-        #else:
-        utils.crop_with_gdal_translate(outfile, url, ulx, uly, lrx, lry,
-                                       utm_zone, lat_band)
+        if aoi_type == "utm_rectangle":
+            utils.crop_with_gdal_translate(outfile, url, *aoi)
+        elif aoi_type == "lonlat_polygon":
+            crop = utils.crop_aoi(url, aoi)[0]
+            utils.rio_write(outfile, crop)
 
 
 def get_item_asset_info(item, asset_type, verbose=False):
@@ -331,14 +331,18 @@ def get_time_series(aoi, start_date=None, end_date=None,
                            timeout=3600)
 
     else:
-        # convert aoi coordinates to utm
-        ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
+        if asset_type in ['udm', 'visual', 'analytic', 'analytic_dn',
+                          'analytic_sr']:
+            aoi_type = 'utm_rectangle'
+            aoi = utils.utm_bbx(aoi)
+        else:
+            aoi_type = 'lonlat_polygon'
 
         # download crops with gdal through vsicurl
         utils.mkdir_p(out_dir)
         print('Downloading {} crops...'.format(len(assets)), end=' ')
-        parallel.run_calls(download_crop_with_gdal, list(zip(fnames, assets)),
-                           extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
+        parallel.run_calls(download_crop, list(zip(fnames, assets)),
+                           extra_args=(aoi, aoi_type),
                            pool_type='threads', nb_workers=parallel_downloads,
                            timeout=300)
 

@@ -1,6 +1,12 @@
 # vim: set fileencoding=utf-8
 # pylint: disable=C0103
 
+"""
+Wrappers for gdal and rasterio.
+
+Copyright (C) 2018, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+"""
+
 from __future__ import print_function
 import os
 import re
@@ -20,7 +26,14 @@ import sys
 import geojson
 import requests
 import shapely.geometry
+import rasterio
 gdal.UseExceptions()
+
+import rpc_model
+
+
+warnings.filterwarnings("ignore",
+                        category=rasterio.errors.NotGeoreferencedWarning)
 
 
 def download(from_url, to_file, auth=('', '')):
@@ -499,3 +512,211 @@ def warn_with_traceback(message, category, filename, lineno, file=None,
     log.write(warnings.formatwarning(message, category, filename, lineno, line))
 
 #warnings.showwarning = warn_with_traceback
+
+
+def bounding_box2D(pts):
+    """
+    bounding box for the points pts
+    """
+    dim = len(pts[0])  # should be 2
+    bb_min = [min([t[i] for t in pts]) for i in range(dim)]
+    bb_max = [max([t[i] for t in pts]) for i in range(dim)]
+    return bb_min[0], bb_min[1], bb_max[0] - bb_min[0], bb_max[1] - bb_min[1]
+
+
+def rpc_from_geotiff(geotiff_path, outrpcfile='.rpc'):
+    """
+    Reads the RPC from a geotiff file
+    returns the RPC in a rpc_model object
+    """
+    env = os.environ.copy()
+    if geotiff_path.startswith(('http://', 'https://')):
+        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = geotiff_path[-3:]
+        path = '/vsicurl/{}'.format(geotiff_path)
+    else:
+        path = geotiff_path
+
+    f = open(outrpcfile, 'wb')
+    x = subprocess.Popen(["gdalinfo", path], stdout=subprocess.PIPE).communicate()[0]
+    x = x.splitlines()
+    for l in x:
+
+        if(1):
+            if (b'SAMP_' not in l) and (b'LINE_' not in l) and (b'HEIGHT_' not in l) and (b'LAT_' not in l) and (b'LONG_' not in l) and (b'MAX_' not in l) and (b'MIN_' not in l):
+                  continue
+            y = l.strip().replace(b'=',b': ')
+            if b'COEFF' in y:
+                  z = y.split(b' ')
+                  t=1
+                  for j in z[1:]:
+                          f.write(b'%s_%d: %s\n'%(z[0][:-1],t,j))
+                          t+=1
+            else:
+                  f.write((y+b'\n'))
+    f.close()
+    return rpc_model.RPCModel(outrpcfile)
+
+
+def points_apply_homography(H, pts):
+    """
+    Applies an homography to a list of 2D points.
+
+    Args:
+        H: numpy array containing the 3x3 homography matrix
+        pts: numpy array containing the list of 2D points, one per line
+
+    Returns:
+        a numpy array containing the list of transformed points, one per line
+    """
+    pts = np.asarray(pts)
+
+    # convert the input points to homogeneous coordinates
+    if len(pts[0]) < 2:
+        print("""points_apply_homography: ERROR the input must be a numpy array
+          of 2D points, one point per line""")
+        return
+    pts = np.hstack((pts[:, 0:2], pts[:, 0:1]*0+1))
+
+    # apply the transformation
+    Hpts = (np.dot(H, pts.T)).T
+
+    # normalize the homogeneous result and trim the extra dimension
+    Hpts = Hpts * (1.0 / np.tile( Hpts[:, 2], (3, 1)) ).T
+    return Hpts[:, 0:2]
+
+
+def bounding_box_of_projected_aoi(rpc, aoi, z=0, homography=None):
+    """
+    Return the x, y, w, h pixel bounding box of a projected AOI.
+
+    Args:
+        rpc (rpc_model.RPCModel): RPC camera model
+        aoi (geojson.Polygon): GeoJSON polygon representing the AOI
+        z (float): altitude of the AOI with respect to the WGS84 ellipsoid
+        homography (2D array, optional): matrix of shape (3, 3) representing an
+            homography to be applied to the projected points before computing
+            their bounding box.
+
+    Return:
+        x, y (ints): pixel coordinates of the top-left corner of the bounding box
+        w, h (ints): pixel dimensions of the bounding box
+    """
+    lons, lats = np.array(aoi['coordinates'][0]).T
+    x, y = rpc.projection(lons, lats, z)
+    pts = list(zip(x, y))
+    if homography is not None:
+        pts = points_apply_homography(homography, pts)
+    return np.round(bounding_box2D(pts)).astype(int)
+
+
+def rio_crop(filename, x, y, w, h, nodata_value=0):
+    """
+    Read a crop from a file with rasterio and return it as an array.
+
+    This is a working alternative to this rasterio oneliner which currently fails:
+    src.read(window=((y, y + h), (x, x + w)), boundless=True, fill_value=0)
+
+    Args:
+        filename: path to the input image file
+        x, y: pixel coordinates of the top-left corner of the crop
+        w, h: width and height of the crop, in pixels
+        nodata_value: constant value used to fill pixels outside of the input image.
+    """
+    with rasterio.open(filename, 'r') as src:
+        crop = nodata_value * np.ones((src.count, h, w))
+        y0 = max(y, 0)
+        y1 = min(y + h, src.shape[0])
+        x0 = max(x, 0)
+        x1 = min(x + w, src.shape[1])
+        crop[:, y0 - y:y1 - y, x0 - x:x1 - x] = src.read(window=((y0, y1), (x0, x1)))
+
+    # interleave channels
+    return np.moveaxis(crop, 0, 2).squeeze()
+
+
+def crop_aoi(geotiff, aoi, z=0):
+    """
+    Crop a geographic AOI in a georeferenced image using its RPC functions.
+
+    Args:
+        geotiff (string): path or url to the input GeoTIFF image file
+        aoi (geojson.Polygon): GeoJSON polygon representing the AOI
+        z (float, optional): base altitude with respect to WGS84 ellipsoid (0
+            by default)
+
+    Return:
+        crop (array): numpy array containing the cropped image
+        x, y, w, h (ints): image coordinates of the crop. x, y are the
+            coordinates of the top-left corner, while w, h are the dimensions
+            of the crop.
+    """
+    x, y, w, h = bounding_box_of_projected_aoi(rpc_from_geotiff(geotiff), aoi, z)
+    return rio_crop(geotiff, x, y, w, h), x, y
+
+
+def rio_dtype(numpy_dtype):
+    """
+    Convert a numpy datatype to a rasterio datatype.
+    """
+    if numpy_dtype == 'bool':
+        return rasterio.dtypes.bool_
+    elif numpy_dtype == 'uint8':
+        return rasterio.dtypes.uint8
+    elif numpy_dtype == 'uint16':
+        return rasterio.dtypes.uint16
+    elif numpy_dtype == 'int16':
+        return rasterio.dtypes.int16
+    elif numpy_dtype == 'uint32':
+        return rasterio.dtypes.uint32
+    elif numpy_dtype == 'int32':
+        return rasterio.dtypes.int32
+    elif numpy_dtype == 'float32':
+        return rasterio.dtypes.float32
+    elif numpy_dtype == 'float64':
+        return rasterio.dtypes.float64
+    elif numpy_dtype == 'complex':
+        return rasterio.dtypes.complex_
+    elif numpy_dtype == 'complex64':
+        return rasterio.dtypes.complex64
+    elif numpy_dtype == 'complex128':
+        return rasterio.dtypes.complex128
+
+
+def rio_write(path, array, profile={}, tags={}):
+    """
+    Write a numpy array in a tiff/png/jpeg file with rasterio.
+
+    Args:
+        path: path to the output tiff/png/jpeg file
+        array: 2D or 3D numpy array containing the image to write
+        profile: rasterio profile (ie dictionary of metadata)
+        tags: dictionary of additional geotiff tags
+    """
+    # read image size and number of bands
+    if array.ndim > 2:
+        height, width, nbands = array.shape
+    else:
+        nbands = 1
+        height, width = array.shape
+
+    # determine the driver based on the file extension
+    extension = os.path.splitext(path)[1].lower()
+    if extension in ['.tif', '.tiff']:
+        driver = 'GTiff'
+    elif extension in ['.jpg', '.jpeg']:
+        driver = 'jpeg'
+    elif extension in ['.png']:
+        driver = 'png'
+    else:
+        print('ERROR: unknown extension {}'.format(extension))
+
+    with warnings.catch_warnings():  # noisy may occur here
+        warnings.filterwarnings("ignore", category=FutureWarning)
+        profile.update(driver=driver, count=nbands, width=width, height=height,
+                       dtype=rio_dtype(array.dtype), quality=100)
+        with rasterio.open(path, 'w', **profile) as dst:
+            if array.ndim > 2:
+                dst.write(np.moveaxis(array, 2, 0))
+            else:
+                dst.write(np.array([array]))
+            dst.update_tags(**tags)
