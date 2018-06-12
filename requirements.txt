@@ -10,5 +10,5 @@ future
 shapely
 planet
 geojson
-rasterio
+rasterio>=1.0a1
 area
