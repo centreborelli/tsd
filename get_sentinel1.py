@@ -107,7 +107,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
         elif mirror in search_scihub.API_URLS:
             url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.API_URLS[mirror],
                                                              image['id'])
-            query_data_hub(zip_path, url, verbose=True)
+            query_data_hub(zip_path, url, verbose=False)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 
