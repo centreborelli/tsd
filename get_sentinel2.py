@@ -142,9 +142,9 @@ def filename_from_metadata_dict(d, api='devseed'):
     if api == 'devseed':
         s = re.search('_R([0-9]{3})_', d['product_id'])
         if s:
-            orbit = s.group(1)
+            orbit = int(s.group(1))
         else:
-            orbit = '000'
+            orbit = 0
         satellite = d['satellite_name']
         satellite = satellite.replace("Sentinel-", "S")  # Sentinel-2B --> S2B
     elif api == 'planet':
@@ -152,10 +152,10 @@ def filename_from_metadata_dict(d, api='devseed'):
         satellite = d['properties']['satellite_id']
         satellite = satellite.replace("Sentinel-", "S")  # Sentinel-2A --> S2A
     elif api == 'scihub':
-        orbit = d['int'][1]['content']
+        orbit = int(d['int'][1]['content'])
         satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
-    return '{}_{}_orbit_{}_tile_{}'.format(date.date().isoformat(), satellite,
-                                           orbit, mgrs_id)
+    return '{}_{}_orbit_{:03d}_tile_{}'.format(date.date().isoformat(),
+                                               satellite, orbit, mgrs_id)
 
 
 def sun_angles(img, api='planet'):
@@ -287,7 +287,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         url_base = aws_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         coords = utils.utm_bbx(aoi,  # convert aoi coordates to utm
-                               utm_zone=int(utm_zone_from_metadata_dict(img)),
+                               utm_zone=int(utm_zone_from_metadata_dict(img, search_api)),
                                r=60)  # round to multiples of 60 (B01 resolution)
         for b in bands:
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
