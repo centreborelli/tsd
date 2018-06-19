@@ -17,24 +17,28 @@ def main(kml_filename):
     ll_pattern = '{0},{0},0'.format(float_pattern)  # regex to match lon,lat,0
     looking_for_mgrs_id = True
 
+    mgrs_tiles = []
     with open(kml_filename, 'r') as f:
         for line in f:
             if looking_for_mgrs_id:
                 mgrs_id = re.search('<name>([0-9]{2}[A-Z]{3})</name>', line)
                 if mgrs_id:
-                    print(mgrs_id.group(1), end=' ')
                     looking_for_mgrs_id = False
             else:
                 ll_bbx = re.search(' '.join([ll_pattern]*5), line)
                 if ll_bbx:
                     lons = list(map(float, ll_bbx.groups()[0::2]))
                     lats = list(map(float, ll_bbx.groups()[1::2]))
-                    print(geojson.Polygon(list(zip(lons, lats))))
+                    polygon = geojson.Polygon(list(zip(lons, lats)))
+                    mgrs_tiles.append(geojson.Feature(id=mgrs_id.group(1),
+                                                      geometry=polygon))
                     looking_for_mgrs_id = True
+
+    return geojson.FeatureCollection(mgrs_tiles)
 
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print("\t Usage: {} input.kml > output.txt".format(sys.argv[0]))
+        print("\t Usage: {} input.kml > output.geojson".format(sys.argv[0]))
     else:
-        main(sys.argv[1])
+        print(geojson.dumps(main(sys.argv[1]), indent=2))
