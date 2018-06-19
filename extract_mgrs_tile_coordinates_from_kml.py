@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import re
+import geojson
 
 
 def main(kml_filename):
@@ -21,19 +22,19 @@ def main(kml_filename):
             if looking_for_mgrs_id:
                 mgrs_id = re.search('<name>([0-9]{2}[A-Z]{3})</name>', line)
                 if mgrs_id:
-                    print mgrs_id.group(1),
+                    print(mgrs_id.group(1), end=' ')
                     looking_for_mgrs_id = False
             else:
                 ll_bbx = re.search(' '.join([ll_pattern]*5), line)
                 if ll_bbx:
-                    lons = map(float, ll_bbx.groups()[0::2])
-                    lats = map(float, ll_bbx.groups()[1::2])
-                    print min(lons), max(lons), min(lats), max(lats)
+                    lons = list(map(float, ll_bbx.groups()[0::2]))
+                    lats = list(map(float, ll_bbx.groups()[1::2]))
+                    print(geojson.Polygon(list(zip(lons, lats))))
                     looking_for_mgrs_id = True
 
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print "\t Usage: %s input.kml > output.txt" % sys.argv[0]
+        print("\t Usage: {} input.kml > output.txt".format(sys.argv[0]))
     else:
         main(sys.argv[1])
