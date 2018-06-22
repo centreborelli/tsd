@@ -674,7 +674,7 @@ def rio_dtype(numpy_dtype):
         return rasterio.dtypes.complex128
 
 
-def rio_write(path, array, profile={}, tags={}):
+def rio_write(path, array, profile={}, tags={}, namespace_tags={}):
     """
     Write a numpy array in a tiff/png/jpeg file with rasterio.
 
@@ -683,6 +683,8 @@ def rio_write(path, array, profile={}, tags={}):
         array: 2D or 3D numpy array containing the image to write
         profile: rasterio profile (ie dictionary of metadata)
         tags: dictionary of additional geotiff tags
+        namespace_tags: dictionary of dictionaries of additional geotiff tags
+            (e.g.  IMAGE_STRUCTURE, RPC, SUBDATASETS)
     """
     # read image size and number of bands
     if array.ndim > 2:
@@ -712,3 +714,5 @@ def rio_write(path, array, profile={}, tags={}):
             else:
                 dst.write(np.array([array]))
             dst.update_tags(**tags)
+            for k, v in namespace_tags.items():
+                dst.update_tags(ns=k, **v)

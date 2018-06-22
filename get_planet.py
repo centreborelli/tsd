@@ -19,6 +19,7 @@ import area
 import requests
 import numpy as np
 import dateutil.parser
+import rasterio
 
 import utils
 import parallel
@@ -112,8 +113,12 @@ def download_crop(outfile, asset, aoi, aoi_type):
         if aoi_type == "utm_rectangle":
             utils.crop_with_gdal_translate(outfile, url, *aoi)
         elif aoi_type == "lonlat_polygon":
-            crop = utils.crop_aoi(url, aoi)[0]
-            utils.rio_write(outfile, crop)
+            with rasterio.open(url, 'r') as src:
+                rpc_tags = src.tags(ns='RPC')
+            crop, x, y = utils.crop_aoi(url, aoi)
+            utils.rio_write(outfile, crop,
+                            tags={'CROP_OFFSET_XY': '{} {}'.format(x, y)},
+                            namespace_tags={'RPC': rpc_tags})
 
 
 def get_item_asset_info(item, asset_type, verbose=False):
