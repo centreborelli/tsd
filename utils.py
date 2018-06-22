@@ -524,37 +524,12 @@ def bounding_box2D(pts):
     return bb_min[0], bb_min[1], bb_max[0] - bb_min[0], bb_max[1] - bb_min[1]
 
 
-def rpc_from_geotiff(geotiff_path, outrpcfile='.rpc'):
+def rpc_from_geotiff(geotiff_path):
     """
-    Reads the RPC from a geotiff file
-    returns the RPC in a rpc_model object
     """
-    env = os.environ.copy()
-    if geotiff_path.startswith(('http://', 'https://')):
-        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = geotiff_path[-3:]
-        path = '/vsicurl/{}'.format(geotiff_path)
-    else:
-        path = geotiff_path
-
-    f = open(outrpcfile, 'wb')
-    x = subprocess.Popen(["gdalinfo", path], stdout=subprocess.PIPE).communicate()[0]
-    x = x.splitlines()
-    for l in x:
-
-        if(1):
-            if (b'SAMP_' not in l) and (b'LINE_' not in l) and (b'HEIGHT_' not in l) and (b'LAT_' not in l) and (b'LONG_' not in l) and (b'MAX_' not in l) and (b'MIN_' not in l):
-                  continue
-            y = l.strip().replace(b'=',b': ')
-            if b'COEFF' in y:
-                  z = y.split(b' ')
-                  t=1
-                  for j in z[1:]:
-                          f.write(b'%s_%d: %s\n'%(z[0][:-1],t,j))
-                          t+=1
-            else:
-                  f.write((y+b'\n'))
-    f.close()
-    return rpc_model.RPCModel(outrpcfile)
+    with rasterio.open(geotiff_path, 'r') as src:
+        rpc_dict = src.tags(ns='RPC')
+    return rpc_model.RPCModel(rpc_dict)
 
 
 def points_apply_homography(H, pts):
