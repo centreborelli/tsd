@@ -584,7 +584,14 @@ def bounding_box_of_projected_aoi(rpc, aoi, z=0, homography=None):
     return np.round(bounding_box2D(pts)).astype(int)
 
 
-def rio_crop(filename, x, y, w, h, nodata_value=0):
+class CropOutside(Exception):
+    """
+    Exception to raise when attempting to crop outside of the input image.
+    """
+    pass
+
+
+def rasterio_crop(filename, x, y, w, h, boundless=True, fill_value=0):
     """
     Read a crop from a file with rasterio and return it as an array.
 
@@ -595,10 +602,20 @@ def rio_crop(filename, x, y, w, h, nodata_value=0):
         filename: path to the input image file
         x, y: pixel coordinates of the top-left corner of the crop
         w, h: width and height of the crop, in pixels
-        nodata_value: constant value used to fill pixels outside of the input image.
+        boundless (bool): similar to gdal_translate "epo: error when partially
+            outside" flag. If False, we'll raise an exception when the
+            requested crop is not entirely contained within the input image
+            bounds. If True, the crop is padded with fill_value.
+        fill_value (scalar): constant value used to fill pixels outside of the
+            input image.
     """
     with rasterio.open(filename, 'r') as src:
-        crop = nodata_value * np.ones((src.count, h, w))
+        if not boundless:
+            if y < 0 or y + h > src.shape[0] or x < 0 or x + w > src.shape[1]:
+                raise CropOutside(('crop {} {} {} {} falls outside of input image '
+                                   'whose shape is {}'.format(x, y, w, h, src.shape)))
+
+        crop = fill_value * np.ones((src.count, h, w))
         y0 = max(y, 0)
         y1 = min(y + h, src.shape[0])
         x0 = max(x, 0)
@@ -626,7 +643,7 @@ def crop_aoi(geotiff, aoi, z=0):
             of the crop.
     """
     x, y, w, h = bounding_box_of_projected_aoi(rpc_from_geotiff(geotiff), aoi, z)
-    return rio_crop(geotiff, x, y, w, h), x, y
+    return rasterio_crop(geotiff, x, y, w, h), x, y
 
 
 def rio_dtype(numpy_dtype):
