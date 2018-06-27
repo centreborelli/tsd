@@ -404,10 +404,10 @@ def utm_bbx(aoi, utm_zone=None, r=None):
     ulx, uly, lrx, lry = bbx[0], bbx[3], bbx[2], bbx[1]  # minx, maxy, maxx, miny
 
     if r is not None:  # round to multiples of the given resolution
-        ulx = r * np.floor(ulx / r)
-        uly = r * np.ceil(uly / r)
-        lrx = r * np.ceil(lrx / r)
-        lry = r * np.floor(lry / r)
+        ulx = r * np.round(ulx / r)
+        uly = r * np.round(uly / r)
+        lrx = r * np.round(lrx / r)
+        lry = r * np.round(lry / r)
 
     return ulx, uly, lrx, lry, utm_zone, lat_band
 
