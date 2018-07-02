@@ -31,7 +31,8 @@ import search_devseed
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 AWS_HTTP_URL = 'http://sentinel-s2-l1c.s3.amazonaws.com'
-AWS_S3_URL = 's3://sentinel-s2-l1c'
+AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
+AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
 
 # list of spectral bands
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
@@ -44,7 +45,7 @@ def we_can_access_aws_through_s3():
     """
     if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
         try:
-            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL[5:])
+            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL_L1C[5:])
             return True
         except botocore.exceptions.ClientError:
             pass
@@ -102,6 +103,18 @@ def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     return date, mgrs_id
 
 
+def title_from_metadata_dict(d, api='devseed'):
+    """
+    Return the SAFE title from a tile metadata dictionary.
+    """
+    if api == 'devseed':
+        return d['product_id']
+    elif api == 'planet':
+        return d['id']
+    elif api == 'scihub':
+        return d['title']
+
+
 def aws_path_from_metadata_dict(d, api='devseed'):
     """
     Build the AWS path of a Sentinel-2 image from its metadata.
@@ -120,7 +133,11 @@ def aws_s3_url_from_metadata_dict(d, api='devseed'):
     """
     Build the AWS s3 url of a Sentinel-2 image from its metadata.
     """
-    return '{}/{}'.format(AWS_S3_URL, aws_path_from_metadata_dict(d, api))
+    if 'MSIL2A' in title_from_metadata_dict(d, api):
+        aws_s3_url = AWS_S3_URL_L2A
+    else:
+        aws_s3_url = AWS_S3_URL_L1C
+    return '{}/{}'.format(aws_s3_url, aws_path_from_metadata_dict(d, api))
 
 
 def aws_http_url_from_metadata_dict(d, api='devseed', band=None):
@@ -185,6 +202,19 @@ def sun_angles(img, api='planet'):
         return sun_azimuth, 90 - sun_zenith  # elevation and zenith are complementary
 
 
+def band_resolution(b):
+    """
+    """
+    if b in ['B02', 'B03', 'B04', 'B08', 'TCI']:
+        return 10
+    elif b in ['B05', 'B06', 'B07', 'B8a', 'B11', 'B12']:
+        return 20
+    elif b in ['B01', 'B09', 'B10']:
+        return 60
+    else:
+        print('ERROR: {} is not in {}'.format(b, ALL_BANDS))
+
+
 def format_metadata_dict(d):
     """
     Return a copy of the input dict with all values converted to strings.
@@ -244,7 +274,7 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
-                    out_dir='', search_api='devseed',
+                    out_dir='', search_api='devseed', product_type=None,
                     parallel_downloads=multiprocessing.cpu_count()):
     """
     Main function: crop and download a time series of Sentinel-2 images.
@@ -253,13 +283,19 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # list available images
     if search_api == 'devseed':
+        if product_type is not None:
+            print("WARNING: product_type option is available only with search_api='scihub'")
         images = search_devseed.search(aoi, start_date, end_date,
                                        'Sentinel-2')['results']
     elif search_api == 'scihub':
         import search_scihub
+        if product_type is not None:
+            product_type = 'S2MSI{}'.format(product_type[1:])
         images = search_scihub.search(aoi, start_date, end_date,
-                                      satellite='Sentinel-2')
+                                      satellite='Sentinel-2', product_type=product_type)
     elif search_api == 'planet':
+        if product_type is not None:
+            print("WARNING: product_type option is available only with search_api='scihub'")
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])
@@ -291,7 +327,10 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                                r=60)  # round to multiples of 60 (B01 resolution)
         for b in bands:
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
-            url = '{}/{}.jp2'.format(url_base, b)
+            if 'MSIL2A' in title_from_metadata_dict(img, search_api):
+                url = '{}/R{}m/{}.jp2'.format(url_base, band_resolution(b), b)
+            else:
+                url = '{}/{}.jp2'.format(url_base, b)
             crops_args.append((fname, url, *coords))
 
     # download crops
@@ -364,6 +403,7 @@ if __name__ == '__main__':
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
                         default='devseed', help='search API')
+    parser.add_argument('--product-type', choices=['L1C', 'L2A'], help='type of image')
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
@@ -385,4 +425,5 @@ if __name__ == '__main__':
                                             args.height)
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                     bands=args.band, out_dir=args.outdir, search_api=args.api,
+                    product_type=args.product_type,
                     parallel_downloads=args.parallel_downloads)
