@@ -12,3 +12,5 @@ planet
 geojson
 rasterio>=1.0a1
 area
+boto3
+click
