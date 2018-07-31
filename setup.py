@@ -18,6 +18,7 @@ setup(
            'With contributions from Enric Meinhardt-Llopis (ENS Cachan), Axel Davy (CMLA) and Tristan Dagobert (CMLA)',
     packages=find_packages(),
     install_requires=requirements,
+    package_data={'': ['s2_mgrs_grid.txt']},
     include_package_data=True,
     python_requires='>=3.5',
     zip_safe=False

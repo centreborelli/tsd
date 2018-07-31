@@ -136,7 +136,7 @@ through your package manager.
 If you are working in a venv, `python-gdal` won't be accessible from scratch,
 so please install GDAL Python bindings with pip:
 
-    pip install gdal=={YOUR_GDAL_VERSION} --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext
+    pip install gdal=={YOUR_GDAL_VERSION} --global-option build_ext --global-option=`gdal-config --cflags`
 
 ## Python packages
 The required Python packages are listed in the file `requirements.txt`. They
