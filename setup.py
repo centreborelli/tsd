@@ -1,9 +1,11 @@
 from setuptools import setup, find_packages
-import os
+import re
+import ast
 
-def readme():
-    with open('README.md') as f:
-        return f.read()
+_version_re = re.compile(r'__version__\s+=\s+(.*)')
+
+with open('tsd/__init__.py', 'rb') as f:
+    version = str(ast.literal_eval(_version_re.search(f.read().decode('utf-8')).group(1)))
 
 
 with open('requirements.txt') as f:
