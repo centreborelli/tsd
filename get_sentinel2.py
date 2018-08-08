@@ -43,6 +43,8 @@ def we_can_access_aws_through_s3():
     """
     Test if we can access AWS through s3.
     """
+    info_url = "https://forum.sentinel-hub.com/t/changes-of-the-access-rights-to-l1c-bucket-at-aws-public-datasets-requester-pays/172"
+
     if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
         try:
             boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL_L1C[5:],
@@ -50,10 +52,15 @@ def we_can_access_aws_through_s3():
             return True
         except botocore.exceptions.ClientError:
             pass
+    else:
+        print("TSD downloads Sentinel-2 image crops from the s3://sentinel-s2-l1c",
+              "AWS bucket, which used to be free. On the 7th of August 2018,",
+              "the bucket was switched to 'Requester Pays'. As a consequence,",
+              "you need an AWS account and your credentials stored in the",
+              "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment",
+              "variables in order to use TSD. The price ranges in 0.05-0.09 $",
+              "per GB. More info: {}".format(info_url))
     return False
-
-
-WE_CAN_ACCESS_AWS_THROUGH_S3 = we_can_access_aws_through_s3()
 
 
 def utm_zone_from_metadata_dict(d, api='devseed'):
@@ -313,16 +320,15 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     print('Found {} images'.format(len(images)))
     utils.print_elapsed_time()
 
-    # choose wether to use http or s3
-    if WE_CAN_ACCESS_AWS_THROUGH_S3:
-        aws_url_from_metadata_dict = aws_s3_url_from_metadata_dict
-    else:
-        aws_url_from_metadata_dict = aws_http_url_from_metadata_dict
+    # check if we can use s3
+    if not we_can_access_aws_through_s3():
+        print()
+        return
 
     # build urls, filenames and crops coordinates
     crops_args = []
     for img in images:
-        url_base = aws_url_from_metadata_dict(img, search_api)
+        url_base = aws_s3_url_from_metadata_dict(img, search_api)
         name = filename_from_metadata_dict(img, search_api)
         coords = utils.utm_bbx(aoi,  # convert aoi coordates to utm
                                utm_zone=int(utm_zone_from_metadata_dict(img, search_api)),
