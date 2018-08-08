@@ -45,7 +45,8 @@ def we_can_access_aws_through_s3():
     """
     if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
         try:
-            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL_L1C[5:])
+            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL_L1C[5:],
+                                                                 RequestPayer='requester')
             return True
         except botocore.exceptions.ClientError:
             pass
