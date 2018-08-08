@@ -223,7 +223,7 @@ def format_metadata_dict(d):
     return {k: str(d[k]) for k in d}
 
 
-def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
+def is_image_cloudy_at_location(image_aws_path, aoi, p=.5):
     """
     Tell if the given area of interest is covered by clouds in a given image.
 
@@ -231,21 +231,22 @@ def is_image_cloudy_at_location(image_aws_url, aoi, p=.5):
     labeled as clouds in the sentinel-2 gml cloud masks.
 
     Args:
-        image_aws_url: url of the image on AWS
+        image_aws_path: path of the image on AWS S3
         aoi: geojson object
         p: fraction threshold
     """
+    # read gml file from remote s3 bucket
+    key = '{}/qi/MSK_CLOUDS_B00.gml'.format(image_aws_path)
+    f = boto3.client('s3').get_object(Bucket=AWS_S3_URL_L1C[5:], Key=key,
+                                      RequestPayer='requester')['Body']
+    gml_content = f.read()
+
+    # parse gml to extract the list of polygons (each polygon being a cloud)
     polygons = []
-    url = '{}/qi/MSK_CLOUDS_B00.gml'.format(image_aws_url)
-    r = requests.get(url)
-    if r.ok:
-        soup = bs4.BeautifulSoup(r.text, 'xml')
-        for polygon in soup.find_all('MaskFeature'):
-            if polygon.maskType.text == 'OPAQUE':  # either OPAQUE or CIRRUS
-                polygons.append(polygon)
-    else:
-        print("WARNING: couldn't retrieve cloud mask file", url)
-        return False
+    soup = bs4.BeautifulSoup(gml_content, 'xml')
+    for polygon in soup.find_all('MaskFeature'):
+        if polygon.maskType.text == 'OPAQUE':  # either OPAQUE or CIRRUS
+            polygons.append(polygon)
 
     clouds = []
     for polygon in polygons:
@@ -350,9 +351,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                                                          out_dir)]
     # discard images that are totally covered by clouds
     utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
-    urls = [aws_http_url_from_metadata_dict(img, search_api) for img in images]
-    print('Reading {} cloud masks...'.format(len(urls)), end=' ')
-    cloudy = parallel.run_calls(is_image_cloudy_at_location, urls,
+    aws_paths = [aws_path_from_metadata_dict(img, search_api) for img in images]
+    print('Reading {} cloud masks...'.format(len(aws_paths)), end=' ')
+    cloudy = parallel.run_calls(is_image_cloudy_at_location, aws_paths,
                                 extra_args=(utils.geojson_lonlat_to_utm(aoi),),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
