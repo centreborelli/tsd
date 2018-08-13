@@ -313,6 +313,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         get_time_series_gcloud(aoi, start_date=start_date, end_date=end_date, bands=bands,
                             out_dir=out_dir,
                             parallel_downloads=parallel_downloads)
+        return
 
     # sort images by acquisition date, then by mgrs id
     images.sort(key=lambda k: date_and_mgrs_id_from_metadata_dict(k, search_api))
