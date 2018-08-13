@@ -28,6 +28,7 @@ import utils
 import parallel
 import search_devseed
 import search_gcloud
+from google.cloud import storage
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
@@ -164,6 +165,9 @@ def filename_from_metadata_dict(d, api='devseed'):
     """
     Build a string using the image acquisition date and identifier.
     """
+    if api=='gcloud':
+        return get_name_from_metadata_gcloud(d)
+
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
     if api == 'devseed':
         s = re.search('_R([0-9]{3})_', d['product_id'])
@@ -402,6 +406,15 @@ def get_url_from_metadata_gcloud(k, b):
                                                         b)
     return url.replace('gs://', '/vsicurl/http://storage.googleapis.com/')
 
+def get_cloud_mask_from_metadata_gcloud(k):
+    if '.' not in k['granule_id']:
+        url = '{}/GRANULE/{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(k['base_url'], k['granule_id'])
+    else:
+        url = '{}/GRANULE/{}/QI_DATA/{}_B00_MSIL1C.gml'.format(k['base_url'], k['granule_id'],
+                                                               '_'.join(k['granule_id'].split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
+    return url
+
+
 def get_name_from_metadata_gcloud(k):
     if '.' not in k['granule_id']:
         return '{}_S2A_orbit_{}_tile_{}'.format(k['sensing_time'].split('T')[0],
@@ -411,6 +424,46 @@ def get_name_from_metadata_gcloud(k):
         return '{}_S2A_orbit_{}_tile_{}'.format(k['sensing_time'].split('T')[0],
                                                 k['product_id'].split('_')[6][1:],
                                                 k['mgrs_tile'])
+
+def is_image_cloudy_at_location_gcloud(cloud_mask_url, aoi, p=.5):
+    """
+    Tell if the given area of interest is covered by clouds in a given image.
+
+    The location is considered covered if a fraction larger than p of its surface is
+    labeled as clouds in the sentinel-2 gml cloud masks.
+
+    Args:
+        image_aws_path: path of the image on AWS S3
+        aoi: geojson object
+        p: fraction threshold
+    """
+    # read gml file from remote s3 bucket
+    bucket_name, blob_name, _ = search_gcloud.parse_url(cloud_mask_url)
+    f = storage.Client().get_bucket(bucket_name).get_blob(blob_name)
+    gml_content = f.download_as_string()
+
+    # parse gml to extract the list of polygons (each polygon being a cloud)
+    polygons = []
+    soup = bs4.BeautifulSoup(gml_content, 'xml')
+    for polygon in soup.find_all('MaskFeature'):
+        if polygon.maskType.text == 'OPAQUE':  # either OPAQUE or CIRRUS
+            polygons.append(polygon)
+
+    clouds = []
+    for polygon in polygons:
+        try:
+            coords = list(map(float, polygon.posList.text.split()))
+            points = list(zip(coords[::2], coords[1::2]))
+            clouds.append(shapely.geometry.Polygon(points))
+        except IndexError:
+            pass
+
+    aoi_shape = shapely.geometry.shape(aoi)
+    try:
+        cloudy = shapely.geometry.MultiPolygon(clouds).intersection(aoi_shape)
+        return cloudy.area > (p * aoi_shape.area)
+    except shapely.geos.TopologicalError:
+        return False
 
 
 def get_time_series_gcloud(aoi, start_date=None, end_date=None, bands=['B04'],
@@ -434,7 +487,6 @@ def get_time_series_gcloud(aoi, start_date=None, end_date=None, bands=['B04'],
     print('Found {} images'.format(len(images)))
     utils.print_elapsed_time()
 
-#     return images
     # build urls, filenames and crops coordinates
     crops_args = []
     for img in images:
@@ -457,6 +509,38 @@ def get_time_series_gcloud(aoi, start_date=None, end_date=None, bands=['B04'],
     parallel.run_calls(utils.crop_with_gdal_translate, crops_args,
                        extra_args=('UInt16',), pool_type='threads',
                        nb_workers=parallel_downloads)
+    utils.print_elapsed_time()
+
+    # discard images that failed to download
+    images = [x for x in images if bands_files_are_valid(x, bands, 'gcloud',
+                                                         out_dir)]
+    # discard images that are totally covered by clouds
+    utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+    gcloud_paths = [get_cloud_mask_from_metadata_gcloud(img) for img in images]
+    print('Reading {} cloud masks...'.format(len(gcloud_paths)), end=' ')
+    cloudy = parallel.run_calls(is_image_cloudy_at_location_gcloud, gcloud_paths,
+                                extra_args=(utils.geojson_lonlat_to_utm(aoi),),
+                                pool_type='threads',
+                                nb_workers=parallel_downloads, verbose=True)
+    for img, cloud in zip(images, cloudy):
+        name = filename_from_metadata_dict(img, 'gcloud')
+        if cloud:
+            for b in bands:
+                f = '{}_band_{}.tif'.format(name, b)
+                shutil.move(os.path.join(out_dir, f),
+                            os.path.join(out_dir, 'cloudy', f))
+    print('{} cloudy images out of {}'.format(sum(cloudy), len(images)))
+    images = [i for i, c in zip(images, cloudy) if not c]
+    utils.print_elapsed_time()
+
+    # embed some metadata in the image files
+    print('Embedding metadata in geotiff headers...')
+    for img in images:
+        name = get_name_from_metadata_gcloud(img)
+        d = format_metadata_dict(img)
+        for b in bands:  # embed some metadata as gdal geotiff tags
+            f = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
+            utils.set_geotif_metadata(f, metadata=d)
     utils.print_elapsed_time()
 
 
