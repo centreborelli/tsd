@@ -27,6 +27,7 @@ import shapely.geometry
 import utils
 import parallel
 import search_devseed
+import search_gcloud
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
@@ -308,6 +309,10 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])
+    elif search_api == 'gcloud':
+        get_time_series_gcloud(aoi, start_date=start_date, end_date=end_date, bands=bands,
+                            out_dir=out_dir,
+                            parallel_downloads=parallel_downloads)
 
     # sort images by acquisition date, then by mgrs id
     images.sort(key=lambda k: date_and_mgrs_id_from_metadata_dict(k, search_api))
@@ -384,6 +389,66 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
             utils.set_geotif_metadata(f, metadata=d)
     utils.print_elapsed_time()
 
+def get_url_from_metadata_gcloud(k, b):
+    url = '{}/GRANULE/{}/IMG_DATA/T{}_{}_{}.jp2'.format(k['base_url'], k['granule_id'],
+                                                         k['mgrs_tile'],
+                                                         k['product_id'].split('_')[2],
+                                                         b)
+    return url.replace('gs://', '/vsicurl/http://storage.googleapis.com/')
+
+def get_name_from_metadata_gcloud(k):
+    return '{}_S2A_orbit_{}_tile_{}'.format(k['sensing_time'].split('T')[0],
+                                            k['product_id'].split('_')[4][1:],
+                                            k['mgrs_tile'])
+
+
+def get_time_series_gcloud(aoi, start_date=None, end_date=None, bands=['B04'],
+                    out_dir='',
+                    parallel_downloads=multiprocessing.cpu_count()):
+    """
+    Main function: crop and download a time series of Sentinel-2 images.
+    """
+    utils.print_elapsed_time.t0 = datetime.datetime.now()
+
+    images = search_gcloud.search(aoi, start_date, end_date)
+
+    # sort images by acquisition date, then by mgrs id
+    images.sort(key=lambda k: (k['sensing_time'], k['mgrs_tile']))
+
+    # remove duplicates (same acquisition day, different mgrs tile id)
+    seen = set()
+    images = [x for x in images if not (x['sensing_time'] in seen
+                                        or  # seen.add() returns None
+                                        seen.add(x['sensing_time']))]
+    print('Found {} images'.format(len(images)))
+    utils.print_elapsed_time()
+
+#     return images
+    # build urls, filenames and crops coordinates
+    crops_args = []
+    for img in images:
+        url_base = img['base_url']
+        name = get_name_from_metadata_gcloud(img)
+        coords = utils.utm_bbx(aoi,  # convert aoi coordates to utm
+                               utm_zone=int(img['mgrs_tile'][:2]),
+                               r=60)  # round to multiples of 60 (B01 resolution)
+        for b in bands:
+            fname = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
+            url = get_url_from_metadata_gcloud(img, b)
+            crops_args.append((fname, url, *coords))
+
+    # download crops
+    utils.mkdir_p(out_dir)
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
+                                                                     len(images),
+                                                                     len(bands)),
+          end=' ')
+    parallel.run_calls(utils.crop_with_gdal_translate, crops_args,
+                       extra_args=('UInt16',), pool_type='threads',
+                       nb_workers=parallel_downloads)
+    utils.print_elapsed_time()
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Automatic download and crop '
@@ -409,7 +474,7 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
+    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
                         default='devseed', help='search API')
     parser.add_argument('--product-type', choices=['L1C', 'L2A'], help='type of image')
     parser.add_argument('--parallel-downloads', type=int,
