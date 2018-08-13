@@ -13,3 +13,6 @@ requests
 shapely
 tifffile
 utm
+pandas_gbq
+google-cloud-storage
+tqdm
