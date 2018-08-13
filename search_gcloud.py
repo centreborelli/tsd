@@ -18,16 +18,24 @@ def parse_url(url):
     return bucket, '/'.join(prefix), prefix[-1]
 
 def get_effective_area_from_safe(url):
-    xml_url = '{}/MTD_MSIL1C.xml'.format(url)
-    bucket, blob_name, _ = parse_url(xml_url)
+    # xml_url = '{}/MTD_MSIL1C.xml'.format(url)
+    bucket_name, prefix, _ = parse_url(url)
     client = storage.Client()
-    bucket = client.get_bucket(bucket)
+    bucket = client.get_bucket(bucket_name)
+    r = bucket.list_blobs(prefix=prefix)
+    for hit in r:
+        name = hit.name
+        if name.endswith('.xml') and len(name.split('/'))==6:
+            if not 'inspire' in name.lower() and not 'manifest' in name.lower():
+                blob_name = name
+                break
+
     r = bucket.get_blob(blob_name)
     soup = BeautifulSoup(r.download_as_string(), 'lxml')
-    coords = soup.find('global_footprint').find('ext_pos_list').text.split(' ')
+    coords = soup.find('global_footprint').find('ext_pos_list').text.strip().split(' ')
     coords = [(' '.join((coords[2*i+1], coords[2*i]))) for i in range(int(len(coords)/2))]
     coords = [c.split(' ') for c in coords]
-    coords = [(float(a), float(b)) for a,b in coords]
+    coords = [(float(a), float(b)) for a,b in coords if a!='' and b!='']
     poly = shapely.geometry.Polygon(coords)
     return poly
 

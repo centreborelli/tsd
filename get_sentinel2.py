@@ -390,10 +390,15 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     utils.print_elapsed_time()
 
 def get_url_from_metadata_gcloud(k, b):
-    url = '{}/GRANULE/{}/IMG_DATA/T{}_{}_{}.jp2'.format(k['base_url'], k['granule_id'],
-                                                         k['mgrs_tile'],
-                                                         k['product_id'].split('_')[2],
-                                                         b)
+    if '.' not in k['granule_id']:
+        url = '{}/GRANULE/{}/IMG_DATA/T{}_{}_{}.jp2'.format(k['base_url'], k['granule_id'],
+                                                             k['mgrs_tile'],
+                                                             k['product_id'].split('_')[2],
+                                                             b)
+    else:
+        url = '{}/GRANULE/{}/IMG_DATA/{}_{}.jp2'.format(k['base_url'], k['granule_id'],
+                                                        '_'.join(k['granule_id'].split('_')[:-1]),
+                                                        b)
     return url.replace('gs://', '/vsicurl/http://storage.googleapis.com/')
 
 def get_name_from_metadata_gcloud(k):
