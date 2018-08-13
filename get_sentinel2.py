@@ -403,9 +403,14 @@ def get_url_from_metadata_gcloud(k, b):
     return url.replace('gs://', '/vsicurl/http://storage.googleapis.com/')
 
 def get_name_from_metadata_gcloud(k):
-    return '{}_S2A_orbit_{}_tile_{}'.format(k['sensing_time'].split('T')[0],
-                                            k['product_id'].split('_')[4][1:],
-                                            k['mgrs_tile'])
+    if '.' not in k['granule_id']:
+        return '{}_S2A_orbit_{}_tile_{}'.format(k['sensing_time'].split('T')[0],
+                                                k['product_id'].split('_')[4][1:],
+                                                k['mgrs_tile'])
+    else:
+        return '{}_S2A_orbit_{}_tile_{}'.format(k['sensing_time'].split('T')[0],
+                                                k['product_id'].split('_')[6][1:],
+                                                k['mgrs_tile'])
 
 
 def get_time_series_gcloud(aoi, start_date=None, end_date=None, bands=['B04'],
