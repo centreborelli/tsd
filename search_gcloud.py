@@ -108,10 +108,6 @@ def search(aoi, start_date=None, end_date=None):
     res = []
     print('Checking that the images contain the aoi...')
     for i, row in tqdm(df.iterrows(), total=len(df)):
-        print(row)
-        print('\n\n')
-        print(row['base_url'])
-        print('\n\n')
         poly = get_footprint(row)
         if poly.contains(aoi):
             res.append(row.to_dict())
