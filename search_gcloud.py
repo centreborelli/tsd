@@ -14,6 +14,7 @@ from tqdm import tqdm
 import utils
 
 from pyproj import Proj, transform
+from json.decoder import JSONDecodeError
 
 def parse_url(url):
     _, file = url.split('gs://')
@@ -29,13 +30,38 @@ def get_footprint(img):
                                                                                                          date.year,
                                                                                                          date.month,
                                                                                                          date.day)
-    metadata = requests.get(url).json()
+    try:
+        metadata = requests.get(url).json()
+    except JSONDecodeError:
+        return get_footprint_gcloud(img)
+
     epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
     inProj = Proj(init='epsg:{}'.format(epsg))
     outProj = Proj(init='epsg:4326')
     coords = []
     for x,y in metadata['tileDataGeometry']['coordinates'][0]:
         coords.append(transform(inProj,outProj,x,y))
+    poly = shapely.geometry.Polygon(coords)
+    return poly
+
+def get_footprint_gcloud(img):
+    bucket_name, prefix, _ = parse_url(img['base_url'])
+    client = storage.Client()
+    bucket = client.get_bucket(bucket_name)
+    r = bucket.list_blobs(prefix=prefix)
+    for hit in r:
+        name = hit.name
+        if name.endswith('.xml') and len(name.split('/'))==6:
+            if not 'inspire' in name.lower() and not 'manifest' in name.lower():
+                blob_name = name
+                break
+
+    r = bucket.get_blob(blob_name)
+    soup = BeautifulSoup(r.download_as_string(), 'lxml')
+    coords = soup.find('global_footprint').find('ext_pos_list').text.strip().split(' ')
+    coords = [(' '.join((coords[2*i+1], coords[2*i]))) for i in range(int(len(coords)/2))]
+    coords = [c.split(' ') for c in coords]
+    coords = [(float(a), float(b)) for a,b in coords]
     poly = shapely.geometry.Polygon(coords)
     return poly
 
@@ -82,6 +108,10 @@ def search(aoi, start_date=None, end_date=None):
     res = []
     print('Checking that the images contain the aoi...')
     for i, row in tqdm(df.iterrows(), total=len(df)):
+        print(row)
+        print('\n\n')
+        print(row['base_url'])
+        print('\n\n')
         poly = get_footprint(row)
         if poly.contains(aoi):
             res.append(row.to_dict())
