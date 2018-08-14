@@ -5,6 +5,7 @@ import json
 import requests
 import shapely.geometry
 import numpy as np
+import pandas as pd
 
 import pandas_gbq as gbq
 from google.cloud import storage
@@ -12,32 +13,33 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 import utils
 
+from pyproj import Proj, transform
+
+
 def parse_url(url):
     _, file = url.split('gs://')
     bucket, *prefix = file.split('/')
     return bucket, '/'.join(prefix), prefix[-1]
 
-def get_effective_area_from_safe(url):
-    # xml_url = '{}/MTD_MSIL1C.xml'.format(url)
-    bucket_name, prefix, _ = parse_url(url)
-    client = storage.Client()
-    bucket = client.get_bucket(bucket_name)
-    r = bucket.list_blobs(prefix=prefix)
-    for hit in r:
-        name = hit.name
-        if name.endswith('.xml') and len(name.split('/'))==6:
-            if not 'inspire' in name.lower() and not 'manifest' in name.lower():
-                blob_name = name
-                break
-
-    r = bucket.get_blob(blob_name)
-    soup = BeautifulSoup(r.download_as_string(), 'lxml')
-    coords = soup.find('global_footprint').find('ext_pos_list').text.strip().split(' ')
-    coords = [(' '.join((coords[2*i+1], coords[2*i]))) for i in range(int(len(coords)/2))]
-    coords = [c.split(' ') for c in coords]
-    coords = [(float(a), float(b)) for a,b in coords if a!='' and b!='']
+def get_footprint(row):
+    mgrs = row['mgrs_tile']
+    date = pd.to_datetime(row['sensing_time'])
+    url = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles/{}/{}/{}/{}/{}/{}/0/tileInfo.json'.format(mgrs[:2],
+                                                                                                         mgrs[2],
+                                                                                                         mgrs[3:],
+                                                                                                         date.year,
+                                                                                                         date.month,
+                                                                                                         date.day)
+    dic = requests.get(url).json()
+    epsg = dic['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
+    inProj = Proj(init='epsg:{}'.format(epsg))
+    outProj = Proj(init='epsg:4326')
+    coords = []
+    for x,y in dic['tileDataGeometry']['coordinates'][0]:
+        coords.append(transform(inProj,outProj,x,y))
     poly = shapely.geometry.Polygon(coords)
     return poly
+
 
 def query_s2(lat, lon, start_date, end_date):
     if end_date is None:
@@ -81,9 +83,11 @@ def search(aoi, start_date=None, end_date=None):
     res = []
     print('Checking that the images contain the aoi...')
     for i, row in tqdm(df.iterrows(), total=len(df)):
-        poly = get_effective_area_from_safe(row['base_url'])
+        poly = get_footprint(row)
+        poly = shapely.geometry.shape(poly)
         if poly.contains(aoi):
             res.append(row.to_dict())
+    print('There are {} images that contain the aoi.'.format(len(res)))
     return res
 
 

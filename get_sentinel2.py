@@ -372,7 +372,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # check if we can use s3
     if search_api!='gcloud' and not we_can_access_aws_through_s3():
-        print('Cannot access S3... Check credentials')
         return
 
     # build urls, filenames and crops coordinates
