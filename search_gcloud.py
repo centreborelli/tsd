@@ -84,7 +84,6 @@ def search(aoi, start_date=None, end_date=None):
     print('Checking that the images contain the aoi...')
     for i, row in tqdm(df.iterrows(), total=len(df)):
         poly = get_footprint(row)
-        poly = shapely.geometry.shape(poly)
         if poly.contains(aoi):
             res.append(row.to_dict())
     print('There are {} images that contain the aoi.'.format(len(res)))
