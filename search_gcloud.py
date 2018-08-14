@@ -15,27 +15,26 @@ import utils
 
 from pyproj import Proj, transform
 
-
 def parse_url(url):
     _, file = url.split('gs://')
     bucket, *prefix = file.split('/')
     return bucket, '/'.join(prefix), prefix[-1]
 
-def get_footprint(row):
-    mgrs = row['mgrs_tile']
-    date = pd.to_datetime(row['sensing_time'])
+def get_footprint(img):
+    mgrs = img['mgrs_tile']
+    date = pd.to_datetime(img['sensing_time'])
     url = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles/{}/{}/{}/{}/{}/{}/0/tileInfo.json'.format(mgrs[:2],
                                                                                                          mgrs[2],
                                                                                                          mgrs[3:],
                                                                                                          date.year,
                                                                                                          date.month,
                                                                                                          date.day)
-    dic = requests.get(url).json()
-    epsg = dic['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
+    metadata = requests.get(url).json()
+    epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
     inProj = Proj(init='epsg:{}'.format(epsg))
     outProj = Proj(init='epsg:4326')
     coords = []
-    for x,y in dic['tileDataGeometry']['coordinates'][0]:
+    for x,y in metadata['tileDataGeometry']['coordinates'][0]:
         coords.append(transform(inProj,outProj,x,y))
     poly = shapely.geometry.Polygon(coords)
     return poly
