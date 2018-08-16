@@ -24,7 +24,7 @@ def parse_url(url):
 def get_footprint(img):
     mgrs = img['mgrs_tile']
     date = pd.to_datetime(img['sensing_time'])
-    url = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles/{}/{}/{}/{}/{}/{}/0/tileInfo.json'.format(mgrs[:2],
+    url = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles/{}/{}/{}/{}/{}/{}/0/tileInfo.json'.format(mgrs[:2].lstrip('0'),
                                                                                                          mgrs[2],
                                                                                                          mgrs[3:],
                                                                                                          date.year,
