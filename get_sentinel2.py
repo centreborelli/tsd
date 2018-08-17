@@ -160,29 +160,27 @@ def url_from_metadata_dict(d, b, search_api='devseed', mirror='gcloud'):
                                                             b)
         return url
     else:
-        if search_api=='devseed' and mirror=='gcloud':
-            if 'OPER' not in d['product_id']:
-                #Recent safes
-                base_url = 'gs://gcp-public-data-sentinel-2/tiles/{}/{}/{}/{}.SAFE'.format(d['utm_zone'],
-                                                                                           d['latitude_band'],
-                                                                                           d['grid_square'],
-                                                                                           d['product_id'])
-                _,_,d1,_,r,t,d2 = d['product_id'].split('_')
-                url = '{}/GRANULE/{}/IMG_DATA/{}_{}_{}.jp2'.format(base_url,
-                                                                       d['original_scene_id'],
-                                                                       t,d1,b)
-            else:
-                # Old safes
-                sat,_,_,msi,_,d1,r,v,d2 = d['product_id'].split('_')
-                _,_,_,_,_,_,_,d3,a,t,n = d['original_scene_id'].split('_')
+        if search_api == 'devseed' and mirror == 'gcloud':
+            mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['properties']['id'])[0]
+            product_id = d['properties']['sentinel:product_id']
+            if 'OPER' not in product_id:  # recent safes, after 2016-12-7
+                base_url = 'gs://gcp-public-data-sentinel-2/tiles/{}/{}/{}/{}.SAFE'.format(mgrs_id[:2],
+                                                                                           mgrs_id[2],
+                                                                                           mgrs_id[3:],
+                                                                                           product_id)
+                _, _, d1, _, r, t, d2 = product_id.split('_')
+                url = '{}/GRANULE/{}/IMG_DATA/{}_{}_{}.jp2'.format(base_url, d['properties']['id'], t, d1, b)
+            else:  # old safes, before 2016-12-6
+                sat, _, _, msi, _, d1, r, v, d2 = product_id.split('_')
+                _, _, _, _, _, _, _, d3, a, t, n = d['properties']['id'].split('_')
                 safe_name = '_'.join([sat,msi,v[1:],n.replace('.',''),r,t,d1])
-                base_url = 'gs://gcp-public-data-sentinel-2/tiles/{}/{}/{}/{}.SAFE'.format(d['utm_zone'],
-                                                                                           d['latitude_band'],
-                                                                                           d['grid_square'],
+                base_url = 'gs://gcp-public-data-sentinel-2/tiles/{}/{}/{}/{}.SAFE'.format(mgrs_id[:2],
+                                                                                           mgrs_id[2],
+                                                                                           mgrs_id[3:],
                                                                                            safe_name)
                 url = '{}/GRANULE/{}/IMG_DATA/{}_{}.jp2'.format(base_url,
-                                                                d['original_scene_id'],
-                                                                '_'.join(d['original_scene_id'].split('_')[:-1]),
+                                                                d['properties']['id'],
+                                                                '_'.join(d['properties']['id'].split('_')[:-1]),
                                                                 b)
             return url
 
