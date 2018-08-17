@@ -69,7 +69,8 @@ def utm_zone_from_metadata_dict(d, api='devseed'):
     Read the UTM zone number in the dictionary metadata dict.
     """
     if api == 'devseed':
-        return d['utm_zone']
+        mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['properties']['id'])[0]
+        return mgrs_id[:2]
     elif api == 'planet':
         mgrs_id = d['properties']['mgrs_grid_id']
         return mgrs_id[:2]
@@ -95,9 +96,8 @@ def date_and_mgrs_id_from_metadata_dict(d, api='devseed'):
     Build a string using the image acquisition date and identifier.
     """
     if api == 'devseed':
-        mgrs_id = '{}{}{}'.format(d['utm_zone'], d['latitude_band'],
-                                  d['grid_square'])
-        date = dateutil.parser.parse(d['timestamp'])
+        mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['properties']['id'])[0]
+        date = dateutil.parser.parse(d['properties']['datetime'])
     elif api == 'planet':
         mgrs_id = d['properties']['mgrs_grid_id']
         date = dateutil.parser.parse(d['properties']['acquired'])
@@ -122,8 +122,8 @@ def title_from_metadata_dict(d, api='devseed'):
     """
     Return the SAFE title from a tile metadata dictionary.
     """
-    if api == 'devseed' or api=='gcloud':
-        return d['product_id']
+    if api == 'devseed' or api == 'gcloud':
+        return d['properties']['sentinel:product_id']
     elif api == 'planet':
         return d['id']
     elif api == 'scihub':
@@ -217,12 +217,12 @@ def filename_from_metadata_dict(d, api='devseed'):
 
     date, mgrs_id = date_and_mgrs_id_from_metadata_dict(d, api)
     if api == 'devseed':
-        s = re.search('_R([0-9]{3})_', d['product_id'])
+        s = re.search('_R([0-9]{3})_', d['properties']['sentinel:product_id'])
         if s:
             orbit = int(s.group(1))
         else:
             orbit = 0
-        satellite = d['satellite_name']
+        satellite = d['properties']['eo:platform']
         satellite = satellite.replace("Sentinel-", "S")  # Sentinel-2B --> S2B
     elif api == 'planet':
         orbit = d['properties']['rel_orbit_number']
@@ -374,7 +374,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         if product_type is not None:
             print("WARNING: product_type option is available only with search_api='scihub'")
         images = search_devseed.search(aoi, start_date, end_date,
-                                       'Sentinel-2')['results']
+                                       'Sentinel-2')['features']
     elif search_api == 'scihub':
         import search_scihub
         if product_type is not None:
