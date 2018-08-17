@@ -144,11 +144,11 @@ def aws_path_from_metadata_dict(d, api='devseed'):
                                               date.year, date.month, date.day)
 
 
-def url_from_metadata_dict(d, b, search_api='devseed'):
+def url_from_metadata_dict(d, b, search_api='devseed', mirror='gcloud'):
     """
     Build the AWS s3 url of a Sentinel-2 image from its metadata.
     """
-    if search_api=='gcloud':
+    if search_api=='gcloud' and mirror=='gcloud':
         if '.' not in d['granule_id']:
             url = '{}/GRANULE/{}/IMG_DATA/T{}_{}_{}.jp2'.format(d['base_url'], d['granule_id'],
                                                                  d['mgrs_tile'],
@@ -158,18 +158,46 @@ def url_from_metadata_dict(d, b, search_api='devseed'):
             url = '{}/GRANULE/{}/IMG_DATA/{}_{}.jp2'.format(d['base_url'], d['granule_id'],
                                                             '_'.join(d['granule_id'].split('_')[:-1]),
                                                             b)
-        return url.replace('gs://', '/vsicurl/http://storage.googleapis.com/')
-    else:
-        if 'MSIL2A' in title_from_metadata_dict(d, search_api):
-            aws_s3_url = AWS_S3_URL_L2A
-        else:
-            aws_s3_url = AWS_S3_URL_L1C
-        url_base = '{}/{}'.format(aws_s3_url, aws_path_from_metadata_dict(d, search_api))
-        if 'MSIL2A' in title_from_metadata_dict(d, search_api):
-            url = '{}/R{}m/{}.jp2'.format(url_base, band_resolution(b), b)
-        else:
-            url = '{}/{}.jp2'.format(url_base, b)
         return url
+    else:
+        if search_api=='devseed' and mirror=='gcloud':
+            if 'OPER' not in d['product_id']:
+                #Recent safes
+                base_url = 'gs://gcp-public-data-sentinel-2/tiles/{}/{}/{}/{}.SAFE'.format(d['utm_zone'],
+                                                                                           d['latitude_band'],
+                                                                                           d['grid_square'],
+                                                                                           d['product_id'])
+                _,_,d1,_,r,t,d2 = d['product_id'].split('_')
+                url = '{}/GRANULE/{}/IMG_DATA/{}_{}_{}.jp2'.format(base_url,
+                                                                       d['original_scene_id'],
+                                                                       t,d1,b)
+            else:
+                # Old safes
+                sat,_,_,msi,_,d1,r,v,d2 = d['product_id'].split('_')
+                _,_,_,_,_,_,_,d3,a,t,n = d['original_scene_id'].split('_')
+                safe_name = '_'.join([sat,msi,v[1:],n.replace('.',''),r,t,d1])
+                base_url = 'gs://gcp-public-data-sentinel-2/tiles/{}/{}/{}/{}.SAFE'.format(d['utm_zone'],
+                                                                                           d['latitude_band'],
+                                                                                           d['grid_square'],
+                                                                                           safe_name)
+                url = '{}/GRANULE/{}/IMG_DATA/{}_{}.jp2'.format(base_url,
+                                                                d['original_scene_id'],
+                                                                '_'.join(d['original_scene_id'].split('_')[:-1]),
+                                                                b)
+            return url
+
+        else:
+            # Mirror is not gcloud
+            if 'MSIL2A' in title_from_metadata_dict(d, search_api):
+                aws_s3_url = AWS_S3_URL_L2A
+            else:
+                aws_s3_url = AWS_S3_URL_L1C
+            url_base = '{}/{}'.format(aws_s3_url, aws_path_from_metadata_dict(d, search_api))
+            if 'MSIL2A' in title_from_metadata_dict(d, search_api):
+                url = '{}/R{}m/{}.jp2'.format(url_base, band_resolution(b), b)
+            else:
+                url = '{}/{}.jp2'.format(url_base, b)
+            return url
 
 
 def aws_http_url_from_metadata_dict(d, api='devseed', band=None):
@@ -205,6 +233,7 @@ def filename_from_metadata_dict(d, api='devseed'):
         satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
     elif api == 'gcloud':
         orbit = d['product_id'].split('_')[4][1:] if '.' not in d['granule_id'] else d['product_id'].split('_')[6][1:]
+        orbit = int(orbit)
         satellite = d['product_id'][:3]
 
     return '{}_{}_orbit_{}_tile_{}'.format(date.date().isoformat(),
@@ -327,12 +356,18 @@ def bands_files_are_valid(img, bands, search_api, directory):
 
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
-                    out_dir='', search_api='devseed', product_type=None,
+                    out_dir='', search_api='devseed', mirror='gcloud',
+                    product_type=None,
                     parallel_downloads=multiprocessing.cpu_count()):
     """
     Main function: crop and download a time series of Sentinel-2 images.
     """
     utils.print_elapsed_time.t0 = datetime.datetime.now()
+    #Check available options
+    if search_api=='gcloud' and mirror!='gcloud':
+        raise ValueError('You can only download from gcloud using search_api=gcloud')
+    if mirror=='gcloud' and search_api not in ['devseed', 'gcloud']:
+        raise ValueError('You can only use devseed or gcloud for search_api if you are using mirror=gcloud')
 
     # list available images
     if search_api == 'devseed':
@@ -383,7 +418,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                                r=60)  # round to multiples of 60 (B01 resolution)
         for b in bands:
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
-            url = url_from_metadata_dict(img, b, search_api)
+            url = url_from_metadata_dict(img, b, search_api, mirror)
             crops_args.append((fname, url, *coords))
 
     # download crops
@@ -456,6 +491,8 @@ if __name__ == '__main__':
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
                         default='devseed', help='search API')
+    parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
+                        default='gcloud', help='download mirror')
     parser.add_argument('--product-type', choices=['L1C', 'L2A'], help='type of image')
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
@@ -478,5 +515,6 @@ if __name__ == '__main__':
                                             args.height)
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                     bands=args.band, out_dir=args.outdir, search_api=args.api,
+                    mirror=args.mirror,
                     product_type=args.product_type,
                     parallel_downloads=args.parallel_downloads)

@@ -319,6 +319,11 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         env['VSI_CACHE'] = 'TRUE'
         env['AWS_REQUEST_PAYER'] = 'requester'
         path = '/vsis3/{}'.format(inpath[len('s3://'):])
+    elif inpath.startswith('gs://'):
+        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
+        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
+        env['VSI_CACHE'] = 'TRUE'
+        path = '/vsicurl/http://storage.googleapis.com/{}'.format(inpath[len('gs://'):])
     else:
         path = inpath
 

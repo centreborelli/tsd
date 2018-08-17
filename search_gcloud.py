@@ -76,7 +76,6 @@ def query_s2(lat, lon, start_date, end_date):
     date_query = 'sensing_time >= "{}" AND sensing_time <= "{}"'.format(start_date, end_date)
     loc_query = 'north_lat>={} AND south_lat<={} AND west_lon<={} AND east_lon>={}'.format(lat, lat, lon, lon)
     query = 'SELECT * FROM {} WHERE {} AND {}'.format(tab_name, date_query, loc_query)
-
     return query
 
 def search(aoi, start_date=None, end_date=None):
