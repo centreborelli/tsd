@@ -1,3 +1,33 @@
+"""
+This module contains parsers for the outputs of all the search API supported by
+TSD, such as devseed, planet, scihub and gcloud. Each API parser receives as
+input a Python dict containing the metadata of an image as returned by the API.
+It extracts from it the metadata that TSD needs and stores it in an object
+with standard attributes names (i.e. the attributes names are the same for all
+API. The detailed list of the attributes is given below). This allows TSD to
+use any search API with any download mirror.
+
+Each parser returns an object with the following data structure:
+
+    utm_zone (int): integer between 1 and 60 indicating the UTM longitude zone
+    lat_band (str): letter between C and X, excluding I and O, indicating the
+        UTM latitude band
+    sqid (str): pair of letters indicating the MGRS 100x100 km square
+    mgrd_id (str): concatenation of utm_zone, lat_band and sqid. It has lenght
+        five (utm_zone is zero padded).
+    date (datetime.datetime): acquisition date and time of the image
+    satellite (str): either 'S2A' or 'S2B'
+    orbit (int): relative orbit number
+    title (str): original name of the SAFE in which the image is packaged by ESA
+    is_old (bool): indicates wether or not the SAFE name follows the old (i.e. prior
+        to 2016-12-06) or the new naming convention
+    filename (str): string that TSD uses to name the crops downloaded for the bands
+        of this image. It starts with the acquisition year, month and day so that
+        sorting the files per image acquisition date is easy.
+    urls (dict): dict with keys 'aws' and 'gcloud'. The value associated to
+        each key is a dict with one key per band containing download urls.
+    meta (dict): the original response of the API for this image
+"""
 from __future__ import print_function
 import re
 import dateutil.parser
