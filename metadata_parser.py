@@ -151,7 +151,7 @@ class PlanetParser:
         aws_s3_url = AWS_S3_URL_L1C
         base_url = '{}/tiles/{}/{}/{}/{}/{}/{}/0'.format(aws_s3_url,self.utm_zone, self.lat_band, self.sqid,
                                                          self.date.year, self.date.month, self.date.day)
-        full_url = '{}/{}.jp2'.format(url_base, '{}')
+        full_url = '{}/{}.jp2'.format(base_url, '{}')
         for band in ALL_BANDS:
             self.urls['aws'][band] = full_url.format(band)
         self.urls['aws']['cloud_mask'] = '{}/qi/MSK_CLOUDS_B00.gml'.format(base_url)
@@ -186,7 +186,7 @@ class ScihubParser:
         aws_s3_url = AWS_S3_URL_L1C
         base_url = '{}/tiles/{}/{}/{}/{}/{}/{}/0'.format(aws_s3_url,self.utm_zone, self.lat_band, self.sqid,
                                                       self.date.year, self.date.month, self.date.day)
-        full_url = '{}/{}.jp2'.format(url_base, '{}')
+        full_url = '{}/{}.jp2'.format(base_url, '{}')
         for band in ALL_BANDS:
             self.urls['aws'][band] = full_url.format(band)
         self.urls['aws']['cloud_mask'] = '{}/qi/MSK_CLOUDS_B00.gml'.format(base_url)
