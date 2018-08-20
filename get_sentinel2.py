@@ -292,8 +292,10 @@ def cloud_path_from_metadata_dict(k, search_api='devseed'):
         url = '{}/qi/MSK_CLOUDS_B00.gml'.format(image_aws_path)
     else:
         if '.' not in k['granule_id']:
+            # Recent safes
             url = '{}/GRANULE/{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(k['base_url'], k['granule_id'])
         else:
+            # Old safes
             url = '{}/GRANULE/{}/QI_DATA/{}_B00_MSIL1C.gml'.format(k['base_url'], k['granule_id'],
                                                                    '_'.join(k['granule_id'].split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
     return url

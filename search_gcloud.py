@@ -115,7 +115,7 @@ def search(aoi, start_date=None, end_date=None):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Search of Landsat-8 and Sentinel-2 images.')
+    parser = argparse.ArgumentParser(description='Search of Sentinel-2 images.')
     parser.add_argument('--geom', type=utils.valid_geojson,
                         help=('path to geojson file'))
     parser.add_argument('--lat', type=utils.valid_lat,
