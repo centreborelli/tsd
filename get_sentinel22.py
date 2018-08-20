@@ -50,7 +50,7 @@ def check_args(search_api, mirror, product_type):
 
         if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
             try:
-                boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL_L1C[5:],
+                boto3.session.Session().client('s3').list_objects_v2(Bucket=metadata_parser.AWS_S3_URL_L1C[5:],
                                                                      RequestPayer='requester')
             except botocore.exceptions.ClientError:
                 raise ValueError('Could not connect to AWS server. Check credentials or use mirror=gcloud')
