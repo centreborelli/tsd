@@ -1,6 +1,7 @@
 from __future__ import print_function
 import re
 import dateutil.parser
+import datetime
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
@@ -156,7 +157,7 @@ class PlanetParser:
             self.urls['aws'][band] = full_url.format(band)
         self.urls['aws']['cloud_mask'] = '{}/qi/MSK_CLOUDS_B00.gml'.format(base_url)
 
-class ScihubParser:
+class SciHubParser:
     def __init__(self, img):
         self.meta = img
         self.urls = {'aws': {}, 'gcloud': {}}
@@ -170,11 +171,11 @@ class ScihubParser:
         d = self.meta.copy()
         date_string = [a['content'] for a in d['date'] if a['name'] == 'beginposition'][0]
         self.date = dateutil.parser.parse(date_string, ignoretz=True)
-        if date > datetime.datetime(2016, 12, 6):
+        if self.date > datetime.datetime(2016, 12, 6):
             self.mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
         else:
             print('ERROR: scihub API cannot be used for Sentinel-2 searches before 2016-12-6')
-        self.utm_zone, self.lat_band, self.sqid = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)',self.mgrs_id)[1:4]
+        self.utm_zone, self.lat_band, self.sqid = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', self.mgrs_id)[1:4]
         self.orbit = int(d['int'][1]['content'])
         self.satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
         self.title = d['title']
