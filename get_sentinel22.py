@@ -127,8 +127,8 @@ def is_img_cloudy(img, aoi, mirror, p=0.5):
         f = storage.Client().get_bucket(bucket_name).get_blob('/'.join(blob_name))
         gml_content = f.download_as_string()
     else:
-        bucket_name, *key_name = url.replace('s3://', '').split('/')
-        f = boto3.client('s3').get_object(Bucket=bucket, Key='/'.join(key_name),
+        bucket, *key = url.replace('s3://', '').split('/')
+        f = boto3.client('s3').get_object(Bucket=bucket, Key='/'.join(key),
                                           RequestPayer='requester')['Body']
         gml_content = f.read()
 
