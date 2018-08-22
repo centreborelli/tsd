@@ -60,8 +60,9 @@ class DevSeedParser:
         self._parse()
         self._build_gs_links()
         self._build_s3_links()
-        self.filename = '{}_{}_orbit_{}_tile_{}'.format(self.date.date().isoformat(),
-                                                        self.satellite, self.orbit, self.mgrs_id)
+        self.filename = '{}_{}_orbit_{:03d}_tile_{}'.format(self.date.date().isoformat(),
+                                                            self.satellite, self.orbit,
+                                                            self.mgrs_id)
 
     def _parse(self):
         d = self.meta.copy()
@@ -115,8 +116,9 @@ class GcloudParser:
         self._parse()
         self._build_gs_links()
         self._build_s3_links()
-        self.filename = '{}_{}_orbit_{}_tile_{}'.format(self.date.date().isoformat(),
-                                                        self.satellite, self.orbit, self.mgrs_id)
+        self.filename = '{}_{}_orbit_{:03d}_tile_{}'.format(self.date.date().isoformat(),
+                                                            self.satellite, self.orbit,
+                                                            self.mgrs_id)
 
     def _parse(self):
         d = self.meta.copy()
@@ -163,8 +165,9 @@ class PlanetParser:
         self._parse()
         self._build_gs_links()
         self._build_s3_links()
-        self.filename = '{}_{}_orbit_{}_tile_{}'.format(self.date.date().isoformat(),
-                                                        self.satellite, self.orbit, self.mgrs_id)
+        self.filename = '{}_{}_orbit_{:03d}_tile_{}'.format(self.date.date().isoformat(),
+                                                            self.satellite, self.orbit,
+                                                            self.mgrs_id)
 
     def _parse(self):
         d = self.meta.copy()
@@ -194,8 +197,9 @@ class SciHubParser:
         self._parse()
         self._build_gs_links()
         self._build_s3_links()
-        self.filename = '{}_{}_orbit_{}_tile_{}'.format(self.date.date().isoformat(),
-                                                        self.satellite, self.orbit, self.mgrs_id)
+        self.filename = '{}_{}_orbit_{:03d}_tile_{}'.format(self.date.date().isoformat(),
+                                                            self.satellite, self.orbit, 
+                                                            self.mgrs_id)
 
     def _parse(self):
         d = self.meta.copy()
