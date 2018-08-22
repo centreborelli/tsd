@@ -205,10 +205,10 @@ class SciHubParser:
         d = self.meta.copy()
         date_string = [a['content'] for a in d['date'] if a['name'] == 'beginposition'][0]
         self.date = dateutil.parser.parse(date_string, ignoretz=True)
-        if self.date > datetime.datetime(2016, 12, 6):
+        if self.date > datetime.datetime(2016, 8, 26):
             self.mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
         else:
-            print('ERROR: scihub API cannot be used for Sentinel-2 searches before 2016-12-6')
+            print('ERROR: scihub API cannot be used for Sentinel-2 images older than 2016-8-26')
         self.utm_zone, self.lat_band, self.sqid = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', self.mgrs_id)[1:4]
         self.orbit = int(d['int'][1]['content'])
         self.satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
