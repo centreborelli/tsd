@@ -7,6 +7,7 @@ lxml
 mgrs
 numpy>=1.12
 planet
+pyproj
 python-dateutil
 rasterio>=1.0a1
 requests
