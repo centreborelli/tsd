@@ -249,7 +249,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                     out_dir='', api='devseed', mirror='gcloud',
-                    product_type=None,
+                    product_type=None, cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count()):
     """
     Main function: crop and download a time series of Sentinel-2 images.
@@ -263,6 +263,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         api (str, optional): either devseed (default), scihub, planet or gcloud
         mirror (str, optional): either 'aws' or 'gcloud'
         product_type (str, optional): either 'L1C' or 'L2A'
+        cloud_masks (bool, optional): if True, cloud masks are downloaded and
+            cloudy images are discarded
         parallel_downloads (int): number of parallel gml files downloads
     """
     # check access to the selected search api and download mirror
@@ -285,9 +287,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
             filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
             utils.set_geotif_metadata_items(filepath, d)
 
-    # discard images that are totally covered by clouds
-    read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,
-                     out_dir=out_dir)
+    if cloud_masks:  # discard images that are totally covered by clouds
+        read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,
+                         out_dir=out_dir)
 
 
 if __name__ == '__main__':
@@ -322,6 +324,8 @@ if __name__ == '__main__':
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
+    parser.add_argument('--cloud-masks',  action='store_true',
+                        help=('download cloud masks crops from provided GML files'))
     args = parser.parse_args()
 
     if 'all' in args.band:
@@ -342,4 +346,5 @@ if __name__ == '__main__':
                     bands=args.band, out_dir=args.outdir, api=args.api,
                     mirror=args.mirror,
                     product_type=args.product_type,
+                    cloud_masks=args.cloud_masks,
                     parallel_downloads=args.parallel_downloads)
