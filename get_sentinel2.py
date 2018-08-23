@@ -220,8 +220,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
     """
     print('Reading {} cloud masks...'.format(len(imgs)), end=' ')
     cloudy = parallel.run_calls(is_image_cloudy, imgs,
-                                extra_args=(
-                                    utils.geojson_lonlat_to_utm(aoi), mirror, p),
+                                extra_args=(utils.geojson_lonlat_to_utm(aoi), mirror, p),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
     print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
@@ -264,6 +263,14 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # discard images that failed to download
     images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
+
+    # embed all metadata as GeoTIFF tags in the image files
+    for img in images:
+        d = img.meta
+        d.update({'downloaded_by': 'TSD on {}'.format(datetime.datetime.now().isoformat())})
+        for b in bands:
+            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            utils.set_geotif_metadata_items(filepath, d)
 
     # discard images that are totally covered by clouds
     read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,
