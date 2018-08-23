@@ -16,10 +16,12 @@ import utils
 from pyproj import Proj, transform
 from json.decoder import JSONDecodeError
 
+
 def parse_url(url):
     _, file = url.split('gs://')
     bucket, *prefix = file.split('/')
     return bucket, '/'.join(prefix), prefix[-1]
+
 
 def get_footprint(img):
     mgrs = img['mgrs_tile']
@@ -39,10 +41,11 @@ def get_footprint(img):
     inProj = Proj(init='epsg:{}'.format(epsg))
     outProj = Proj(init='epsg:4326')
     coords = []
-    for x,y in metadata['tileDataGeometry']['coordinates'][0]:
-        coords.append(transform(inProj,outProj,x,y))
+    for x, y in metadata['tileDataGeometry']['coordinates'][0]:
+        coords.append(transform(inProj, outProj, x, y))
     poly = shapely.geometry.Polygon(coords)
     return poly
+
 
 def get_footprint_gcloud(img):
     bucket_name, prefix, _ = parse_url(img['base_url'])
@@ -51,7 +54,7 @@ def get_footprint_gcloud(img):
     r = bucket.list_blobs(prefix=prefix)
     for hit in r:
         name = hit.name
-        if name.endswith('.xml') and len(name.split('/'))==6:
+        if name.endswith('.xml') and len(name.split('/')) == 6:
             if not 'inspire' in name.lower() and not 'manifest' in name.lower():
                 blob_name = name
                 break
@@ -61,7 +64,7 @@ def get_footprint_gcloud(img):
     coords = soup.find('global_footprint').find('ext_pos_list').text.strip().split(' ')
     coords = [(' '.join((coords[2*i+1], coords[2*i]))) for i in range(int(len(coords)/2))]
     coords = [c.split(' ') for c in coords]
-    coords = [(float(a), float(b)) for a,b in coords]
+    coords = [(float(a), float(b)) for a, b in coords]
     poly = shapely.geometry.Polygon(coords)
     return poly
 
@@ -77,6 +80,7 @@ def query_s2(lat, lon, start_date, end_date):
     loc_query = 'north_lat>={} AND south_lat<={} AND west_lon<={} AND east_lon>={}'.format(lat, lat, lon, lon)
     query = 'SELECT * FROM {} WHERE {} AND {}'.format(tab_name, date_query, loc_query)
     return query
+
 
 def search(aoi, start_date=None, end_date=None):
     """
@@ -95,22 +99,19 @@ def search(aoi, start_date=None, end_date=None):
     # query Gcloud BigQuery Index
     try:
         private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-    except KeyError:
+    except KeyError as e:
         print('You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
-        raise KeyError
-    print('Looking for images...')
+        raise e
+
     df = gbq.read_gbq(search_string, private_key=private_key)
-    print('{} images found.'.format(len(df)))
 
     # check if the image footprint contains the area of interest
     aoi = shapely.geometry.shape(aoi)
     res = []
-    print('Checking that the images contain the aoi...')
-    for i, row in tqdm(df.iterrows(), total=len(df)):
+    for i, row in df.iterrows():
         poly = get_footprint(row)
         if poly.contains(aoi):
             res.append(row.to_dict())
-    print('There are {} images that contain the aoi.'.format(len(res)))
     return res
 
 
