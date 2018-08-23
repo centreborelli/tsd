@@ -17,6 +17,7 @@ import json
 import shapely.geometry
 import shapely.wkt
 import requests
+import dateutil.parser
 
 import utils
 
@@ -114,6 +115,48 @@ def load_query(query, api_url, start_row=0, page_size=100):
     return output
 
 
+def prettify_scihub_dict(d):
+    """
+    Convert the oddly formatted json response of scihub into something nicer.
+
+    Scihub json response is roughly a dict with a key per datatype (int, str,
+    date, ...). The value associated to each key is a list of dicts like
+    {'name': foo, 'content': bar}, while it would be more natural to have
+    (foo, bar) as a (key, value) pair of the main json dict.
+
+    Args:
+        d (dict): json-formatted metadata returned by scihub for a single SAFE
+
+    Returns:
+        prettified metadata dict
+    """
+    out = {}
+    for k in ['title', 'id', 'summary']:
+        if k in d:
+            out[k] = d[k]
+
+    if 'int' in d:
+        for x in d['int']:
+            out[x['name']] = int(x['content'])
+
+    if 'str' in d:
+        for x in d['str']:
+            out[x['name']] = x['content']
+
+    if 'date' in d:
+        for x in d['date']:
+            out[x['name']] = x['content']
+
+    if 'link' in d:
+        out['links'] = {}
+        for x in d['link']:
+            if 'rel' in x:
+                out['links'][x['rel']] = x['href']
+            else:
+                out['links']['main'] = x['href']
+    return out
+
+
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
            product_type='GRD', operational_mode='IW', api='copernicus'):
     """
@@ -124,14 +167,13 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode)
-    results = load_query(query, API_URLS[api])
+    results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
 
     # check if the image footprint contains the area of interest
     not_covering = []
     aoi_shape = shapely.geometry.shape(aoi)
     for x in results:
-        footprint = [a['content'] for a in x['str'] if a['name'] == 'footprint'][0]
-        if not shapely.wkt.loads(footprint).contains(aoi_shape):
+        if not shapely.wkt.loads(x['footprint']).contains(aoi_shape):
             not_covering.append(x)
 
     for x in not_covering:

@@ -83,8 +83,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
     # download zip file
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))
-    date = [x['content'] for x in image['date'] if x['name'] == 'beginposition']
-    date = dateutil.parser.parse(date[0])
+    date = dateutil.parser.parse(image['beginposition'], ignoretz=True)
     if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
         if mirror == 'code-de':
             url = '{}/{:04d}/{:02d}/{:02d}/{}.SAFE.zip'.format(CODEDE_URL,
