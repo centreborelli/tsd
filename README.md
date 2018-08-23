@@ -127,21 +127,13 @@ manager.
     sudo apt-get update
     sudo apt-get install libgdal-dev gdal-bin
 
-If you are working in a venv, `python-gdal` won't be accessible from scratch,
-so please install GDAL Python bindings with pip:
-
-    pip install gdal=={YOUR_GDAL_VERSION} --global-option build_ext --global-option=`gdal-config --cflags`
-
 ## Python packages
 The required Python packages are listed in the file `requirements.txt`. They
 can be installed with `pip`:
 
     pip install -r requirements.txt
 
-## Install tsd as a global python package
-Once gdal and its python wrapper are correctly installed on your machine 
-(please make sure you can perform a `import osgeo`),
-you can run `python setup.py install`.
+## Install TSD as a global python package
+Once `gdal` is correctly installed on your machine you can run
 
-_Note_: There is currently a problem retrieving tifffile dependency, so you'll
-have to do a `pip install tifffile` separately.
+    python setup.py install
