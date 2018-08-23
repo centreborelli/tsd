@@ -354,8 +354,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
         # embed some metadata in the image files
         for f, img in zip(fnames, items):  # embed some metadata as gdal geotiff tags
             if os.path.isfile(f):
-                for k, v in metadata_from_metadata_dict(img).items():
-                    utils.set_geotif_metadata_item(f, k, v)
+                utils.set_geotif_metadata_items(f, metadata_from_metadata_dict(img))
 
 
 if __name__ == '__main__':

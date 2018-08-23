@@ -255,8 +255,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     # embed some metadata in the remaining image files
     for bands_fnames in crops:
         for f in bands_fnames:  # embed some metadata as gdal geotiff tags
-            for k, v in metadata_from_metadata_dict(img, search_api).items():
-                utils.set_geotif_metadata_item(f, k, v)
+            utils.set_geotif_metadata_items(f, metadata_from_metadata_dict(img, search_api))
 
 
 if __name__ == '__main__':

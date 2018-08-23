@@ -86,17 +86,16 @@ _Note_: a shell script installing all the needed stuff (`brew`, `python`,
 [macos_install_from_scratch.sh](macos_install_from_scratch.sh).
 
 ## GDAL
-The toughest dependency to install is GDAL. All the others are easily installed
+The main dependencies are GDAL and rasterio. All the others can be installed
 with `pip` as shown in the [next section](#python-packages).
 
 ### On macOS
-There are several ways of installing `gdal`. I recommend option 1: it
-gives a version of gdal 2.1 that works with JP2 files, plus bindings
-for both python 2 and 3.
+There are several ways of installing `gdal`. I recommend option 1 as it
+gives a version of gdal 2.2 that works with JP2 files.
 
 #### Option 1: using the GDAL Complete Compatibility Framework.
 
-[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.1.dmg)
+[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.2.dmg)
 and install the `.dmg` file. Update your `PATH` after the installation by
 running this command:
 
@@ -104,34 +103,29 @@ running this command:
 
 Copy it in your `~/.profile`.
 
-Then install the GDAL Python bindings and the rasterio package with pip:
+Then install the `rasterio` package with pip:
 
-    pip install rasterio gdal==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/
+    pip install rasterio --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/
 
 _Note_: installation of `rasterio` with Python 3 requires `numpy`.
-
-The `gdal-config --version | awk -F'[.]' '{print $1"."$2}'` command retrieves
-the fist two digits of your gdal version. This information is needed to install
-the same version of the python bindings.
 
 The four `--global-option build_ext` options tell `pip` where to find gdal
 headers and libraries.
 
 #### Option 2: using brew
 
-    brew install gdal --with-complete --with-python3
+    brew install gdal --with-complete
 
-This installs gdal and bindings for python 2 and 3. Note that this version
-doesn't support JP2 files (hence it will fail to get Sentinel-2 crops from
-AWS). Moreover, the version currently bottled in brew is only 1.11 (as of
-08/2017).
+Note that this version doesn't support JP2 files (hence it will fail to get
+Sentinel-2 crops). Moreover, the version currently bottled in brew is only 1.11
+(as of 08/2017).
 
 ### On Linux
-On Linux `gdal` and its Python bindings are usually straightforward to install
-through your package manager.
+On Linux `gdal` is usually straightforward to install through your package
+manager.
 
     sudo apt-get update
-    sudo apt-get install libgdal-dev gdal-bin python-gdal
+    sudo apt-get install libgdal-dev gdal-bin
 
 
 ## Python packages
