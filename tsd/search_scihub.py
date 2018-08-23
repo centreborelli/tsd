@@ -5,7 +5,20 @@
 """
 Search of Sentinel images.
 
-Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
@@ -17,6 +30,7 @@ import json
 import shapely.geometry
 import shapely.wkt
 import requests
+import dateutil.parser
 
 import utils
 
@@ -69,8 +83,8 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
     # default start/end dates
     if end_date is None:
         end_date = datetime.datetime.now()
-    if start_date is None:  # https://scihub.copernicus.eu/news/News00124
-        start_date = datetime.datetime(2016, 12, 7)
+    if start_date is None:  # https://scihub.copernicus.eu/news/News00368
+        start_date = datetime.datetime(2016, 8, 26)
 
     # build the url used to query the scihub API
     query = 'platformname:{}'.format(satellite)
@@ -114,24 +128,65 @@ def load_query(query, api_url, start_row=0, page_size=100):
     return output
 
 
+def prettify_scihub_dict(d):
+    """
+    Convert the oddly formatted json response of scihub into something nicer.
+
+    Scihub json response is roughly a dict with a key per datatype (int, str,
+    date, ...). The value associated to each key is a list of dicts like
+    {'name': foo, 'content': bar}, while it would be more natural to have
+    (foo, bar) as a (key, value) pair of the main json dict.
+
+    Args:
+        d (dict): json-formatted metadata returned by scihub for a single SAFE
+
+    Returns:
+        prettified metadata dict
+    """
+    out = {}
+    for k in ['title', 'id', 'summary']:
+        if k in d:
+            out[k] = d[k]
+
+    if 'int' in d:
+        for x in d['int']:
+            out[x['name']] = int(x['content'])
+
+    if 'str' in d:
+        for x in d['str']:
+            out[x['name']] = x['content']
+
+    if 'date' in d:
+        for x in d['date']:
+            out[x['name']] = x['content']
+
+    if 'link' in d:
+        out['links'] = {}
+        for x in d['link']:
+            if 'rel' in x:
+                out['links'][x['rel']] = x['href']
+            else:
+                out['links']['main'] = x['href']
+    return out
+
+
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
            product_type='GRD', operational_mode='IW', api='copernicus'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
-    if satellite == 'Sentinel-2' and product_type not in ['S2MSI1C', 'S2MSI2Ap']:
+    if satellite == 'Sentinel-2' and product_type not in ['S2MSI1C', 'S2MSI2A', 'S2MSI2Ap']:
         product_type = 'S2MSI1C'
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode)
-    results = load_query(query, API_URLS[api])
+    results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
 
     # check if the image footprint contains the area of interest
     not_covering = []
     aoi_shape = shapely.geometry.shape(aoi)
     for x in results:
-        footprint = [a['content'] for a in x['str'] if a['name'] == 'footprint'][0]
-        if not shapely.wkt.loads(footprint).contains(aoi_shape):
+        if not shapely.wkt.loads(x['footprint']).contains(aoi_shape):
             not_covering.append(x)
 
     for x in not_covering:
@@ -159,7 +214,7 @@ if __name__ == '__main__':
     parser.add_argument('--satellite', default='Sentinel-1',
                         help='which satellite: Sentinel-1 or Sentinel-2')
     parser.add_argument('--product-type', default='GRD',
-                        help='type of image: RAW, SLC, GRD, OCN (for S1), S2MSI1C, S2MSI2Ap (for S2)')
+                        help='type of image: RAW, SLC, GRD, OCN (for S1), S2MSI1C, S2MSI2A, S2MSI2Ap (for S2)')
     parser.add_argument('--operational-mode', default='IW',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--api', default='copernicus',

@@ -5,7 +5,20 @@
 """
 Automatic crop and download of Landsat timeseries.
 
-Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
@@ -20,7 +33,7 @@ import boto3
 import botocore
 import dateutil.parser
 import requests
-import tifffile
+import rasterio
 
 import search_devseed
 import utils
@@ -144,7 +157,8 @@ def is_image_cloudy(qa_band_file, p=.5):
         qa_band_file: path to a Landsat-8 QA band crop
         p: fraction threshold
     """
-    x = tifffile.imread(qa_band_file)
+    with rasterio.open(qa_band_file, 'r') as f:
+        x = f.read(1)
     bqa_cloud_yes = [61440, 59424, 57344, 56320, 53248]
     bqa_cloud_maybe = [39936, 36896, 36864]
     mask = np.in1d(x, bqa_cloud_yes + bqa_cloud_maybe).reshape(x.shape)
@@ -255,8 +269,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     # embed some metadata in the remaining image files
     for bands_fnames in crops:
         for f in bands_fnames:  # embed some metadata as gdal geotiff tags
-            for k, v in metadata_from_metadata_dict(img, search_api).items():
-                utils.set_geotif_metadata_item(f, k, v)
+            utils.set_geotif_metadata_items(f, metadata_from_metadata_dict(img, search_api))
 
 
 if __name__ == '__main__':

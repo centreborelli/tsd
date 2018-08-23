@@ -6,6 +6,19 @@
 Automatic download and crop of Planet images.
 
 Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
@@ -19,6 +32,7 @@ import area
 import requests
 import numpy as np
 import dateutil.parser
+import rasterio
 
 import utils
 import parallel
@@ -112,8 +126,12 @@ def download_crop(outfile, asset, aoi, aoi_type):
         if aoi_type == "utm_rectangle":
             utils.crop_with_gdal_translate(outfile, url, *aoi)
         elif aoi_type == "lonlat_polygon":
-            crop = utils.crop_aoi(url, aoi)[0]
-            utils.rio_write(outfile, crop)
+            with rasterio.open(url, 'r') as src:
+                rpc_tags = src.tags(ns='RPC')
+            crop, x, y = utils.crop_aoi(url, aoi)
+            utils.rio_write(outfile, crop,
+                            tags={'CROP_OFFSET_XY': '{} {}'.format(x, y)},
+                            namespace_tags={'RPC': rpc_tags})
 
 
 def get_item_asset_info(item, asset_type, verbose=False):
@@ -349,8 +367,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
         # embed some metadata in the image files
         for f, img in zip(fnames, items):  # embed some metadata as gdal geotiff tags
             if os.path.isfile(f):
-                for k, v in metadata_from_metadata_dict(img).items():
-                    utils.set_geotif_metadata_item(f, k, v)
+                utils.set_geotif_metadata_items(f, metadata_from_metadata_dict(img))
 
 
 if __name__ == '__main__':
