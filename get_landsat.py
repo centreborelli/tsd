@@ -20,7 +20,7 @@ import boto3
 import botocore
 import dateutil.parser
 import requests
-import tifffile
+import rasterio
 
 import search_devseed
 import utils
@@ -144,7 +144,8 @@ def is_image_cloudy(qa_band_file, p=.5):
         qa_band_file: path to a Landsat-8 QA band crop
         p: fraction threshold
     """
-    x = tifffile.imread(qa_band_file)
+    with rasterio.open(qa_band_file, 'r') as f:
+        x = f.read(1)
     bqa_cloud_yes = [61440, 59424, 57344, 56320, 53248]
     bqa_cloud_maybe = [39936, 36896, 36864]
     mask = np.in1d(x, bqa_cloud_yes + bqa_cloud_maybe).reshape(x.shape)
