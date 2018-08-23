@@ -1,11 +1,11 @@
 # Time Series Downloader (TSD)
 
-[![Build Status](https://travis-ci.org/carlodef/tsd.svg?branch=master)](https://travis-ci.org/carlodef/tsd)
+[![Build Status](https://travis-ci.com/cmla/tsd.svg?branch=master)](https://travis-ci.com/cmla/tsd)
 
 Automatic download of Sentinel, Landsat and Planet crops.
 
 [Carlo de Franchis](mailto:carlo.de-franchis@ens-cachan.fr),
-CMLA, ENS Cachan, Université Paris-Saclay, 2016-17
+CMLA, ENS Cachan, Université Paris-Saclay, 2016-18
 
 With contributions from [Enric Meinhardt-Llopis](mailto:enric.meinhardt@cmla.ens-cachan.fr), [Axel Davy](mailto:axel.davy@ens.fr) and [Tristan Dagobert](mailto:tristan.dagobert@cmla.ens-cachan.fr).
 
