@@ -9,7 +9,7 @@ google-cloud-storage
 lxml
 mgrs
 numpy>=1.12
-pandas_gbq
+pandas
 planet
 pyproj
 python-dateutil
