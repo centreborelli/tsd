@@ -343,6 +343,11 @@ def get_time_series(aoi, start_date=None, end_date=None,
                                    extra_args=(aoi,), pool_type='threads',
                                    nb_workers=parallel_downloads, timeout=3600)
 
+        # remove clips that were rejected
+        ok = [i for i, x in enumerate(clips) if x]
+        clips = [clips[i] for i in range(len(clips)) if i in ok]
+        fnames = [fnames[i] for i in range(len(fnames)) if i in ok]
+
         print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
         parallel.run_calls(download_clip, list(zip(clips, fnames)),
                            pool_type='threads', nb_workers=parallel_downloads,
