@@ -39,9 +39,7 @@ PEPS_URL_DOWNLOAD = 'https://peps.cnes.fr/resto/collections'
 CODEDE_URL = 'https://code-de.org/Sentinel1'
 
 
-def query_data_hub(output_filename, url, verbose=False,
-                   user=search_scihub.login,
-                   password=search_scihub.password):
+def query_data_hub(output_filename, url, user, password, verbose=False):
     """
     Download a file from the Copernicus data hub or one of its true mirrors.
     """
@@ -119,7 +117,8 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
         elif mirror in search_scihub.API_URLS:
             url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.API_URLS[mirror],
                                                              image['id'])
-            query_data_hub(zip_path, url, verbose=False)
+            user, password = read_copernicus_credentials_from_environment_variables()
+            query_data_hub(zip_path, url, user, password, verbose=False)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 

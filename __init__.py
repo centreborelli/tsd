@@ -4,22 +4,10 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 import utils
 import search_devseed
-try:
-    import search_scihub
-except SystemExit:
-    pass
-try:
-    import search_planet
-except SystemExit:
-    pass
+import search_scihub
+import search_planet
 
 import get_landsat
 import get_sentinel2
-try:
-    import get_sentinel1
-except SystemExit:
-    pass
-try:
-    import get_planet
-except SystemExit:
-    pass
+import get_sentinel1
+import get_planet

@@ -33,18 +33,6 @@ from planet import api
 
 import utils
 
-
-# check the Planet API key
-try:
-    os.environ['PL_API_KEY']
-except KeyError:
-    print("The {} module requires the PL_API_KEY".format(__file__),
-          "environment variable to be defined with valid",
-          "credentials for https://www.planet.com/. Create an account if",
-          "you don't have one (it's free) then edit the relevant configuration",
-          "files (eg .bashrc) to define this environment variable.")
-    sys.exit(1)
-
 client = api.ClientV1()
 ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrthoTile',
               'Sentinel2L1C', 'Landsat8L1G', 'Sentinel1', 'SkySatScene']
@@ -75,7 +63,15 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
     request = api.filters.build_search_request(query, item_types)
 
     # this will cause an exception if there are any API related errors
-    response = client.quick_search(request)
+    try:
+        response = client.quick_search(request)
+    except api.exceptions.InvalidAPIKey as e:
+        print("\nERROR: The {} module requires".format(os.path.basename(__file__)),
+              "the PL_API_KEY environment variable to be defined with valid",
+              "credentials for https://www.planet.com/. Create an account if",
+              "you don't have one (it's free) then edit the relevant configuration",
+              "files (eg .bashrc) to define this environment variable.\n")
+        raise e
 
     # keep only the images that actually contain the full AOI
     aoi = shapely.geometry.shape(aoi)

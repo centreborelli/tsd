@@ -35,18 +35,6 @@ import dateutil.parser
 import utils
 
 
-# check the Copernicus Open Access Hub credentials
-try:
-    login = os.environ['COPERNICUS_LOGIN']
-    password = os.environ['COPERNICUS_PASSWORD']
-except KeyError:
-    print("The {} module requires the COPERNICUS_LOGIN and".format(__file__),
-          "COPERNICUS_PASSWORD environment variables to be defined with valid",
-          "credentials for https://scihub.copernicus.eu/. Create an account if",
-          "you don't have one (it's free) then edit the relevant configuration",
-          "files (eg .bashrc) to define these environment variables.")
-    sys.exit(1)
-
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 API_URLS = {
     'copernicus': 'https://scihub.copernicus.eu/dhus/',
@@ -55,7 +43,24 @@ API_URLS = {
 }
 
 
-def post_scihub(url, query, user=login, password=password):
+def read_copernicus_credentials_from_environment_variables():
+    """
+    Read the user Copernicus Open Access Hub credentials.
+    """
+    try:
+        login = os.environ['COPERNICUS_LOGIN']
+        password = os.environ['COPERNICUS_PASSWORD']
+    except KeyError as e:
+        print("The {} module requires the COPERNICUS_LOGIN and".format(os.path.basename(__file__)),
+              "COPERNICUS_PASSWORD environment variables to be defined with valid",
+              "credentials for https://scihub.copernicus.eu/. Create an account if",
+              "you don't have one (it's free) then edit the relevant configuration",
+              "files (eg .bashrc) to define these environment variables.")
+        raise e
+    return login, password
+
+
+def post_scihub(url, query, user, password):
     """
     Send a POST request to scihub.
     """
@@ -71,8 +76,7 @@ def post_scihub(url, query, user=login, password=password):
             print('Authentication failed with', user, password)
         else:
             print('Scientific Data Hub returned error', r.status_code)
-        #r.raise_for_status()
-        sys.exit(1)
+        r.raise_for_status()
 
 
 def build_scihub_query(aoi, start_date=None, end_date=None,
@@ -110,7 +114,8 @@ def load_query(query, api_url, start_row=0, page_size=100):
     # load query results
     url = '{}search?format=json&rows={}&start={}'.format(api_url, page_size,
                                                          start_row)
-    r = post_scihub(url, query)
+    login, password = read_copernicus_credentials_from_environment_variables()
+    r = post_scihub(url, query, login, password)
 
     # parse response content
     d = r.json()['feed']
