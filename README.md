@@ -127,9 +127,13 @@ manager.
     sudo apt-get update
     sudo apt-get install libgdal-dev gdal-bin
 
-
 ## Python packages
 The required Python packages are listed in the file `requirements.txt`. They
 can be installed with `pip`:
 
     pip install -r requirements.txt
+
+## Install TSD as a global python package
+Once `gdal` is correctly installed on your machine you can run
+
+    python setup.py install
