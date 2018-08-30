@@ -297,8 +297,6 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
     # run the gdal_translate command
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
-        print('\n\n\nZONE: {},{},{},{},{},{}'.format(utm_zone, lat_band, ulx, uly, lrx, lry))
-        print(' '.join(cmd))
     except subprocess.CalledProcessError as e:
         if inpath.startswith(('http://', 'https://')):
             if not requests.head(inpath).ok:

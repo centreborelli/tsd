@@ -1,6 +1,6 @@
 # Time Series Downloader (TSD)
 
-[![Build Status](https://travis-ci.com/cmla/tsd.svg?branch=master)](https://travis-ci.com/cmla/tsd)
+Gitlab [![pipeline status](https://git.dev-kayrros.ovh/data-science/satellite-tools/tsd/badges/master/pipeline.svg)](https://git.dev-kayrros.ovh/data-science/satellite-tools/tsd/commits/master) Travis [![Build Status](https://travis-ci.com/cmla/tsd.svg?branch=master)](https://travis-ci.com/cmla/tsd)
 
 Automatic download of Sentinel, Landsat and Planet crops.
 

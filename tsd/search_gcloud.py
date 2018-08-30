@@ -34,21 +34,22 @@ def get_footprint(img):
                                                                                                          date.day)
     try:
         metadata = requests.get(url).json()
-        print('Using roda {}'.format(url))
     except JSONDecodeError:
-        print('using gcloud')
-        return get_footprint_gcloud(img)
+        print('Could not get footprint at url: {}'.format(url))
+        raise
+        # return get_footprint_gcloud(img)
 
     epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
-    inProj = Proj(init='epsg:{}'.format(epsg))
-    outProj = Proj(init='epsg:4326')
-    coords = []
-    for x, y in metadata['tileDataGeometry']['coordinates'][0]:
-        coords.append(transform(inProj, outProj, x, y))
-    poly = shapely.geometry.Polygon(coords)
-    print(poly.to_wkt())
-    return poly
+    utm_coords = metadata['tileDataGeometry']['coordinates'][0]
+    return shapely.geometry.Polygon(utm_coords), epsg
 
+def convert_aoi_to_utm(aoi, epsg):
+    outProj = Proj(init='epsg:{}'.format(epsg))
+    inProj = Proj(init='epsg:4326')
+    utm_aoi = []
+    for x, y in aoi['coordinates'][0]:
+        utm_aoi.append(transform(inProj, outProj, x, y))
+    return shapely.geometry.Polygon(utm_aoi)
 
 def get_footprint_gcloud(img):
     bucket_name, prefix, _ = parse_url(img['base_url'])
@@ -84,7 +85,6 @@ def query_s2(lat, lon, start_date, end_date):
     query = 'SELECT * FROM {} WHERE {} AND {}'.format(tab_name, date_query, loc_query)
     return query
 
-
 def search(aoi, start_date=None, end_date=None):
     """
     List images covering an area of interest (AOI) using Google Index.
@@ -109,16 +109,12 @@ def search(aoi, start_date=None, end_date=None):
     df = gbq.read_gbq(search_string, private_key=private_key)
 
     # check if the image footprint contains the area of interest
-    aoi = shapely.geometry.shape(aoi)
     res = []
     for i, row in df.iterrows():
-        print(row['mgrs_tile'])
-        poly = get_footprint(row)
-        if poly.contains(aoi):
-            print('yes')
+        footprint, epsg = get_footprint(row)
+        utm_aoi = convert_aoi_to_utm(aoi, epsg)
+        if footprint.contains(utm_aoi):
             res.append(row.to_dict())
-        else:
-            print('no')
     return res
 
 
