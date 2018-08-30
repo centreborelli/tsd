@@ -346,7 +346,8 @@ def utm_bbx(aoi, utm_zone=None, r=None):
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []
     for lon, lat in aoi['coordinates'][0]:
-        c.append(utm.from_latlon(lat, lon, force_zone_number=utm_zone)[:2])
+        x,y = pyproj.transform(pyproj.Proj('+proj=latlong'), pyproj.Proj('+proj=utm +zone={}{}'.format(utm_zone,lat_band)), lon, lat)
+        c.append((x,y))
 
     # utm bounding box
     bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
@@ -359,6 +360,7 @@ def utm_bbx(aoi, utm_zone=None, r=None):
         lry = r * np.round(lry / r)
 
     return ulx, uly, lrx, lry, utm_zone, lat_band
+
 
 
 def latlon_to_pix(path, lat, lon):
