@@ -34,7 +34,9 @@ def get_footprint(img):
                                                                                                          date.day)
     try:
         metadata = requests.get(url).json()
+        print('Using roda {}'.format(url))
     except JSONDecodeError:
+        print('using gcloud')
         return get_footprint_gcloud(img)
 
     epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
@@ -44,6 +46,7 @@ def get_footprint(img):
     for x, y in metadata['tileDataGeometry']['coordinates'][0]:
         coords.append(transform(inProj, outProj, x, y))
     poly = shapely.geometry.Polygon(coords)
+    print(poly.to_wkt())
     return poly
 
 
@@ -109,9 +112,13 @@ def search(aoi, start_date=None, end_date=None):
     aoi = shapely.geometry.shape(aoi)
     res = []
     for i, row in df.iterrows():
+        print(row['mgrs_tile'])
         poly = get_footprint(row)
         if poly.contains(aoi):
+            print('yes')
             res.append(row.to_dict())
+        else:
+            print('no')
     return res
 
 
