@@ -51,14 +51,17 @@ def check_args(api, mirror, product_type):
     if product_type is not None and api != 'scihub':
         print("WARNING: product_type option is available only with api='scihub'")
     if mirror == 'gcloud' and api not in ['gcloud', 'devseed']:
-        raise ValueError("ERROR: You must use gcloud or devseed api to use gcloud as mirror")
+        raise ValueError(
+            "ERROR: You must use gcloud or devseed api to use gcloud as mirror")
     if api == 'gcloud' and mirror != 'gcloud':
-        raise ValueError("ERROR: You must use gcloud mirror to use gcloud as api")
+        raise ValueError(
+            "ERROR: You must use gcloud mirror to use gcloud as api")
     if api == 'gcloud':
         try:
             private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
         except KeyError:
-            raise ValueError('You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
+            raise ValueError(
+                'You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
     if mirror == 'aws':
         info_url = "https://forum.sentinel-hub.com/t/changes-of-the-access-rights-to-l1c-bucket-at-aws-public-datasets-requester-pays/172"
 
@@ -67,7 +70,8 @@ def check_args(api, mirror, product_type):
                 boto3.session.Session().client('s3').list_objects_v2(Bucket=metadata_parser.AWS_S3_URL_L1C[5:],
                                                                      RequestPayer='requester')
             except botocore.exceptions.ClientError:
-                raise ValueError('Could not connect to AWS server. Check credentials or use mirror=gcloud')
+                raise ValueError(
+                    'Could not connect to AWS server. Check credentials or use mirror=gcloud')
         else:
             raise ValueError("TSD downloads Sentinel-2 image crops from the s3://sentinel-s2-l1c",
                              "AWS bucket, which used to be free. On the 7th of August 2018,",
@@ -148,6 +152,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
         coords = utils.utm_bbx(aoi, utm_zone=int(img.utm_zone),
                                r=60)  # round to multiples of 60 (B01 resolution)
+
         for b in bands:
             fname = os.path.join(
                 out_dir, '{}_band_{}.tif'.format(img.filename, b))
@@ -189,10 +194,11 @@ def is_image_cloudy(img, aoi, mirror, p=0.5):
         boolean (True if the image is cloudy, False otherwise)
     """
     url = img.urls[mirror]['cloud_mask']
+
     if mirror == 'gcloud':
-        bucket_name, *blob_name = url.replace('gs://', '').split('/')
-        f = storage.Client().get_bucket(bucket_name).get_blob('/'.join(blob_name))
-        gml_content = f.download_as_string()
+        url = url.replace('gs://', 'http://storage.googleapis.com/')
+        gml_content = requests.get(url).text
+
     else:
         bucket, *key = url.replace('s3://', '').split('/')
         f = boto3.client('s3').get_object(Bucket=bucket, Key='/'.join(key),
@@ -233,7 +239,8 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
     """
     print('Reading {} cloud masks...'.format(len(imgs)), end=' ')
     cloudy = parallel.run_calls(is_image_cloudy, imgs,
-                                extra_args=(utils.geojson_lonlat_to_utm(aoi), mirror, p),
+                                extra_args=(
+                                    utils.geojson_lonlat_to_utm(aoi), mirror, p),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
     print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
@@ -271,20 +278,24 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     check_args(api, mirror, product_type)
 
     # list available images
-    images = search(aoi, start_date, end_date, product_type=product_type, api=api)
+    images = search(aoi, start_date, end_date,
+                    product_type=product_type, api=api)
 
     # download crops
     download(images, bands, aoi, mirror, out_dir, parallel_downloads)
 
     # discard images that failed to download
-    images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
+    images = [i for i in images if bands_files_are_valid(
+        i, bands, api, out_dir)]
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
         d = img.meta
-        d.update({'downloaded_by': 'TSD on {}'.format(datetime.datetime.now().isoformat())})
+        d.update({'downloaded_by': 'TSD on {}'.format(
+            datetime.datetime.now().isoformat())})
         for b in bands:
-            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            filepath = os.path.join(
+                out_dir, '{}_band_{}.tif'.format(img.filename, b))
             utils.set_geotif_metadata_items(filepath, d)
 
     if cloud_masks:  # discard images that are totally covered by clouds
@@ -320,7 +331,8 @@ if __name__ == '__main__':
                         default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
-    parser.add_argument('--product-type', choices=['L1C', 'L2A'], help='type of image')
+    parser.add_argument(
+        '--product-type', choices=['L1C', 'L2A'], help='type of image')
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
