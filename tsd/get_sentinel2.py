@@ -36,7 +36,6 @@ import boto3
 import botocore
 import geojson
 import shapely.geometry
-from google.cloud import storage
 
 import utils
 import parallel
