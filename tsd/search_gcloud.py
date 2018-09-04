@@ -7,7 +7,7 @@ import shapely.geometry
 import numpy as np
 import pandas as pd
 
-import pandas_gbq as gbq
+from pandas.io import gbq
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import utils
