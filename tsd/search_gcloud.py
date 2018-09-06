@@ -7,8 +7,7 @@ import shapely.geometry
 import numpy as np
 import pandas as pd
 
-import pandas_gbq as gbq
-from google.cloud import storage
+from pandas.io import gbq
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import utils
@@ -39,9 +38,11 @@ def get_footprint(img):
         raise
         # return get_footprint_gcloud(img)
 
-    epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
+    epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(
+        ':')[-1]
     utm_coords = metadata['tileDataGeometry']['coordinates'][0]
     return shapely.geometry.Polygon(utm_coords), epsg
+
 
 def convert_aoi_to_utm(aoi, epsg):
     outProj = Proj(init='epsg:{}'.format(epsg))
@@ -51,27 +52,6 @@ def convert_aoi_to_utm(aoi, epsg):
         utm_aoi.append(transform(inProj, outProj, x, y))
     return shapely.geometry.Polygon(utm_aoi)
 
-def get_footprint_gcloud(img):
-    bucket_name, prefix, _ = parse_url(img['base_url'])
-    client = storage.Client()
-    bucket = client.get_bucket(bucket_name)
-    r = bucket.list_blobs(prefix=prefix)
-    for hit in r:
-        name = hit.name
-        if name.endswith('.xml') and len(name.split('/')) == 6:
-            if not 'inspire' in name.lower() and not 'manifest' in name.lower():
-                blob_name = name
-                break
-
-    r = bucket.get_blob(blob_name)
-    soup = BeautifulSoup(r.download_as_string(), 'lxml')
-    coords = soup.find('global_footprint').find('ext_pos_list').text.strip().split(' ')
-    coords = [(' '.join((coords[2*i+1], coords[2*i]))) for i in range(int(len(coords)/2))]
-    coords = [c.split(' ') for c in coords]
-    coords = [(float(a), float(b)) for a, b in coords]
-    poly = shapely.geometry.Polygon(coords)
-    return poly
-
 
 def query_s2(lat, lon, start_date, end_date):
     if end_date is None:
@@ -80,10 +60,14 @@ def query_s2(lat, lon, start_date, end_date):
         start_date = end_date - datetime.timedelta(365)
 
     tab_name = '[bigquery-public-data:cloud_storage_geo_index.sentinel_2_index]'
-    date_query = 'sensing_time >= "{}" AND sensing_time <= "{}"'.format(start_date, end_date)
-    loc_query = 'north_lat>={} AND south_lat<={} AND west_lon<={} AND east_lon>={}'.format(lat, lat, lon, lon)
-    query = 'SELECT * FROM {} WHERE {} AND {}'.format(tab_name, date_query, loc_query)
+    date_query = 'sensing_time >= "{}" AND sensing_time <= "{}"'.format(
+        start_date, end_date)
+    loc_query = 'north_lat>={} AND south_lat<={} AND west_lon<={} AND east_lon>={}'.format(
+        lat, lat, lon, lon)
+    query = 'SELECT * FROM {} WHERE {} AND {}'.format(
+        tab_name, date_query, loc_query)
     return query
+
 
 def search(aoi, start_date=None, end_date=None):
     """
@@ -119,7 +103,8 @@ def search(aoi, start_date=None, end_date=None):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Search of Sentinel-2 images.')
+    parser = argparse.ArgumentParser(
+        description='Search of Sentinel-2 images.')
     parser.add_argument('--geom', type=utils.valid_geojson,
                         help=('path to geojson file'))
     parser.add_argument('--lat', type=utils.valid_lat,

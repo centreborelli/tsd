@@ -5,7 +5,6 @@ click
 future
 geojson
 google-auth
-google-cloud-storage
 lxml
 mgrs
 numpy>=1.12
