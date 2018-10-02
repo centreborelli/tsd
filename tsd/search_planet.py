@@ -38,13 +38,15 @@ ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrtho
               'Sentinel2L1C', 'Landsat8L1G', 'Sentinel1', 'SkySatScene']
 
 
-def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
+def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
+           satellite_id=None):
     """
     Search for images using Planet API.
 
     Args:
         aoi: geojson.Polygon or geojson.Point object
         item_types: list of strings.
+        satellite_id (str): satellite identifier, e.g. '0f02'
     """
     # default start/end dates
     if end_date is None:
@@ -52,7 +54,7 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
     if start_date is None:
         start_date = end_date - datetime.timedelta(365)
 
-    # build a search request with filters for the AOI and the date range
+    # build a search query with filters for the AOI and the date range
     geom_filter = api.filters.geom_filter(aoi)
     date_filter = api.filters.date_range('acquired', gte=start_date, lte=end_date)
     if 'PSScene3Band' in item_types or 'PSScene4Band' in item_types:
@@ -60,6 +62,12 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES):
         query = api.filters.and_filter(geom_filter, date_filter, quality_filter)
     else:
         query = api.filters.and_filter(geom_filter, date_filter)
+
+    if satellite_id:
+        query = api.filters.and_filter(query,
+                                       api.filters.string_filter('satellite_id',
+                                                                 satellite_id))
+
     request = api.filters.build_search_request(query, item_types)
 
     # this will cause an exception if there are any API related errors
@@ -110,6 +118,7 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
+    parser.add_argument('--satellite-id', help='satellite identifier, e.g. 0f02')
     parser.add_argument('--item-types', nargs='*', choices=ITEM_TYPES,
                         default=['PSScene3Band'], metavar='',
                         help=('space separated list of item types to'
@@ -131,4 +140,5 @@ if __name__ == '__main__':
 
     print(json.dumps(search(aoi, start_date=args.start_date,
                             end_date=args.end_date,
-                            item_types=args.item_types)))
+                            item_types=args.item_types,
+                            satellite_id=args.satellite_id)))
