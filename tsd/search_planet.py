@@ -39,7 +39,7 @@ ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrtho
 
 
 def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
-           satellite_id=None):
+           satellite_id=None, search_type='contains', remove_duplicates=True):
     """
     Search for images using Planet API.
 
@@ -47,6 +47,8 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
         aoi: geojson.Polygon or geojson.Point object
         item_types: list of strings.
         satellite_id (str): satellite identifier, e.g. '0f02'
+        search_type (str): either 'intersects' or 'contains'
+
     """
     # default start/end dates
     if end_date is None:
@@ -81,12 +83,14 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
               "files (eg .bashrc) to define this environment variable.\n")
         raise e
 
-    # keep only the images that actually contain the full AOI
+    # list results
     aoi = shapely.geometry.shape(aoi)
     results = []
     for x in response.items_iter(limit=None):
-        if shapely.geometry.shape(x['geometry']).contains(aoi):
-            results.append(x)
+        if search_type == 'contains':  # keep only images containing the full AOI
+            if not shapely.geometry.shape(x['geometry']).contains(aoi):
+                continue
+        results.append(x)
 
     # sort results by acquisition date
     dates = [dateutil.parser.parse(x['properties']['acquired']) for x in results]
@@ -94,10 +98,11 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
     dates.sort()
 
     # remove duplicates (two images are said to be duplicates if within 5 minutes)
-    to_remove = []
-    for i, (d, r) in enumerate(list(zip(dates, results))[:-1]):
-        if dates[i+1] - d < datetime.timedelta(seconds=300):
-            to_remove.append(r)
+    if remove_duplicates:
+        to_remove = []
+        for i, (d, r) in enumerate(list(zip(dates, results))[:-1]):
+            if dates[i+1] - d < datetime.timedelta(seconds=300):
+                to_remove.append(r)
 
     return [r for r in results if r not in to_remove]
 
@@ -118,7 +123,13 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
+    parser.add_argument('--search-type', choices=['contains', 'intersects'],
+                        default='contains', help='search type')
     parser.add_argument('--satellite-id', help='satellite identifier, e.g. 0f02')
+    parser.add_argument('--keep-duplicates', action='store_true',
+                        help='keep all images even when two were acquired within'
+                             ' less than 5 minutes (the default behaviour is to'
+                             ' discard such duplicates)')
     parser.add_argument('--item-types', nargs='*', choices=ITEM_TYPES,
                         default=['PSScene3Band'], metavar='',
                         help=('space separated list of item types to'
@@ -141,4 +152,6 @@ if __name__ == '__main__':
     print(json.dumps(search(aoi, start_date=args.start_date,
                             end_date=args.end_date,
                             item_types=args.item_types,
-                            satellite_id=args.satellite_id)))
+                            search_type=args.search_type,
+                            satellite_id=args.satellite_id,
+                            remove_duplicates=~args.keep_duplicates)))
