@@ -339,11 +339,11 @@ def get_time_series(aoi, start_date=None, end_date=None,
     # warn user about quota usage
     n = len(assets)
     if clip_and_ship:
-        a = area.area(aoi)
+        a = n * area.area(aoi)
     else:
         a = np.sum(area.area(i['geometry']) for i in items)
     print('Your current quota usage is {}'.format(get_quota()), flush=True)
-    print('Downloading these {} images will increase it by {:.3f} km²'.format(n, n*a/1e6),
+    print('Downloading these {} images will increase it by {:.3f} km²'.format(n, a/1e6),
           flush=True)
 
     # build filenames
