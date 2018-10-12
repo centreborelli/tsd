@@ -109,9 +109,9 @@ def search(aoi, start_date=None, end_date=None, satellites=['PHR1A', 'PHR1B'], m
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Search of Airbus images.')
-    parser.add_argument('--satellites', choices=['PLEIADES', 'Spot'],
+    parser.add_argument('--satellites', choices=['PHR1A', 'PHR1B'], nargs='*',
                         help=('either "PLEIADES" or "Spot"'),
-                        default='PLEIADES')
+                        default=['PHR1A', 'PHR1B'])
     parser.add_argument('--geom', type=utils.valid_geojson,
                         help=('path to geojson file'))
     parser.add_argument('--lat', type=utils.valid_lat,
