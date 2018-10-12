@@ -63,8 +63,8 @@ def search(aoi, start_date=None, end_date=None, satellites=['PHR1A', 'PHR1B'], m
     query = {
         "geometry": shape(aoi).wkt,
         "constellation": constellations,
-        "acquisitionDate": "[{},{}T23:59:59]".format(start_date.date().isoformat(),
-                                                     end_date.date().isoformat()),
+        "acquisitionDate": "[{},{}T23:59:59]".format(start_date.isoformat(),
+                                                     end_date.isoformat()),
         #"incidenceAngle": "20]",
         "cloudCover": "{}]".format(max_cloud_cover),
         "count": 1000,
@@ -122,9 +122,9 @@ if __name__ == '__main__':
                         help='width of the AOI (m), default 5000 m')
     parser.add_argument('-l', '--height', type=int, default=5000,
                         help='height of the AOI (m), default 5000 m')
-    parser.add_argument('-s', '--start-date', type=utils.valid_datetime,
+    parser.add_argument('-s', '--start-date', type=utils.valid_date,
                         help='start date, YYYY-MM-DD')
-    parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
+    parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
     args = parser.parse_args()
 
