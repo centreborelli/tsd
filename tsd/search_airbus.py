@@ -87,7 +87,6 @@ def search(aoi, start_date=None, end_date=None, satellites=['PHR1A', 'PHR1B'], m
 
     # remove images that are from a different constellation
     to_remove = set()
-    print(d['totalResults'])
     for i, x in enumerate(d['features']):
         if x['properties']['satellite'] not in satellites:
             print(x['properties']['satellite'])
@@ -126,6 +125,8 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_date,
                         help='end date, YYYY-MM-DD')
+    parser.add_argument('--max-cloud', type=float, default=10,
+                        help='maximum cloud cover (in percentage)')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
@@ -141,4 +142,5 @@ if __name__ == '__main__':
                                             args.height)
 
     print(json.dumps(search(aoi, start_date=args.start_date,
-                            end_date=args.end_date, satellites=args.satellites)))
+                            end_date=args.end_date, satellites=args.satellites,
+                            max_cloud_cover=args.max_cloud)))
