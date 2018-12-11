@@ -5,7 +5,20 @@
 """
 Automatic download of Sentinel-1 images.
 
-Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import print_function
 import os
@@ -26,9 +39,7 @@ PEPS_URL_DOWNLOAD = 'https://peps.cnes.fr/resto/collections'
 CODEDE_URL = 'https://code-de.org/Sentinel1'
 
 
-def query_data_hub(output_filename, url, verbose=False,
-                   user=search_scihub.login,
-                   password=search_scihub.password):
+def query_data_hub(output_filename, url, user, password, verbose=False):
     """
     Download a file from the Copernicus data hub or one of its true mirrors.
     """
@@ -83,8 +94,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
     # download zip file
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))
-    date = [x['content'] for x in image['date'] if x['name'] == 'beginposition']
-    date = dateutil.parser.parse(date[0])
+    date = dateutil.parser.parse(image['beginposition'], ignoretz=True)
     if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
         if mirror == 'code-de':
             url = '{}/{:04d}/{:02d}/{:02d}/{}.SAFE.zip'.format(CODEDE_URL,
@@ -107,7 +117,8 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
         elif mirror in search_scihub.API_URLS:
             url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.API_URLS[mirror],
                                                              image['id'])
-            query_data_hub(zip_path, url, verbose=False)
+            user, password = read_copernicus_credentials_from_environment_variables()
+            query_data_hub(zip_path, url, user, password, verbose=False)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 

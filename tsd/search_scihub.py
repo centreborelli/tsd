@@ -5,7 +5,20 @@
 """
 Search of Sentinel images.
 
-Copyright (C) 2016-17, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
@@ -17,21 +30,10 @@ import json
 import shapely.geometry
 import shapely.wkt
 import requests
+import dateutil.parser
 
 import utils
 
-
-# check the Copernicus Open Access Hub credentials
-try:
-    login = os.environ['COPERNICUS_LOGIN']
-    password = os.environ['COPERNICUS_PASSWORD']
-except KeyError:
-    print("The {} module requires the COPERNICUS_LOGIN and".format(__file__),
-          "COPERNICUS_PASSWORD environment variables to be defined with valid",
-          "credentials for https://scihub.copernicus.eu/. Create an account if",
-          "you don't have one (it's free) then edit the relevant configuration",
-          "files (eg .bashrc) to define these environment variables.")
-    sys.exit(1)
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 API_URLS = {
@@ -41,7 +43,24 @@ API_URLS = {
 }
 
 
-def post_scihub(url, query, user=login, password=password):
+def read_copernicus_credentials_from_environment_variables():
+    """
+    Read the user Copernicus Open Access Hub credentials.
+    """
+    try:
+        login = os.environ['COPERNICUS_LOGIN']
+        password = os.environ['COPERNICUS_PASSWORD']
+    except KeyError as e:
+        print("The {} module requires the COPERNICUS_LOGIN and".format(os.path.basename(__file__)),
+              "COPERNICUS_PASSWORD environment variables to be defined with valid",
+              "credentials for https://scihub.copernicus.eu/. Create an account if",
+              "you don't have one (it's free) then edit the relevant configuration",
+              "files (eg .bashrc) to define these environment variables.")
+        raise e
+    return login, password
+
+
+def post_scihub(url, query, user, password):
     """
     Send a POST request to scihub.
     """
@@ -57,8 +76,7 @@ def post_scihub(url, query, user=login, password=password):
             print('Authentication failed with', user, password)
         else:
             print('Scientific Data Hub returned error', r.status_code)
-        #r.raise_for_status()
-        sys.exit(1)
+        r.raise_for_status()
 
 
 def build_scihub_query(aoi, start_date=None, end_date=None,
@@ -69,8 +87,8 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
     # default start/end dates
     if end_date is None:
         end_date = datetime.datetime.now()
-    if start_date is None:  # https://scihub.copernicus.eu/news/News00124
-        start_date = datetime.datetime(2016, 12, 7)
+    if start_date is None:  # https://scihub.copernicus.eu/news/News00368
+        start_date = datetime.datetime(2016, 8, 26)
 
     # build the url used to query the scihub API
     query = 'platformname:{}'.format(satellite)
@@ -96,7 +114,8 @@ def load_query(query, api_url, start_row=0, page_size=100):
     # load query results
     url = '{}search?format=json&rows={}&start={}'.format(api_url, page_size,
                                                          start_row)
-    r = post_scihub(url, query)
+    login, password = read_copernicus_credentials_from_environment_variables()
+    r = post_scihub(url, query, login, password)
 
     # parse response content
     d = r.json()['feed']
@@ -114,6 +133,48 @@ def load_query(query, api_url, start_row=0, page_size=100):
     return output
 
 
+def prettify_scihub_dict(d):
+    """
+    Convert the oddly formatted json response of scihub into something nicer.
+
+    Scihub json response is roughly a dict with a key per datatype (int, str,
+    date, ...). The value associated to each key is a list of dicts like
+    {'name': foo, 'content': bar}, while it would be more natural to have
+    (foo, bar) as a (key, value) pair of the main json dict.
+
+    Args:
+        d (dict): json-formatted metadata returned by scihub for a single SAFE
+
+    Returns:
+        prettified metadata dict
+    """
+    out = {}
+    for k in ['title', 'id', 'summary']:
+        if k in d:
+            out[k] = d[k]
+
+    if 'int' in d:
+        for x in d['int']:
+            out[x['name']] = int(x['content'])
+
+    if 'str' in d:
+        for x in d['str']:
+            out[x['name']] = x['content']
+
+    if 'date' in d:
+        for x in d['date']:
+            out[x['name']] = x['content']
+
+    if 'link' in d:
+        out['links'] = {}
+        for x in d['link']:
+            if 'rel' in x:
+                out['links'][x['rel']] = x['href']
+            else:
+                out['links']['main'] = x['href']
+    return out
+
+
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
            product_type='GRD', operational_mode='IW', api='copernicus'):
     """
@@ -124,14 +185,13 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode)
-    results = load_query(query, API_URLS[api])
+    results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
 
     # check if the image footprint contains the area of interest
     not_covering = []
     aoi_shape = shapely.geometry.shape(aoi)
     for x in results:
-        footprint = [a['content'] for a in x['str'] if a['name'] == 'footprint'][0]
-        if not shapely.wkt.loads(footprint).contains(aoi_shape):
+        if not shapely.wkt.loads(x['footprint']).contains(aoi_shape):
             not_covering.append(x)
 
     for x in not_covering:

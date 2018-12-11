@@ -36,3 +36,5 @@ brew install git fftw
 git clone https://github.com/carlodef/tsd.git
 pip2 install --user -r tsd/requirements.txt
 pip3 install --user -r tsd/requirements.txt
+python2 setup.py install
+python3 setup.py install

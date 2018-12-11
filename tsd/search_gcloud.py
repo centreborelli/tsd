@@ -7,8 +7,7 @@ import shapely.geometry
 import numpy as np
 import pandas as pd
 
-import pandas_gbq as gbq
-from google.cloud import storage
+from pandas.io import gbq
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import utils
@@ -16,10 +15,12 @@ import utils
 from pyproj import Proj, transform
 from json.decoder import JSONDecodeError
 
+
 def parse_url(url):
     _, file = url.split('gs://')
     bucket, *prefix = file.split('/')
     return bucket, '/'.join(prefix), prefix[-1]
+
 
 def get_footprint(img):
     mgrs = img['mgrs_tile']
@@ -33,37 +34,23 @@ def get_footprint(img):
     try:
         metadata = requests.get(url).json()
     except JSONDecodeError:
-        return get_footprint_gcloud(img)
+        print('Could not get footprint at url: {}'.format(url))
+        raise
+        # return get_footprint_gcloud(img)
 
-    epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(':')[-1]
-    inProj = Proj(init='epsg:{}'.format(epsg))
-    outProj = Proj(init='epsg:4326')
-    coords = []
-    for x,y in metadata['tileDataGeometry']['coordinates'][0]:
-        coords.append(transform(inProj,outProj,x,y))
-    poly = shapely.geometry.Polygon(coords)
-    return poly
+    epsg = metadata['tileDataGeometry']['crs']['properties']['name'].split(
+        ':')[-1]
+    utm_coords = metadata['tileDataGeometry']['coordinates'][0]
+    return shapely.geometry.Polygon(utm_coords), epsg
 
-def get_footprint_gcloud(img):
-    bucket_name, prefix, _ = parse_url(img['base_url'])
-    client = storage.Client()
-    bucket = client.get_bucket(bucket_name)
-    r = bucket.list_blobs(prefix=prefix)
-    for hit in r:
-        name = hit.name
-        if name.endswith('.xml') and len(name.split('/'))==6:
-            if not 'inspire' in name.lower() and not 'manifest' in name.lower():
-                blob_name = name
-                break
 
-    r = bucket.get_blob(blob_name)
-    soup = BeautifulSoup(r.download_as_string(), 'lxml')
-    coords = soup.find('global_footprint').find('ext_pos_list').text.strip().split(' ')
-    coords = [(' '.join((coords[2*i+1], coords[2*i]))) for i in range(int(len(coords)/2))]
-    coords = [c.split(' ') for c in coords]
-    coords = [(float(a), float(b)) for a,b in coords]
-    poly = shapely.geometry.Polygon(coords)
-    return poly
+def convert_aoi_to_utm(aoi, epsg):
+    outProj = Proj(init='epsg:{}'.format(epsg))
+    inProj = Proj(init='epsg:4326')
+    utm_aoi = []
+    for x, y in aoi['coordinates'][0]:
+        utm_aoi.append(transform(inProj, outProj, x, y))
+    return shapely.geometry.Polygon(utm_aoi)
 
 
 def query_s2(lat, lon, start_date, end_date):
@@ -73,10 +60,14 @@ def query_s2(lat, lon, start_date, end_date):
         start_date = end_date - datetime.timedelta(365)
 
     tab_name = '[bigquery-public-data:cloud_storage_geo_index.sentinel_2_index]'
-    date_query = 'sensing_time >= "{}" AND sensing_time <= "{}"'.format(start_date, end_date)
-    loc_query = 'north_lat>={} AND south_lat<={} AND west_lon<={} AND east_lon>={}'.format(lat, lat, lon, lon)
-    query = 'SELECT * FROM {} WHERE {} AND {}'.format(tab_name, date_query, loc_query)
+    date_query = 'sensing_time >= "{}" AND sensing_time <= "{}"'.format(
+        start_date, end_date)
+    loc_query = 'north_lat>={} AND south_lat<={} AND west_lon<={} AND east_lon>={}'.format(
+        lat, lat, lon, lon)
+    query = 'SELECT * FROM {} WHERE {} AND {}'.format(
+        tab_name, date_query, loc_query)
     return query
+
 
 def search(aoi, start_date=None, end_date=None):
     """
@@ -95,27 +86,25 @@ def search(aoi, start_date=None, end_date=None):
     # query Gcloud BigQuery Index
     try:
         private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-    except KeyError:
+    except KeyError as e:
         print('You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
-        raise KeyError
-    print('Looking for images...')
+        raise e
+
     df = gbq.read_gbq(search_string, private_key=private_key)
-    print('{} images found.'.format(len(df)))
 
     # check if the image footprint contains the area of interest
-    aoi = shapely.geometry.shape(aoi)
     res = []
-    print('Checking that the images contain the aoi...')
-    for i, row in tqdm(df.iterrows(), total=len(df)):
-        poly = get_footprint(row)
-        if poly.contains(aoi):
+    for i, row in df.iterrows():
+        footprint, epsg = get_footprint(row)
+        utm_aoi = convert_aoi_to_utm(aoi, epsg)
+        if footprint.contains(utm_aoi):
             res.append(row.to_dict())
-    print('There are {} images that contain the aoi.'.format(len(res)))
     return res
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Search of Landsat-8 and Sentinel-2 images.')
+    parser = argparse.ArgumentParser(
+        description='Search of Sentinel-2 images.')
     parser.add_argument('--geom', type=utils.valid_geojson,
                         help=('path to geojson file'))
     parser.add_argument('--lat', type=utils.valid_lat,

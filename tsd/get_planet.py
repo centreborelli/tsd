@@ -6,6 +6,19 @@
 Automatic download and crop of Planet images.
 
 Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
@@ -90,6 +103,16 @@ def metadata_from_metadata_dict(d):
     }
     out.update({str(k): str(d['properties'][k]) for k in d['properties'].keys()})
     return out
+
+
+def download_asset(dstfile, asset):
+    """
+    Download a full asset.
+    """
+    url = poll_activation(asset)
+    if url is not None:
+        os.system('wget {} -O {}'.format(url, dstfile))
+        #utils.download(url, dstfile)
 
 
 def download_crop(outfile, asset, aoi, aoi_type):
@@ -283,12 +306,17 @@ def get_time_series(aoi, start_date=None, end_date=None,
                     item_types=['PSScene3Band'], asset_type='analytic',
                     out_dir='',
                     parallel_downloads=multiprocessing.cpu_count(),
-                    clip_and_ship=True):
+                    clip_and_ship=True, no_crop=False, satellite_id=None,
+                    search_type='contains', remove_duplicates=True):
     """
     Main function: crop and download Planet images.
     """
     # list available images
-    items = search_planet.search(aoi, start_date, end_date, item_types=item_types)
+    items = search_planet.search(aoi, start_date, end_date,
+                                 item_types=item_types,
+                                 satellite_id=satellite_id,
+                                 search_type=search_type,
+                                 remove_duplicates=remove_duplicates)
     print('Found {} images'.format(len(items)))
 
     # list the requested asset for each available (and allowed) image
@@ -311,11 +339,11 @@ def get_time_series(aoi, start_date=None, end_date=None,
     # warn user about quota usage
     n = len(assets)
     if clip_and_ship:
-        a = area.area(aoi)
+        a = n * area.area(aoi)
     else:
         a = np.sum(area.area(i['geometry']) for i in items)
     print('Your current quota usage is {}'.format(get_quota()), flush=True)
-    print('Downloading these {} images will increase it by {:.3f} km²'.format(n, n*a/1e6),
+    print('Downloading these {} images will increase it by {:.3f} km²'.format(n, a/1e6),
           flush=True)
 
     # build filenames
@@ -330,11 +358,22 @@ def get_time_series(aoi, start_date=None, end_date=None,
                                    extra_args=(aoi,), pool_type='threads',
                                    nb_workers=parallel_downloads, timeout=3600)
 
+        # remove clips that were rejected
+        ok = [i for i, x in enumerate(clips) if x]
+        clips = [clips[i] for i in range(len(clips)) if i in ok]
+        fnames = [fnames[i] for i in range(len(fnames)) if i in ok]
+
         print('Downloading {} clips...'.format(len(clips)), end=' ', flush=True)
         parallel.run_calls(download_clip, list(zip(clips, fnames)),
                            pool_type='threads', nb_workers=parallel_downloads,
                            timeout=3600)
 
+    elif no_crop:  # download full images
+        utils.mkdir_p(out_dir)
+        print('Downloading {} full images...'.format(len(assets)), end=' ')
+        parallel.run_calls(download_asset, list(zip(fnames, assets)),
+                           pool_type='threads', nb_workers=parallel_downloads,
+                           timeout=1200)
     else:
         if asset_type in ['udm', 'visual', 'analytic', 'analytic_dn',
                           'analytic_sr']:
@@ -354,8 +393,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
         # embed some metadata in the image files
         for f, img in zip(fnames, items):  # embed some metadata as gdal geotiff tags
             if os.path.isfile(f):
-                for k, v in metadata_from_metadata_dict(img).items():
-                    utils.set_geotif_metadata_item(f, k, v)
+                utils.set_geotif_metadata_items(f, metadata_from_metadata_dict(img))
 
 
 if __name__ == '__main__':
@@ -375,6 +413,13 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
+    parser.add_argument('--search-type', choices=['contains', 'intersects'],
+                        default='contains', help='search type')
+    parser.add_argument('--satellite-id', help='satellite identifier, e.g. 0f02')
+    parser.add_argument('--keep-duplicates', action='store_true',
+                        help='keep all images even when two were acquired within'
+                             ' less than 5 minutes (the default behaviour is to'
+                             ' discard such duplicates)')
     parser.add_argument('--item-types', nargs='*', choices=ITEM_TYPES,
                         default=['PSScene3Band'], metavar='',
                         help=('space separated list of item types to'
@@ -391,10 +436,15 @@ if __name__ == '__main__':
     parser.add_argument('--clip-and-ship', action='store_true', help=('use the '
                                                                       'clip and '
                                                                       'ship API'))
+    parser.add_argument('--no-crop', action='store_true',
+                        help=("don't crop but instead download the whole image files"))
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
         parser.error('--geom and {--lat, --lon} are mutually exclusive')
+
+    if args.clip_and_ship and args.no_crop:
+        parser.error('--clip-and-ship and --no-crop are mutually exclusive')
 
     if not args.geom and (not args.lat or not args.lon):
         parser.error('either --geom or {--lat, --lon} must be defined')
@@ -408,4 +458,8 @@ if __name__ == '__main__':
                     item_types=args.item_types, asset_type=args.asset,
                     out_dir=args.outdir,
                     parallel_downloads=args.parallel_downloads,
-                    clip_and_ship=args.clip_and_ship)
+                    clip_and_ship=args.clip_and_ship,
+                    no_crop=args.no_crop,
+                    search_type=args.search_type,
+                    satellite_id=args.satellite_id,
+                    remove_duplicates=~args.keep_duplicates)

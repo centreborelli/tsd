@@ -16,8 +16,6 @@ import argparse
 import datetime
 import subprocess
 import tempfile
-import tifffile
-from osgeo import gdal, osr
 import numpy as np
 import utm
 import traceback
@@ -27,7 +25,7 @@ import geojson
 import requests
 import shapely.geometry
 import rasterio
-gdal.UseExceptions()
+import pyproj
 
 import rpc_model
 
@@ -70,6 +68,10 @@ def valid_date(s):
 def valid_lon(s):
     """
     Check if a string is a well-formatted longitude.
+
+    Args:
+        s (str): longitude expressed as a decimal floating number (e.g.
+            5.7431861) or as degrees, minutes and seconds (e.g. 5d44'35.47"E)
     """
     try:
         return float(s)
@@ -89,6 +91,10 @@ def valid_lon(s):
 def valid_lat(s):
     """
     Check if a string is a well-formatted latitude.
+
+    Args:
+        s (str): longitude expressed as a decimal floating number (e.g.
+            -49.359053) or as degrees, minutes and seconds (e.g. 49d21'32.59"S)
     """
     try:
         return float(s)
@@ -128,12 +134,19 @@ def geojson_geometry_object(lat, lon, w, h):
 
 def is_valid(f):
     """
-    Check if a path is a valid image file according to gdal.
+    Check if a file is valid readable image according to rasterio.
+
+    Args:
+        f (str): path to a file
+
+    Return:
+        boolean telling wether or not the file is a valid image
     """
     try:
-        a = gdal.Open(f); a = None  # gdal way of closing files
+        a = rasterio.open(f, 'r')
+        a.close()
         return True
-    except RuntimeError:
+    except rasterio.RasterioIOError:
         return False
 
 
@@ -166,81 +179,57 @@ def mkdir_p(path):
                 raise
 
 
-def pixel_size(filename):
+def pixel_size(path):
     """
-    Read the resolution (in meters per pixel) of a geotif image.
-    """
-    f = gdal.Open(filename)
-    if f is None:
-        print('WARNING: Unable to open {} for reading'.format(filename))
-        return
-    try:
-        # GetGeoTransform give a 6-uple containing tx, rx, 0, ty, 0, ry
-        resolution = np.array(f.GetGeoTransform())[[1, 5]]
-    except AttributeError:
-        print('WARNING: Unable to retrieve {} GeoTransform'.format(filename))
-        return
-    f = None  # gdal way of closing files
-    return resolution[0], -resolution[1]  # for gdal, ry < 0
-
-
-def set_geotif_metadata(filename, geotransform=None, projection=None,
-                        metadata=None):
-    """
-    Write some metadata (using GDAL) to the header of a geotif file.
+    Read the resolution (in meters per pixel) of a GeoTIFF image.
 
     Args:
-        filename: path to the file where the information has to be written
-        geotransform, projection: gdal geographic information
-        metadata: dictionary written to the GDAL 'Metadata' tag. It can be used
-            to store any extra metadata (e.g. acquisition date, sun azimuth...)
+        path (string): path to a GeoTIFF image file
+
+    Return:
+        rx, ry (tuple): two floats giving the horizontal and vertical pixel size
     """
-    f = gdal.Open(filename, gdal.GA_Update)
-    if f is None:
-        print('Unable to open {} for writing'.format(filename))
-        return
-
-    if geotransform is not None and geotransform != (0, 1, 0, 0, 0, 1):
-        f.SetGeoTransform(geotransform)
-
-    if projection is not None and projection != '':
-        f.SetProjection(projection)
-
-    if metadata is not None:
-        f.SetMetadata(metadata)
+    with rasterio.open(path, 'r') as f:
+        return f.res
 
 
-def set_geotif_metadata_item(filename, tagname, tagvalue):
+def set_geotif_metadata_items(path, tags={}):
     """
-    Append a key, value pair to the GDAL metadata tag to a geotif file.
-    """
-    dataset = gdal.Open(filename, gdal.GA_Update)
-    if dataset is None:
-        print('Unable to open {} for writing'.format(filename))
-        return
-
-    dataset.SetMetadataItem(tagname, tagvalue)
-
-
-def merge_bands(infiles, outfile):
-    """
-    Produce a multi-band tiff file from a sequence of mono-band tiff files.
+    Append key, value pairs to the GDAL "metadata" tag of a GeoTIFF file.
 
     Args:
-        infiles: list of paths to the input mono-bands images
-        outfile: path to the ouput multi-band image file
+        path (str): path to a GeoTIFF file
+        tags (dict): key, value pairs to be added to the "metadata" tag
     """
-    tifffile.imsave(outfile, np.dstack(tifffile.imread(f) for f in infiles))
+    with rasterio.open(path, 'r+') as dst:
+        dst.update_tags(**tags)
+
+
+def geotiff_utm_zone(path):
+    """
+    Read the UTM zone of a GeoTIFF image.
+
+    Args:
+        path (string): path to a GeoTIFF image file
+
+    Return:
+        int between 1 and 60 identifying the UTM zone
+    """
+    with rasterio.open(path, 'r') as f:
+        return int(f.crs['init'][-2:])
+
+
+def gdal_translate_version():
+    """
+    """
+    v = subprocess.check_output(['gdal_translate', '--version'])
+    return v.decode().split()[1].split(',')[0]
 
 
 def inplace_utm_reprojection_with_gdalwarp(src, utm_zone, ulx, uly, lrx, lry):
     """
     """
-    img = gdal.Open(src)
-    s = img.GetProjection()  # read geographic metadata
-    img = None  # gdal way of closing files
-    x = s.lower().split('utm zone ')[1][:2]  # hack to extract the UTM zone number
-    if int(x) != utm_zone:
+    if geotiff_utm_zone(src) != utm_zone:
 
         # hack to allow the output to overwrite the input
         fd, dst = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(src))
@@ -260,43 +249,6 @@ def inplace_utm_reprojection_with_gdalwarp(src, utm_zone, ulx, uly, lrx, lry):
             print(e.output)
 
 
-def crop_georeferenced_image(out_path, in_path, lon, lat, w, h):
-    """
-    Crop an image around a given geographic location.
-
-    Args:
-        out_path: path to the output (cropped) image file
-        in_path: path to the input image file
-        lon, lat: longitude and latitude of the center of the crop
-        w, h: width and height of the crop, in meters
-    """
-    # compute utm geographic coordinates of the crop
-    cx, cy = utm.from_latlon(lat, lon)[:2]
-    ulx = cx - w / 2
-    lrx = cx + w / 2
-    uly = cy + h / 2  # in UTM the y coordinate increases from south to north
-    lry = cy - h / 2
-
-    if out_path == in_path:  # hack to allow the output to overwrite the input
-        fd, tmp = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(in_path))
-        os.close(fd)
-        subprocess.check_output(['gdal_translate', in_path, tmp, '-ot',
-                                 'UInt16', '-projwin', str(ulx), str(uly),
-                                 str(lrx), str(lry)])
-        shutil.move(tmp, out_path)
-    else:
-        subprocess.check_output(['gdal_translate', in_path, out_path, '-ot',
-                                 'UInt16', '-projwin', str(ulx), str(uly),
-                                 str(lrx), str(lry)])
-
-
-def gdal_translate_version():
-    """
-    """
-    v = subprocess.check_output(['gdal_translate', '--version'])
-    return v.decode().split()[1].split(',')[0]
-
-
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
                              utm_zone=None, lat_band=None, output_type=None):
     """
@@ -308,25 +260,25 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         out = outpath
 
     env = os.environ.copy()
-    if inpath.startswith(('http://', 'https://')):
+
+    # these GDAL configuration options speed up the access to remote files
+    if inpath.startswith(('http://', 'https://', 's3://', 'gs://')):
         env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
         env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
         env['VSI_CACHE'] = 'TRUE'
+
+    # add the relevant "/vsi" prefix to the input url
+    if inpath.startswith(('http://', 'https://')):
         path = '/vsicurl/{}'.format(inpath)
     elif inpath.startswith('s3://'):
-        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
-        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
-        env['VSI_CACHE'] = 'TRUE'
         env['AWS_REQUEST_PAYER'] = 'requester'
         path = '/vsis3/{}'.format(inpath[len('s3://'):])
     elif inpath.startswith('gs://'):
-        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
-        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
-        env['VSI_CACHE'] = 'TRUE'
         path = '/vsicurl/http://storage.googleapis.com/{}'.format(inpath[len('gs://'):])
     else:
         path = inpath
 
+    # build the gdal_translate shell command
     cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-projwin', str(ulx),
            str(uly), str(lrx), str(lry)]
     if output_type is not None:
@@ -340,8 +292,10 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
             if lat_band and lat_band < 'N':
                 srs += ' +south'
             cmd += ['-projwin_srs', srs]
+            #print(' '.join(cmd))
+
+    # run the gdal_translate command
     try:
-        #print(' '.join(cmd))
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
     except subprocess.CalledProcessError as e:
         if inpath.startswith(('http://', 'https://')):
@@ -363,16 +317,6 @@ def crop_with_gdalwarp(outpath, inpath, geojson_path):
     cmd = ['gdalwarp', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
            '-overwrite', '-crop_to_cutline', '-cutline', geojson_path]
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-
-
-def get_image_utm_zone(img_path):
-    """
-    Read the UTM zone from a geotif metadata.
-    """
-    img = gdal.Open(img_path)
-    s = img.GetProjection()  # read geographic metadata
-    img = None  # gdal way of closing files
-    return s.lower().split('utm zone ')[1][:2]
 
 
 def geojson_lonlat_to_utm(aoi):
@@ -402,7 +346,9 @@ def utm_bbx(aoi, utm_zone=None, r=None):
     # convert all polygon vertices coordinates from (lon, lat) to utm
     c = []
     for lon, lat in aoi['coordinates'][0]:
-        c.append(utm.from_latlon(lat, lon, force_zone_number=utm_zone)[:2])
+        hemisphere = 'north' if lat>=0 else 'south'
+        x,y = pyproj.transform(pyproj.Proj('+proj=latlong'), pyproj.Proj('+proj=utm +zone={}{} +{}'.format(utm_zone,lat_band,hemisphere)), lon, lat)
+        c.append((x,y))
 
     # utm bounding box
     bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
@@ -417,51 +363,38 @@ def utm_bbx(aoi, utm_zone=None, r=None):
     return ulx, uly, lrx, lry, utm_zone, lat_band
 
 
-def latlon_to_pix(img, lat, lon):
+
+def latlon_to_pix(path, lat, lon):
    """
-   Get the pixel coordinates of a geographic location in a georeferenced image.
+   Get the pixel coordinates of a geographic location in a GeoTIFF image.
 
    Args:
-       img: path to the input image
+       path: path to the input image
        lat, lon: geographic coordinates of the input location
 
    Returns:
        x, y: pixel coordinates
    """
-   # load the image dataset
-   ds = gdal.Open(img)
+   with rasterio.open(path, 'r') as f:
+       crs = f.crs
+       transform = f.transform
 
-   # get a geo-transform of the dataset
-   try:
-       gt = ds.GetGeoTransform()
-   except AttributeError:
-       return 0, 0
+   # transform (lon, lat) to the coordinate reference system of the image
+   x, y = pyproj.transform(pyproj.Proj('+proj=latlong'), pyproj.Proj(crs),
+                           lon, lat)
 
-   # create a spatial reference object for the dataset
-   srs = osr.SpatialReference()
-   srs.ImportFromWkt(ds.GetProjection())
-
-   # set up the coordinate transformation object
-   ct = osr.CoordinateTransformation(srs.CloneGeogCS(), srs)
-
-   # change the point locations into the GeoTransform space
-   point1, point0 = ct.TransformPoint(lon, lat)[:2]
-
-   # translate the x and y coordinates into pixel values
-   x = (point1 - gt[0]) / gt[1]
-   y = (point0 - gt[3]) / gt[5]
-   return int(x), int(y)
+   # transform x, y to pixel coordinates
+   return ~transform * (x, y)
 
 
 def latlon_rectangle_centered_at(lat, lon, w, h):
     """
     """
     x, y, number, letter = utm.from_latlon(lat, lon)
-    rectangle = []
-    rectangle.append(utm.to_latlon(x - .5*w, y - .5*h, number, letter))
-    rectangle.append(utm.to_latlon(x - .5*w, y + .5*h, number, letter))
-    rectangle.append(utm.to_latlon(x + .5*w, y + .5*h, number, letter))
-    rectangle.append(utm.to_latlon(x + .5*w, y - .5*h, number, letter))
+    rectangle = [utm.to_latlon(x - .5*w, y - .5*h, number, letter),
+                 utm.to_latlon(x - .5*w, y + .5*h, number, letter),
+                 utm.to_latlon(x + .5*w, y + .5*h, number, letter),
+                 utm.to_latlon(x + .5*w, y - .5*h, number, letter)]
     rectangle.append(rectangle[0])  # close the polygon
     return rectangle
 
@@ -491,23 +424,24 @@ def print_elapsed_time(since_first_call=False):
     print()
 
 
-#def show(img):
-#    """
-#    """
-#    fig, ax = plt.subplots()
-#    ax.imshow(img, interpolation='nearest')
-#
-#    def format_coord(x, y):
-#        col = int(x + 0.5)
-#        row = int(y + 0.5)
-#        if col >= 0 and col < img.shape[1] and row >= 0 and row < img.shape[0]:
-#            z = img[row, col]
-#            return 'x={}, y={}, z={}'.format(col, row, z)
-#        else:
-#            return 'x={}, y={}'.format(col, row)
-#
-#    ax.format_coord = format_coord
-#    plt.show()
+def show(img):
+    """
+    """
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.imshow(img, interpolation='nearest')
+
+    def format_coord(x, y):
+        col = int(x + 0.5)
+        row = int(y + 0.5)
+        if col >= 0 and col < img.shape[1] and row >= 0 and row < img.shape[0]:
+            z = img[row, col]
+            return 'x={}, y={}, z={}'.format(col, row, z)
+        else:
+            return 'x={}, y={}'.format(col, row)
+
+    ax.format_coord = format_coord
+    plt.show()
 
 
 def warn_with_traceback(message, category, filename, lineno, file=None,
