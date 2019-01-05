@@ -279,8 +279,8 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         path = inpath
 
     # build the gdal_translate shell command
-    cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-projwin', str(ulx),
-           str(uly), str(lrx), str(lry)]
+    cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-co', 'COMPRESS=DEFLATE',
+           '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     if output_type is not None:
         cmd += ['-ot', output_type]
     if utm_zone is not None:
