@@ -554,7 +554,7 @@ def rasterio_crop(filename, x, y, w, h, boundless=True, fill_value=0):
                 raise CropOutside(('crop {} {} {} {} falls outside of input image '
                                    'whose shape is {}'.format(x, y, w, h, src.shape)))
 
-        crop = fill_value * np.ones((src.count, h, w))
+        crop = fill_value * np.ones((src.count, h, w), dtype=src.profile['dtype'])
         y0 = max(y, 0)
         y1 = min(y + h, src.shape[0])
         x0 = max(x, 0)
