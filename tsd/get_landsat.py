@@ -85,11 +85,11 @@ def google_url_from_metadata_dict(d, api='devseed', band=None):
 
 def aws_paths_from_metadata_dict(d, api='devseed'):
     """
-    Build the AWS path of a Landsat-8 image from its metadata.
+    Build the AWS paths of the 12 bands of a Landsat-8 image from its metadata.
     """
     if api == 'devseed':
         # remove the http://landsat-pds.s3.amazonaws.com/ prefix from the urls
-        return ['/'.join(url.split('/')[3:]) for url in d['download_links']['aws_s3']]
+        return ['/'.join(d['assets']['B{}'.format(b)]['href'].split('/')[3:]) for b in ALL_BANDS]
         # Is this issue still a problem?
         # https://github.com/sat-utils/landsat8-metadata/issues/6
     elif api == 'planet':  # currently broken
@@ -115,8 +115,8 @@ def filename_from_metadata_dict(d, api='devseed'):
     Build a string using the image acquisition date and identifier.
     """
     if api == 'devseed':
-        scene_id = d['sceneID']
-        date_str = d['date']
+        scene_id = d['properties']['id']
+        date_str = d['properties']['datetime']
     elif api == 'planet':
         scene_id = d['id']
         date_str = d['properties']['acquired']
@@ -129,11 +129,9 @@ def metadata_from_metadata_dict(d, api='devseed'):
     Return a dict containing some string-formatted metadata.
     """
     if api == 'devseed':
-        date = dateutil.parser.parse(d['date']).date()
-        time = datetime.time(*map(int, d['sceneStartTime'].split(':')[2:4]))
-        imaging_date = datetime.datetime.combine(date, time)
-        sun_zenith = 90 - d['sunElevation']  # zenith and elevation are complementary
-        sun_azimuth = d['sunAzimuth']
+        imaging_date = dateutil.parser.parse(d['properties']['datetime'])
+        sun_zenith = 90 - d['properties']['eo:sun_elevation']  # zenith and elevation are complementary
+        sun_azimuth = d['properties']['eo:sun_azimuth']
     elif api == 'planet':
         imaging_date = dateutil.parser.parse(d['properties']['acquired'])
         sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
@@ -187,13 +185,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     seen = set()
     if search_api == 'devseed':
         images = search_devseed.search(aoi, start_date, end_date,
-                                       'Landsat-8')['results']
-        images.sort(key=lambda k: (k['acquisitionDate'], k['row'], k['path']))
+                                       'Landsat-8')['features']
+        images.sort(key=lambda k: (k['properties']['datetime'],
+                                   k['properties']['landsat:row'],
+                                   k['properties']['landsat:path']))
 
-        # remove duplicates (same acquisition day)
-        images = [x for x in images if not (x['acquisitionDate'] in seen
-                                            or  # seen.add() returns None
-                                            seen.add(x['acquisitionDate']))]
     elif search_api == 'planet':
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
