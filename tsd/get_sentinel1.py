@@ -39,6 +39,23 @@ PEPS_URL_DOWNLOAD = 'https://peps.cnes.fr/resto/collections'
 CODEDE_URL = 'https://code-de.org/Sentinel1'
 
 
+def read_copernicus_credentials_from_environment_variables():
+    """
+    Read the user Copernicus Open Access Hub credentials.
+    """
+    try:
+        login = os.environ['COPERNICUS_LOGIN']
+        password = os.environ['COPERNICUS_PASSWORD']
+    except KeyError as e:
+        print("The {} module requires the COPERNICUS_LOGIN and".format(os.path.basename(__file__)),
+              "COPERNICUS_PASSWORD environment variables to be defined with valid",
+              "credentials for https://scihub.copernicus.eu/. Create an account if",
+              "you don't have one (it's free) then edit the relevant configuration",
+              "files (eg .bashrc) to define these environment variables.")
+        raise e
+    return login, password
+
+
 def query_data_hub(output_filename, url, user, password, verbose=False):
     """
     Download a file from the Copernicus data hub or one of its true mirrors.

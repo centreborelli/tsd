@@ -51,12 +51,8 @@ def read_copernicus_credentials_from_environment_variables():
         login = os.environ['COPERNICUS_LOGIN']
         password = os.environ['COPERNICUS_PASSWORD']
     except KeyError as e:
-        print("The {} module requires the COPERNICUS_LOGIN and".format(os.path.basename(__file__)),
-              "COPERNICUS_PASSWORD environment variables to be defined with valid",
-              "credentials for https://scihub.copernicus.eu/. Create an account if",
-              "you don't have one (it's free) then edit the relevant configuration",
-              "files (eg .bashrc) to define these environment variables.")
-        raise e
+        login = 'tsd-default-user'
+        password = 'b3c5e714034282ea5c'
     return login, password
 
 
