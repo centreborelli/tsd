@@ -132,7 +132,7 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
             unique_images.append(img)
 
     print('Found {} images'.format(len(unique_images)))
-    return unique_images
+    return [vars(img) for img in unique_images]
 
 
 def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
@@ -150,13 +150,13 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
     crops_args = []
     for img in imgs:
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
-        coords = utils.utm_bbx(aoi, utm_zone=int(img.utm_zone),
+        coords = utils.utm_bbx(aoi, utm_zone=int(img['utm_zone']),
                                r=60)  # round to multiples of 60 (B01 resolution)
 
         for b in bands:
             fname = os.path.join(
-                out_dir, '{}_band_{}.tif'.format(img.filename, b))
-            crops_args.append((fname, img.urls[mirror][b], *coords))
+                out_dir, '{}_band_{}.tif'.format(img['filename'], b))
+            crops_args.append((fname, img['urls'][mirror][b], *coords))
 
     utils.mkdir_p(out_dir)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
@@ -172,7 +172,7 @@ def bands_files_are_valid(img, bands, api, directory):
     """
     Check if all bands images files are valid.
     """
-    filenames = ['{}_band_{}.tif'.format(img.filename, b) for b in bands]
+    filenames = ['{}_band_{}.tif'.format(img['filename'], b) for b in bands]
     paths = [os.path.join(directory, f) for f in filenames]
     return all(utils.is_valid(p) for p in paths)
 
@@ -193,7 +193,7 @@ def is_image_cloudy(img, aoi, mirror, p=0.5):
     Return:
         boolean (True if the image is cloudy, False otherwise)
     """
-    url = img.urls[mirror]['cloud_mask']
+    url = img['urls'][mirror]['cloud_mask']
 
     if mirror == 'gcloud':
         url = url.replace('gs://', 'http://storage.googleapis.com/')
@@ -249,7 +249,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
         if cloud:
             utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
             for b in bands:
-                f = '{}_band_{}.tif'.format(img.filename, b)
+                f = '{}_band_{}.tif'.format(img['filename'], b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
 
@@ -285,17 +285,16 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     download(images, bands, aoi, mirror, out_dir, parallel_downloads)
 
     # discard images that failed to download
-    images = [i for i in images if bands_files_are_valid(
-        i, bands, api, out_dir)]
+    images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
-        d = img.meta
+        d = img['meta']
         d.update({'downloaded_by': 'TSD on {}'.format(
             datetime.datetime.now().isoformat())})
         for b in bands:
             filepath = os.path.join(
-                out_dir, '{}_band_{}.tif'.format(img.filename, b))
+                out_dir, '{}_band_{}.tif'.format(img['filename'], b))
             utils.set_geotif_metadata_items(filepath, d)
 
     if cloud_masks:  # discard images that are totally covered by clouds
