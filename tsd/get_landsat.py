@@ -195,6 +195,11 @@ def search(aoi, start_date=None, end_date=None, api='devseed'):
                                    k['properties']['landsat:row'],
                                    k['properties']['landsat:path']))
 
+        for i in images:  # add some metadata at the root of the dict
+            i['date'] = i['properties']['datetime']
+            i['cloud_cover'] = i['properties']['eo:cloud_cover']
+            i['thumbnail'] = i['assets']['thumbnails']['href']
+
     elif api == 'planet':
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
