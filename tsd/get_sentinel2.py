@@ -81,7 +81,8 @@ def check_args(api, mirror, product_type):
                              "per GB. More info: {}".format(info_url))
 
 
-def search(aoi, start_date, end_date, product_type=None, api='devseed'):
+def search(aoi, start_date=None, end_date=None, product_type=None,
+           api='devseed'):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
 
