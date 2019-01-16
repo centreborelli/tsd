@@ -55,6 +55,9 @@ def band_resolution(b):
 
 
 class DevSeedParser:
+    def __repr__(self):
+        return self.__dict__
+
     def __init__(self, img):
         self.meta = img
         self.urls = {'aws': {}, 'gcloud': {}}
