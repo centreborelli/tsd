@@ -30,6 +30,7 @@ Each parser returns an object with the following data structure:
 """
 from __future__ import print_function
 import re
+import pprint
 import dateutil.parser
 import datetime
 
@@ -56,7 +57,7 @@ def band_resolution(b):
 
 class DevSeedParser:
     def __repr__(self):
-        return self.__dict__
+        return pprint.pformat(self.__dict__)
 
     def __init__(self, img):
         self.meta = img
