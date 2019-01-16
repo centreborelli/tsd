@@ -187,7 +187,7 @@ def search(aoi, start_date=None, end_date=None, api='devseed'):
         list of image objects
     """
     # list available images
-    if search_api == 'devseed':
+    if api == 'devseed':
         import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
                                        'Landsat-8')['features']
@@ -195,7 +195,7 @@ def search(aoi, start_date=None, end_date=None, api='devseed'):
                                    k['properties']['landsat:row'],
                                    k['properties']['landsat:path']))
 
-    elif search_api == 'planet':
+    elif api == 'planet':
         import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Landsat8L1G'])
