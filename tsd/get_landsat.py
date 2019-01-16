@@ -173,17 +173,22 @@ def bands_files_are_valid(img, bands, search_api, directory):
     return all(utils.is_valid(p) for p in paths)
 
 
-def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
-                    out_dir='', search_api='devseed', parallel_downloads=100,
-                    debug=False):
+def search(aoi, start_date=None, end_date=None, api='devseed'):
     """
-    Main function: crop and download a time series of Landsat-8 images.
-    """
-    utils.print_elapsed_time.t0 = datetime.datetime.now()
+    Search Landsat-8 images covering an AOI and timespan using a given API.
 
+    Args:
+        aoi (geojson.Polygon): area of interest
+        start_date (datetime.datetime): start of the search time range
+        end_date (datetime.datetime): end of the search time range
+        api (str, optional): either devseed (default) or planet
+
+    Returns:
+        list of image objects
+    """
     # list available images
-    seen = set()
     if search_api == 'devseed':
+        import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
                                        'Landsat-8')['features']
         images.sort(key=lambda k: (k['properties']['datetime'],
@@ -201,11 +206,23 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                                    k['properties']['wrs_path']))
 
         # remove duplicates (same acquisition day)
+        seen = set()
         images = [x for x in images if not (x['properties']['acquired'] in seen
                                             or  # seen.add() returns None
                                             seen.add(x['properties']['acquired']))]
+
     print('Found {} images'.format(len(images)))
-    utils.print_elapsed_time()
+    return images
+
+
+def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
+                    out_dir='', search_api='devseed', parallel_downloads=100,
+                    debug=False):
+    """
+    Main function: crop and download a time series of Landsat-8 images.
+    """
+    # search images
+    images = search(aoi, start_date, end_date, api=search_api)
 
     # build urls
     urls = parallel.run_calls(aws_urls_from_metadata_dict, list(images),
