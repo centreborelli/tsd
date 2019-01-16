@@ -266,6 +266,8 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
         env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
         env['VSI_CACHE'] = 'TRUE'
+        env['GDAL_HTTP_MAX_RETRY'] = 10000  # needed for storage.googleapis.com 503
+        env['GDAL_HTTP_RETRY_DELAY'] = 1
 
     # add the relevant "/vsi" prefix to the input url
     if inpath.startswith(('http://', 'https://')):
