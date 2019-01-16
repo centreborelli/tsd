@@ -313,6 +313,27 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         shutil.move(out, outpath)
 
 
+def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
+    """
+    Crop and download an AOI from a georeferenced image.
+
+    Args:
+        output_path (string): path to the output GeoTIFF file
+        aoi (geojson.Polygon): area of interest defined by a polygon in longitude, latitude coordinates
+        metadata_dict (dict): metadata dictionary
+        band (str): desired band, e.g. 'B04' for Sentinel-2 or 'B8' for Landsat-8
+    """
+    try:  # Sentinel-2
+        inpath = metadata_dict['urls']['gcloud'][band]
+    except Keyerror:  # Landsat-8
+        inpath = metadata_dict['assets'][band]['href']
+    utm_zone = int(metadata_dict['utm_zone']) if 'utm_zone' in metadata_dict else None
+    ulx, uly, lrx, lry, utm_zone, lat_band = utm_bbx(aoi, utm_zone=utm_zone,
+                                                     r=60)
+    crop_with_gdal_translate(output_path, inpath, ulx, uly, lrx, lry, utm_zone,
+                             lat_band)
+
+
 def crop_with_gdalwarp(outpath, inpath, geojson_path):
     """
     """
