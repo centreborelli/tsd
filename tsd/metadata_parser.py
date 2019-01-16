@@ -81,6 +81,9 @@ class DevSeedParser:
         self.orbit = int(s.group(1)) if s else 0
         self.satellite = d['properties']['eo:platform'].replace("Sentinel-", "S")  # Sentinel-2B --> S2B
         self.is_old = True if 'OPER' in self.title else False
+        self.cloud_cover = d['properties']['eo:cloud_cover']
+        self.thumbnail = d['assets']['thumbnail']['href'].replace('sentinel-s2-l1c.s3.amazonaws.com',
+                                                                  'roda.sentinel-hub.com/sentinel-s2-l1c')
 
     def _build_gs_links(self):
         if self.is_old:  # old safes, before 2016-12-6
