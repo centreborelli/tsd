@@ -198,7 +198,7 @@ def search(aoi, start_date=None, end_date=None, api='devseed'):
         for i in images:  # add some metadata at the root of the dict
             i['date'] = i['properties']['datetime']
             i['cloud_cover'] = i['properties']['eo:cloud_cover']
-            i['thumbnail'] = i['assets']['thumbnails']['href']
+            i['thumbnail'] = i['assets']['thumbnail']['href']
 
     elif api == 'planet':
         import search_planet
@@ -255,7 +255,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, download_urls)),
                        extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
                        pool_type='threads', nb_workers=parallel_downloads)
-    utils.print_elapsed_time()
 
     # discard images that failed to download
     images = [x for x in images if bands_files_are_valid(x, list(set(bands + ['QA'])),
@@ -275,7 +274,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
                             os.path.join(out_dir, 'cloudy', f))
     print('{} cloudy images out of {}'.format(sum(cloudy), len(images)))
     images = [i for i, c in zip(images, cloudy) if not c]
-    utils.print_elapsed_time()
 
     # group band crops per image
     crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
