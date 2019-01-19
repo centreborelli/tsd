@@ -5,7 +5,7 @@
 """
 Automatic crop and download of Landsat timeseries.
 
-Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-19, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -196,7 +196,7 @@ def search(aoi, start_date=None, end_date=None, api='devseed'):
                                    k['properties']['landsat:path']))
 
         for i in images:  # add some metadata at the root of the dict
-            i['date'] = i['properties']['datetime']
+            i['date'] = dateutil.parser.parse(i['properties']['datetime'])
             i['cloud_cover'] = i['properties']['eo:cloud_cover']
             i['thumbnail'] = i['assets']['thumbnail']['href']
 
