@@ -136,3 +136,7 @@ can be installed with `pip`:
 Once `gdal` is correctly installed on your machine you can run
 
     python setup.py install
+
+`tsd` can also be installed without using `git`:
+
+    pip install --upgrade https://github.com/cmla/tsd/tarball/master
