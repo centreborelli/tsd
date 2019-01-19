@@ -325,7 +325,7 @@ def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
     """
     try:  # Sentinel-2
         inpath = metadata_dict['urls']['gcloud'][band]
-    except Keyerror:  # Landsat-8
+    except KeyError:  # Landsat-8
         inpath = metadata_dict['assets'][band]['href']
     utm_zone = int(metadata_dict['utm_zone']) if 'utm_zone' in metadata_dict else None
     ulx, uly, lrx, lry, utm_zone, lat_band = utm_bbx(aoi, utm_zone=utm_zone,
