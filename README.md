@@ -4,7 +4,7 @@
 Automatic download of Sentinel, Landsat and Planet crops.
 
 [Carlo de Franchis](mailto:carlo.de-franchis@ens-cachan.fr),
-CMLA, ENS Cachan, Université Paris-Saclay, 2016-18
+CMLA, ENS Cachan, Université Paris-Saclay, 2016-19
 
 With contributions from [Enric Meinhardt-Llopis](mailto:enric.meinhardt@cmla.ens-cachan.fr), [Axel Davy](mailto:axel.davy@ens.fr) and [Tristan Dagobert](mailto:tristan.dagobert@cmla.ens-cachan.fr).
 
@@ -82,21 +82,31 @@ to their docstrings to get usage information. Here are some examples.
 
 
 # Installation and dependencies
+
+## GDAL
+The main dependency is GDAL. All the others can be installed
+with `pip` as shown in the [next section](#python-packages).
+
+### On Ubuntu
+`gdal` can be installed with `apt-get`. In order to get a
+recent version we recommend adding the PPA `ubuntugis-unstable` (first
+command below):
+
+    sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+    sudo apt-get update
+    sudo apt-get install libgdal-dev gdal-bin
+
+### On macOS
+There are several ways of installing `gdal`. I recommend option 1 as it
+gives a version of gdal 2.3 that works with JP2 files.
+
 _Note_: a shell script installing all the needed stuff (`brew`, `python`,
 `gdal`...) on an empty macOS system is given in the file
 [macos_install_from_scratch.sh](macos_install_from_scratch.sh).
 
-## GDAL
-The main dependencies are GDAL and rasterio. All the others can be installed
-with `pip` as shown in the [next section](#python-packages).
-
-### On macOS
-There are several ways of installing `gdal`. I recommend option 1 as it
-gives a version of gdal 2.2 that works with JP2 files.
-
 #### Option 1: using the GDAL Complete Compatibility Framework.
 
-[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.2.dmg)
+[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.3.dmg)
 and install the `.dmg` file. Update your `PATH` after the installation by
 running this command:
 
@@ -104,34 +114,19 @@ running this command:
 
 Copy it in your `~/.profile`.
 
-Then install the `rasterio` package with pip:
-
-    pip install rasterio --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/
-
-_Note_: installation of `rasterio` with Python 3 requires `numpy`.
-
-The four `--global-option build_ext` options tell `pip` where to find gdal
-headers and libraries.
-
 #### Option 2: using brew
 
     brew install gdal --with-complete
 
 Note that this version doesn't support JP2 files (hence it will fail to get
-Sentinel-2 crops). Moreover, the version currently bottled in brew is only 1.11
-(as of 08/2017).
-
-### On Linux
-On Linux `gdal` is usually straightforward to install through your package
-manager.
-
-    sudo apt-get update
-    sudo apt-get install libgdal-dev gdal-bin
+Sentinel-2 crops).
 
 ## Python packages
+
 The required Python packages are listed in the file `requirements.txt`. They
 can be installed with `pip`:
 
+    pip install numpy  # required to install rasterio
     pip install -r requirements.txt
 
 ## Install TSD as a global python package
@@ -142,3 +137,12 @@ Once `gdal` is correctly installed on your machine you can run
 `tsd` can also be installed without using `git`:
 
     pip install --upgrade https://github.com/cmla/tsd/tarball/master
+
+### Legacy
+The command below forces explicitely the version of `gdal` used by `rasterio`:
+
+    pip install rasterio --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/
+
+The four `--global-option build_ext` options tell `pip` where to find gdal
+headers and libraries.
+

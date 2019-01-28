@@ -12,7 +12,7 @@ pandas
 planet
 pyproj
 python-dateutil
-rasterio>=1.0a1
+rasterio[s3]>=1.0 --no-binary=rasterio
 requests
 shapely
 tqdm
