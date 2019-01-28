@@ -9,6 +9,8 @@ CMLA, ENS Cachan, Université Paris-Saclay, 2016-18
 With contributions from [Enric Meinhardt-Llopis](mailto:enric.meinhardt@cmla.ens-cachan.fr), [Axel Davy](mailto:axel.davy@ens.fr) and [Tristan Dagobert](mailto:tristan.dagobert@cmla.ens-cachan.fr).
 
 
+The main source code repository for this software is https://github.com/cmla/tsd.
+
 # Usage
 
 Search and download is performed by `get_sentinel2.py`, `get_landsat.py`,
