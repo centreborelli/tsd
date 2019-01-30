@@ -6,11 +6,10 @@ matrix:
       language: generic
 
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget https://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.2.dmg; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then X=$(echo `hdiutil mount GDAL_Complete-2.2.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo) && sudo installer -pkg "${X}/"Install\ GDAL\ Complete.pkg -target /; export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pip3 install numpy; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pip3 install rasterio --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/; fi
-  - python3 setup.py install
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget https://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.3.dmg; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then X=$(echo `hdiutil mount GDAL_Complete-2.3.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo) && sudo installer -pkg "${X}/"Install\ GDAL\ Complete.pkg -target /; export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"; fi
+  - pip3 install numpy
+  - pip3 install . --no-binary rasterio --user
 
 script:
   - bash download_tests.sh
