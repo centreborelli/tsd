@@ -1,7 +1,24 @@
 from setuptools import setup, find_packages
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
+requirements = ['area',
+                'boto3',
+                'bs4',
+                'click',
+                'future',
+                'geojson',
+                'google-auth',
+                'lxml',
+                'mgrs',
+                'numpy>=1.12',
+                'pandas',
+                'planet',
+                'pyproj',
+                'python-dateutil',
+                'rasterio[s3]>=1.0',
+                'requests',
+                'shapely',
+                'tqdm',
+                'utm']
 
 setup(name="tsd",
       version="0.2",

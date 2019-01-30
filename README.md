@@ -11,6 +11,60 @@ With contributions from [Enric Meinhardt-Llopis](mailto:enric.meinhardt@cmla.ens
 
 The main source code repository for this software is https://github.com/cmla/tsd.
 
+# Installation and dependencies
+
+## GDAL
+The main dependency is GDAL. All the others can be installed
+with `pip` as shown in the [next section](#install-tsd-as-a-python-package).
+
+### On Ubuntu
+`gdal` can be installed with `apt-get`. In order to get a
+recent version we recommend adding the PPA `ubuntugis-unstable` (first
+command below):
+
+    sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+    sudo apt-get update
+    sudo apt-get install libgdal-dev gdal-bin
+
+### On macOS
+There are several ways of installing `gdal`. I recommend option 1 as it
+gives a version of gdal 2.3 that works with JP2 files.
+
+_Note_: a shell script installing all the needed stuff (`brew`, `python`,
+`gdal`...) on an empty macOS system is given in the file
+[macos_install_from_scratch.sh](macos_install_from_scratch.sh).
+
+#### Option 1: using the GDAL Complete Compatibility Framework.
+
+[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.3.dmg)
+and install the `.dmg` file. Update your `PATH` after the installation by
+running this command:
+
+    export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"
+
+Copy it in your `~/.profile`.
+
+#### Option 2: using brew
+
+    brew install gdal --with-complete
+
+Note that this version doesn't support JP2 files (hence it will fail to get
+Sentinel-2 crops).
+
+## Install TSD as a python package
+
+Once `gdal` is installed on your machine you can install `tsd` with `pip`:
+
+    git clone https://github.com/cmla/tsd
+    cd tsd
+    pip install numpy  # required by rasterio
+    pip install -e . --no-binary rasterio
+
+Alternatively `tsd` can also be installed without downloading a tarball or a git clone:
+
+    pip install --upgrade https://github.com/cmla/tsd/tarball/master --no-binary rasterio
+
+
 # Usage
 
 Search and download is performed by `get_sentinel2.py`, `get_landsat.py`,
@@ -72,77 +126,9 @@ The Python modules can be imported to call their functions from Python. Refer
 to their docstrings to get usage information. Here are some examples.
 
     # define an area of interest
-    import utils
+    import tsd
     lat, lon = 42, 3
-    aoi = utils.geojson_geometry_object(lat, lon, 5000, 5000)
+    aoi = tsd.utils.geojson_geometry_object(lat, lon, 5000, 5000)
 
     # search Landsat-8 images available on the AOI with Development Seed's API
-    import search_devseed
-    x = search_devseed.search(aoi, satellite='Landsat-8')
-
-
-# Installation and dependencies
-
-## GDAL
-The main dependency is GDAL. All the others can be installed
-with `pip` as shown in the [next section](#python-packages).
-
-### On Ubuntu
-`gdal` can be installed with `apt-get`. In order to get a
-recent version we recommend adding the PPA `ubuntugis-unstable` (first
-command below):
-
-    sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
-    sudo apt-get update
-    sudo apt-get install libgdal-dev gdal-bin
-
-### On macOS
-There are several ways of installing `gdal`. I recommend option 1 as it
-gives a version of gdal 2.3 that works with JP2 files.
-
-_Note_: a shell script installing all the needed stuff (`brew`, `python`,
-`gdal`...) on an empty macOS system is given in the file
-[macos_install_from_scratch.sh](macos_install_from_scratch.sh).
-
-#### Option 1: using the GDAL Complete Compatibility Framework.
-
-[Download](http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.3.dmg)
-and install the `.dmg` file. Update your `PATH` after the installation by
-running this command:
-
-    export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"
-
-Copy it in your `~/.profile`.
-
-#### Option 2: using brew
-
-    brew install gdal --with-complete
-
-Note that this version doesn't support JP2 files (hence it will fail to get
-Sentinel-2 crops).
-
-## Python packages
-
-The required Python packages are listed in the file `requirements.txt`. They
-can be installed with `pip`:
-
-    pip install numpy  # required to install rasterio
-    pip install -r requirements.txt
-
-## Install TSD as a global python package
-Once `gdal` is correctly installed on your machine you can run
-
-    python setup.py install
-
-`tsd` can also be installed without using `git`:
-
-    pip install --upgrade https://github.com/cmla/tsd/tarball/master
-
-### Legacy
-The command below forces explicitely the version of `gdal` used by `rasterio`:
-
-    pip install rasterio --global-option build_ext --global-option=`gdal-config --cflags` --global-option build_ext --global-option=-L`gdal-config  --prefix`/unix/lib/
-
-The four `--global-option build_ext` options tell `pip` where to find gdal
-headers and libraries.
-
+    x = tsd.search_devseed.search(aoi, satellite='Landsat-8')
