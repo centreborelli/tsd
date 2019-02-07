@@ -32,11 +32,13 @@ from __future__ import print_function
 import re
 import pprint
 import dateutil.parser
-import datetime
+import requests
+from search_scihub import read_copernicus_credentials_from_environment_variables
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
-GCLOUD_URL_L1C = 'gs://gcp-public-data-sentinel-2'
+GCLOUD_URL_L1C = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
+SCIHUB_API_URL = "https://scihub.copernicus.eu/apihub/odata/v1"
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
@@ -84,6 +86,7 @@ class DevSeedParser:
         self.cloud_cover = d['properties']['eo:cloud_cover']
         self.thumbnail = d['assets']['thumbnail']['href'].replace('sentinel-s2-l1c.s3.amazonaws.com',
                                                                   'roda.sentinel-hub.com/sentinel-s2-l1c')
+
 
     def _build_gs_links(self):
         if self.is_old:  # old safes, before 2016-12-6
@@ -211,26 +214,71 @@ class SciHubParser:
         self._parse()
         self._build_gs_links()
         self._build_s3_links()
-        self.filename = '{}_{}_orbit_{:03d}_tile_{}'.format(self.date.date().isoformat(),
+        self.filename = '{}_{}_orbit_{:03d}_tile_{}_{}'.format(self.date.date().isoformat(),
                                                             self.satellite, self.orbit,
-                                                            self.mgrs_id)
+                                                            self.mgrs_id, self.granule_id)
 
     def _parse(self):
         d = self.meta.copy()
-        date_string = [a['content']
-                       for a in d['date'] if a['name'] == 'beginposition'][0]
+        date_string = d["beginposition"]
         self.date = dateutil.parser.parse(date_string, ignoretz=True)
-        if self.date > datetime.datetime(2016, 8, 26):
+        if "tileid" not in d:
             self.mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
         else:
-            print('ERROR: scihub API cannot be used for Sentinel-2 images older than 2016-8-26')
+            self.mgrs_id = d["tileid"]
         self.utm_zone, self.lat_band, self.sqid = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', self.mgrs_id)[1:4]
-        self.orbit = int(d['int'][1]['content'])
+        self.orbit = int(d['orbitnumber'])
         self.satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
         self.title = d['title']
+        self.name = d['filename']
 
     def _build_gs_links(self):
-        pass
+        d = self.meta.copy()
+        mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['identifier'])[0]
+        self.utm_zone, self.lat_band, self.sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
+        self.mgrs_id = mgrs_id
+        self.date = dateutil.parser.parse(d['beginposition'])
+        self.title = d['title']
+        self.id = d['id']
+        s = re.search('_R([0-9]{3})_', self.title)
+        self.orbit = int(s.group(1)) if s else 0
+        self.satellite = d['platformname'].replace("Sentinel-", "S")  # Sentinel-2B --> S2B
+        self.is_old = True if 'OPER' in self.title else False
+
+        if self.is_old:  # old safes, before 2016-12-6
+            _, _, _, msi, _, d1, r, v, d2 = self.title.split('_')
+            _, _, _, _, _, _, _, d3, a, t, n = self.id.split('_')
+            safe_name = '_'.join([self.satellite, msi, v[1:], n.replace('.', ''), r, t, d1])
+            img_name = '{}_{}.jp2'.format('_'.join(self.id.split('_')[:-1]), '{}')
+            cloud_mask_name = '{}_B00_MSIL1C.gml'.format('_'.join(self.id.split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
+
+        else:
+            safe_name = self.title
+            _, _, d1, _, r, t, d2 = self.title.split('_')
+            img_name = '{}_{}_{}.jp2'.format(t, d1, '{}')
+            cloud_mask_name = 'MSK_CLOUDS_B00.gml'
+
+        granule_id = self.id
+
+        base_url = '{}/tiles/{}/{}/{}/{}.SAFE'.format(GCLOUD_URL_L1C,
+                                                      self.utm_zone,
+                                                      self.lat_band,
+                                                      self.sqid,
+                                                      safe_name)
+
+        granule_request = "{}/Products('{}')/Nodes('{}')/Nodes('GRANULE')/Nodes?$format=json".format(SCIHUB_API_URL,
+                                                                                                     self.id,
+                                                                                                     self.name)
+
+        granules = requests.get(granule_request, auth=(read_copernicus_credentials_from_environment_variables())).json()
+
+        gran_id = granules["d"]["results"][0]["Id"]
+        self.granule_id = gran_id
+
+        full_url = '{}/GRANULE/{}/IMG_DATA/{}'.format(base_url, gran_id, img_name)
+        for band in ALL_BANDS:
+            self.urls['gcloud'][band] = full_url.format(band)
+        self.urls['gcloud']['cloud_mask'] = '{}/GRANULE/{}/QI_DATA/{}'.format(base_url, gran_id, cloud_mask_name)
 
     def _build_s3_links(self):
         aws_s3_url = AWS_S3_URL_L1C
