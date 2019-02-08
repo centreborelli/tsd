@@ -77,7 +77,7 @@ def post_scihub(url, query, user, password):
 
 def build_scihub_query(aoi, start_date=None, end_date=None,
                        satellite='Sentinel-1', product_type='GRD',
-                       operational_mode='IW'):
+                       operational_mode='IW', relative_orbit_number=None):
     """
     """
     # default start/end dates
@@ -93,6 +93,7 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
         query += ' AND sensoroperationalmode:{}'.format(operational_mode)
     query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
                                                       end_date.isoformat())
+    query += 'AND relativeorbitnumber:{}'.format(relative_orbit_number)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
@@ -172,7 +173,7 @@ def prettify_scihub_dict(d):
 
 
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
-           product_type='GRD', operational_mode='IW', api='copernicus'):
+           product_type='GRD', operational_mode='IW', relative_orbit_number=None, api='copernicus'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
@@ -180,7 +181,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
         product_type = 'S2MSI1C'
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
-                               product_type, operational_mode)
+                               product_type, operational_mode, relative_orbit_number)
     results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
 
     # check if the image footprint contains the area of interest
