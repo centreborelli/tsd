@@ -93,7 +93,8 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
         query += ' AND sensoroperationalmode:{}'.format(operational_mode)
     query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
                                                       end_date.isoformat())
-    query += 'AND relativeorbitnumber:{}'.format(relative_orbit_number)
+    if relative_orbit_number is not None:
+        query += ' AND relativeorbitnumber:{}'.format(relative_orbit_number)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
