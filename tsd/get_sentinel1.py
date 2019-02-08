@@ -144,6 +144,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', operational_mode='IW',
+                    relative_orbit_number=None,
                     search_api='copernicus', download_mirror='peps'):
     """
     Main function: download a Sentinel-1 image time serie.
@@ -152,6 +153,7 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
     images = search_scihub.search(aoi, start_date, end_date,
                                   product_type=product_type,
                                   operational_mode=operational_mode,
+                                  relative_orbit_number=relative_orbit_number,
                                   api=search_api)
 
     # download
