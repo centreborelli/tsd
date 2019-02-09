@@ -115,7 +115,7 @@ def filename_from_metadata_dict(d, api='devseed'):
     Build a string using the image acquisition date and identifier.
     """
     if api == 'devseed':
-        scene_id = d['properties']['id']
+        scene_id = d['properties']['landsat:scene_id']
         date_str = d['properties']['datetime']
     elif api == 'planet':
         scene_id = d['id']
@@ -190,10 +190,10 @@ def search(aoi, start_date=None, end_date=None, api='devseed'):
     if api == 'devseed':
         import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
-                                       'Landsat-8')['features']
+                                       'Landsat-8')
         images.sort(key=lambda k: (k['properties']['datetime'],
-                                   k['properties']['landsat:row'],
-                                   k['properties']['landsat:path']))
+                                   k['properties']['eo:row'],
+                                   k['properties']['eo:column']))
 
         for i in images:  # add some metadata at the root of the dict
             i['date'] = dateutil.parser.parse(i['properties']['datetime'])

@@ -5,7 +5,7 @@
 """
 Search of Landsat-8 and Sentinel-2 images using Development Seed API.
 
-Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-19, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -24,48 +24,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import datetime
 import json
-import requests
 import shapely.geometry
-import geojson
-import urllib.parse
+
+import satsearch
 
 import utils
-
-
-API_URL = 'https://sat-api.developmentseed.org/search/stac'
-
-
-def query_sat_api(satellite, aoi, start_date=None, end_date=None):
-    """
-    Build a search string to query the Development Seed sat-api API.
-
-    Args:
-        satellite (string): either 'sentinel-2' or 'landsat-8'
-        aoi ():
-        start_date, end_date: datetime.date objects
-
-    Returns:
-        string
-    """
-    x = 'c:id="{}"'.format(satellite)
-
-    # date range
-    if end_date is None:
-        end_date = datetime.date.today()
-    if start_date is None:
-        start_date = end_date - datetime.timedelta(365)
-    x += '&datetime={}/{}'.format(start_date.isoformat(), end_date.isoformat())
-
-    # area of interest
-    # replace whitespaces with '+' in the aoi string, then url encode it except
-    # for the '+' otherwise it doesn't work... don't know why
-    aoi_string = geojson.dumps(aoi).replace(' ', '+')
-    aoi_string = urllib.parse.quote(aoi_string).replace('%2B', '+')
-
-    # currently sat-api supports only 'intersect' requests
-    x += '&intersects={}'.format(aoi_string)
-
-    return x
 
 
 def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
@@ -76,31 +39,38 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
         aoi: geojson.Polygon or geojson.Point object
         satellite: either Landsat-8 or Sentinel-2
     """
-    # build url
-    search_string = query_sat_api(satellite.lower(), aoi, start_date, end_date)
-    url = '{}?limit=1000&{}'.format(API_URL, search_string)
+    # date range
+    if end_date is None:
+        end_date = datetime.date.today()
+    if start_date is None:
+        start_date = end_date - datetime.timedelta(365)
+
+    # collection
+    if satellite.lower() in ['sentinel-2', 'sentinel2', 'sentinel']:
+        collection = 'sentinel-2-l1c'
+    elif satellite.lower() in ['landsat-8', 'landsat8', 'landsat']:
+        collection = 'landsat-8-l1'
+    else:
+        raise TypeError(('Satellite "{}" not supported. Use either Landsat-8 or'
+                         ' Sentinel-2.').format(satellite))
 
     # query Development Seed’s API
-    r = requests.get(url)
-    if r.ok:
-        d = r.json()
-    else:
-        print('WARNING: request to {} returned {}'.format(url, r.status_code))
-        return
+    r = satsearch.Search.search(intersects=aoi,
+                                time='{}/{}'.format(start_date.isoformat(),
+                                                    end_date.isoformat()),
+                                collection=collection)
 
-    # check if the image footprint contains the area of interest
-    to_remove = set()
+    # check if the images footprints contain the area of interest
     aoi = shapely.geometry.shape(aoi)
-    for i, x in enumerate(d['features']):
-        if 'geometry' in x:
-            if not shapely.geometry.shape(x['geometry']).contains(aoi):
-                to_remove.add(i)
+    results = []
+    for x in r.items():
+        try:
+            if shapely.geometry.shape(x.geometry).contains(aoi):
+                results.append(vars(x)['data'])
+        except AttributeError:
+            pass
 
-    for i in sorted(to_remove, reverse=True):  # delete the higher index first
-        del d['features'][i]
-        d['properties']['found'] -= 1
-
-    return d
+    return results
 
 
 if __name__ == '__main__':

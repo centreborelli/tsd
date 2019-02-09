@@ -16,6 +16,7 @@ requirements = ['area',
                 'python-dateutil',
                 'rasterio[s3]>=1.0',
                 'requests',
+                'sat-search>=0.2',
                 'shapely',
                 'tqdm',
                 'utm']

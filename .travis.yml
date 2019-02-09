@@ -14,3 +14,4 @@ install:
 script:
   - bash download_tests.sh
   - python3 tsd/test_search_scihub.py
+  - python3 tsd/test_search_devseed.py
