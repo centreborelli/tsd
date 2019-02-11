@@ -49,7 +49,7 @@ ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
 def check_args(api, mirror, product_type):
     if product_type is not None and api != 'scihub':
         print("WARNING: product_type option is available only with api='scihub'")
-    if mirror == 'gcloud' and api not in ['gcloud', 'devseed']:
+    if mirror == 'gcloud' and api not in ['gcloud', 'devseed', 'scihub']:
         raise ValueError(
             "ERROR: You must use gcloud or devseed api to use gcloud as mirror")
     if api == 'gcloud' and mirror != 'gcloud':
