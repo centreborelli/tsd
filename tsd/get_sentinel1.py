@@ -107,7 +107,8 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
     """
     # create output directory
     if out_dir:
-        utils.mkdir_p(out_dir)
+        out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        os.makedirs(out_dir, exist_ok=True)
 
     # download zip file
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))

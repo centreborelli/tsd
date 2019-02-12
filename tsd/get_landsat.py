@@ -237,6 +237,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     # build gdal urls and filenames
     download_urls = []
     fnames = []
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
     for img, bands_urls in zip(images, urls):
         name = filename_from_metadata_dict(img, search_api)
         for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
@@ -247,7 +248,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
 
     # download crops
-    utils.mkdir_p(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(download_urls),
                                                                      len(images),
                                                                      len(bands) + 1),
@@ -260,7 +261,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
     images = [x for x in images if bands_files_are_valid(x, list(set(bands + ['QA'])),
                                                          search_api, out_dir)]
     # discard images that are totally covered by clouds
-    utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+    os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
     names = [filename_from_metadata_dict(img, search_api) for img in images]
     qa_names = [os.path.join(out_dir, '{}_band_QA.tif'.format(f)) for f in names]
     cloudy = parallel.run_calls(is_image_cloudy, qa_names,
