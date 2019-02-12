@@ -10,7 +10,6 @@ Copyright (C) 2018, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 from __future__ import print_function
 import os
 import re
-import errno
 import shutil
 import argparse
 import datetime
