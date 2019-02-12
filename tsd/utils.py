@@ -38,7 +38,8 @@ def download(from_url, to_file, auth=('', '')):
     """
     Download a file from an url to a file.
     """
-    mkdir_p(os.path.dirname(to_file))
+    to_file = os.path.abspath(os.path.expanduser(to_file))
+    os.makedirs(os.path.dirname(to_file), exist_ok=True)
     response = requests.get(from_url, stream=True, auth=auth)
     with open(to_file, 'wb') as handle:
         for data in response.iter_content():
@@ -163,20 +164,6 @@ def tmpfile(ext=''):
     fd, out = tempfile.mkstemp(suffix=ext)
     os.close(fd)           # http://www.logilab.org/blogentry/17873
     return out
-
-
-def mkdir_p(path):
-    """
-    Create a directory without complaining if it already exists.
-    """
-    if path:
-        try:
-            os.makedirs(path)
-        except OSError as exc:  # requires Python > 2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
 
 
 def pixel_size(path):

@@ -158,7 +158,8 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
                 out_dir, '{}_band_{}.tif'.format(img['filename'], b))
             crops_args.append((fname, img['urls'][mirror][b], *coords))
 
-    utils.mkdir_p(out_dir)
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
+    os.makedirs(out_dir, exist_ok=True)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
                                                                      len(imgs),
                                                                      len(bands)),
@@ -247,7 +248,8 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
 
     for img, cloud in zip(imgs, cloudy):
         if cloud:
-            utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+            out_dir = os.path.abspath(os.path.expanduser(out_dir))
+            os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
             for b in bands:
                 f = '{}_band_{}.tif'.format(img['filename'], b)
                 shutil.move(os.path.join(out_dir, f),
