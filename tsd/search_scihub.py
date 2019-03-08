@@ -83,8 +83,8 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
     # default start/end dates
     if end_date is None:
         end_date = datetime.datetime.now()
-    if start_date is None:  # https://scihub.copernicus.eu/news/News00368
-        start_date = datetime.datetime(2016, 8, 26)
+    if start_date is None:
+        start_date = datetime.datetime(2000, 1, 1)
 
     # build the url used to query the scihub API
     query = 'platformname:{}'.format(satellite)
