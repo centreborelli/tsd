@@ -37,12 +37,14 @@ from search_scihub import read_copernicus_credentials_from_environment_variables
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
+AWS_HTTPS_URL_L8 = 'https://landsat-pds.s3.amazonaws.com'
 GCLOUD_URL_L1C = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 SCIHUB_API_URL = "https://scihub.copernicus.eu/apihub/odata/v1"
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
 
+ALL_BANDS_LANDSAT = ['B{}'.format(i) for i in range(1,12)] + ['BQA']
 
 def band_resolution(b):
     """
@@ -55,6 +57,71 @@ def band_resolution(b):
         return 60
     else:
         print('ERROR: {} is not in {}'.format(b, ALL_BANDS))
+
+class LandsatGcloudParser:
+    def __init__(self, img):
+        self.meta = img
+        self.urls = {'aws': {}, 'gcloud': {}}
+        self._parse()
+        self._build_gs_links()
+        self._build_s3_links()
+        self.filename = '{}_{}_{}_{}'.format(self.date.date().isoformat(),
+                                             self.satellite,
+                                             self.sensor,
+                                             self.scene_id)
+
+    def _parse(self):
+        d = self.meta.copy()
+        self.scene_id = d['scene_id']
+        self.satellite = d['spacecraft_id'].replace('ANDSAT_','')
+        self.sensor = d['sensor_id'].replace('_', '')
+        self.date = dateutil.parser.parse(d['sensing_time'])
+        self.row = d['wrs_row']
+        self.path = d['wrs_path']
+
+    def _build_gs_links(self):
+        base_url = self.meta['base_url']
+        scene_id_bis = base_url.strip('/').split('/')[-1]
+        for band in ALL_BANDS_LANDSAT:
+            self.urls['gcloud'][band] = '{}/{}_{}.TIF'.format(base_url, scene_id_bis, band)
+
+    def _build_s3_links(self):
+        pass
+
+class LandsatDevSeedParser:
+    def __init__(self, img):
+        self.meta = img
+        self.urls = {'aws': {}, 'gcloud': {}}
+        self._parse()
+        self._build_gs_links()
+        self._build_s3_links()
+        self.filename = '{}_{}_{}_{}'.format(self.date.date().isoformat(),
+                                             self.satellite,
+                                             self.sensor,
+                                             self.scene_id)
+
+    def _parse(self):
+        d = self.meta.copy()
+        self.scene_id = d['scene_id']
+        self.satellite = d['satellite_name'].replace('andsat-','').upper()
+        self.sensor = d['sensor'].replace('_', '')
+        self.date = dateutil.parser.parse(d['acquisitionDate'])
+        self.row = d['row']
+        self.path = d['path']
+
+    def _build_gs_links(self):
+        *base_url, scene_id_bis = self.meta['download_links']['google'][0].split('/')
+        base_url = '/'.join(base_url)
+        scene_id_bis = '_'.join(scene_id_bis.split('_')[:-1])
+        for band in ALL_BANDS_LANDSAT:
+            self.urls['gcloud'][band] = '{}/{}_{}.TIF'.format(base_url, scene_id_bis, band)
+
+    def _build_s3_links(self):
+        *base_url, scene_id_bis = self.meta['download_links']['aws_s3'][0].split('/')
+        base_url = '/'.join(base_url)
+        scene_id_bis = '_'.join(scene_id_bis.split('_')[:-1])
+        for band in ALL_BANDS_LANDSAT:
+            self.urls['aws'][band] = '{}/{}_{}.TIF'.format(base_url, scene_id_bis, band)
 
 
 class DevSeedParser:
