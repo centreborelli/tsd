@@ -288,9 +288,9 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
-                        default='gcloud', help='search API')
+                        default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
-                        default='gcloud', help='download mirror')
+                        default='aws', help='download mirror')
     parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-6', 'Landsat-7', 'Landsat-8'],
                         default='Landsat', help='satellite')
     parser.add_argument('--sensor', type=str, choices=['MSS', 'TM', 'ETM', 'OLITIRS'],
