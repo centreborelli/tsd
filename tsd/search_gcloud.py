@@ -7,7 +7,9 @@ import shapely.geometry
 import numpy as np
 import pandas as pd
 
-from pandas.io import gbq
+# from pandas.io import gbq
+from google.cloud import bigquery
+
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import utils
@@ -122,7 +124,10 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-2', sensor=N
         print('You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
         raise e
 
-    df = gbq.read_gbq(query, private_key=private_key)
+    # df = gbq.read_gbq(query, private_key=private_key)
+    client = bigquery.Client.from_service_account_json(private_key)
+    rows = list(client.query(query).result())
+    df = pd.DataFrame(dict(row.items()) for row in rows)
 
     # check if the image footprint contains the area of interest
     if satellite=='Sentinel-2':
