@@ -90,7 +90,7 @@ def search(aoi, start_date, end_date, satellite, sensor, api='gcloud'):
     elif api == 'devseed':
         import search_devseed
         images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
-        images = [metadata_parser.LandsatDevSeedParser(img) for img in images['results']]
+        images = [metadata_parser.LandsatDevSeedParser(img) for img in images]
 
     # sort images by acquisition day, then by mgrs id
     images.sort(key=(lambda k: (k.date.date(), k.row, k.path)))
@@ -117,7 +117,8 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
             crops_args.append((fname, img.urls[mirror][b]))
 
-    utils.mkdir_p(out_dir)
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
+    os.makedirs(out_dir, exist_ok=True)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
                                                                      len(imgs),
                                                                      len(bands) +1),
@@ -290,7 +291,7 @@ if __name__ == '__main__':
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
                         default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
-                        default='aws', help='download mirror')
+                        default='gcloud', help='download mirror')
     parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-6', 'Landsat-7', 'Landsat-8'],
                         default='Landsat', help='satellite')
     parser.add_argument('--sensor', type=str, choices=['MSS', 'TM', 'ETM', 'OLITIRS'],

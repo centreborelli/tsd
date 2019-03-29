@@ -100,7 +100,7 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
     if api == 'devseed':
         import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
-                                       'Sentinel-2')['features']
+                                       'Sentinel-2')
         images = [metadata_parser.DevSeedParser(img) for img in images]
     elif api == 'scihub':
         import search_scihub

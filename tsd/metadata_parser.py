@@ -33,18 +33,31 @@ import re
 import pprint
 import dateutil.parser
 import requests
+import json
+from bs4 import BeautifulSoup
 from search_scihub import read_copernicus_credentials_from_environment_variables
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
 AWS_HTTPS_URL_L8 = 'https://landsat-pds.s3.amazonaws.com'
 GCLOUD_URL_L1C = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
+GCLOUD_URL_LANDSAT = 'https://storage.googleapis.com/gcp-public-data-landsat'
 SCIHUB_API_URL = "https://scihub.copernicus.eu/apihub/odata/v1"
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
 
 ALL_BANDS_LANDSAT = ['B{}'.format(i) for i in range(1,12)] + ['BQA']
+
+
+def get_granule_id_from_json(url):
+    r = json.loads(requests.get(url).text)['datastrip']['id']
+    return r.split('.')[0]
+
+def get_granule_id_from_xml(url):
+    r = requests.get(url).text
+    soup = BeautifulSoup(r, 'lxml')
+    return soup.find('mask_filename').text.split('/')[1]
 
 def band_resolution(b):
     """
@@ -102,26 +115,29 @@ class LandsatDevSeedParser:
 
     def _parse(self):
         d = self.meta.copy()
-        self.scene_id = d['scene_id']
-        self.satellite = d['satellite_name'].replace('andsat-','').upper()
-        self.sensor = d['sensor'].replace('_', '')
-        self.date = dateutil.parser.parse(d['acquisitionDate'])
-        self.row = d['row']
-        self.path = d['path']
+        self.scene_id = d['properties']['landsat:scene_id']
+        self.product_id = d['properties']['landsat:product_id']
+        self.satellite = d['properties']['eo:platform'].replace('andsat-','').upper()
+        self.sensor = d['properties']['eo:instrument'].replace('_', '')
+        self.date = dateutil.parser.parse(d['properties']['datetime'])
+        self.row = d['properties']['eo:row']
+        self.path = d['properties']['eo:column']
 
     def _build_gs_links(self):
-        *base_url, scene_id_bis = self.meta['download_links']['google'][0].split('/')
-        base_url = '/'.join(base_url)
-        scene_id_bis = '_'.join(scene_id_bis.split('_')[:-1])
+        d = self.meta.copy()
         for band in ALL_BANDS_LANDSAT:
-            self.urls['gcloud'][band] = '{}/{}_{}.TIF'.format(base_url, scene_id_bis, band)
+            sat_bis,*_,collec,_ = self.product_id.split('_')
+            base_url = '{}/{}/{}/{}/{}/{}'.format(GCLOUD_URL_LANDSAT,sat_bis,collec,self.path,self.row, self.product_id)
+            self.urls['gcloud'][band] = '{}/{}_{}.TIF'.format(base_url, self.product_id, band)
 
     def _build_s3_links(self):
-        *base_url, scene_id_bis = self.meta['download_links']['aws_s3'][0].split('/')
-        base_url = '/'.join(base_url)
-        scene_id_bis = '_'.join(scene_id_bis.split('_')[:-1])
+        if self.satellite!='L8':
+            return
+        d = self.meta.copy()
         for band in ALL_BANDS_LANDSAT:
-            self.urls['aws'][band] = '{}/{}_{}.TIF'.format(base_url, scene_id_bis, band)
+            band_dico = d['assets'].get(band)
+            if band_dico is not None:
+                self.urls['aws'][band] = band_dico['href']
 
 
 class DevSeedParser:
@@ -140,15 +156,18 @@ class DevSeedParser:
 
     def _parse(self):
         d = self.meta.copy()
-        mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['properties']['id'])[0]
-        self.utm_zone, self.lat_band, self.sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
-        self.mgrs_id = mgrs_id
+        self.utm_zone  = d['properties']['sentinel:utm_zone']
+        self.lat_band  = d['properties']['sentinel:latitude_band']
+        self.sqid  = d['properties']['sentinel:grid_square']
+        self.mgrs_id = '{}{}{}'.format(self.utm_zone, self.lat_band, self.sqid)
         self.date = dateutil.parser.parse(d['properties']['datetime'])
         self.title = d['properties']['sentinel:product_id']
-        self.id = d['properties']['id']
+        self.id = d['id']
+        self.granule_id = get_granule_id_from_xml(d['assets']['metadata']['href'])
+
         s = re.search('_R([0-9]{3})_', self.title)
         self.orbit = int(s.group(1)) if s else 0
-        self.satellite = d['properties']['eo:platform'].replace("Sentinel-", "S")  # Sentinel-2B --> S2B
+        self.satellite = d['properties']['eo:platform'].replace("sentinel-", "S")  # Sentinel-2B --> S2B
         self.is_old = True if 'OPER' in self.title else False
         self.cloud_cover = d['properties']['eo:cloud_cover']
         self.thumbnail = d['assets']['thumbnail']['href'].replace('sentinel-s2-l1c.s3.amazonaws.com',
@@ -160,16 +179,18 @@ class DevSeedParser:
             _, _, _, msi, _, d1, r, v, d2 = self.title.split('_')
             _, _, _, _, _, _, _, d3, a, t, n = self.id.split('_')
             safe_name = '_'.join([self.satellite, msi, v[1:], n.replace('.', ''), r, t, d1])
-            img_name = '{}_{}.jp2'.format('_'.join(self.id.split('_')[:-1]), '{}')
+            # safe_name = self.title
+            _, _, d1, _, _, t, _ = safe_name.split('_')
+            img_name = '{}_{}_{}.jp2'.format(t, d1, '{}')
             cloud_mask_name = '{}_B00_MSIL1C.gml'.format('_'.join(self.id.split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
 
         else:
             safe_name = self.title
-            _, _, d1, _, r, t, d2 = self.title.split('_')
+            _, _, d1, _, r, t, d2 = safe_name.split('_')
             img_name = '{}_{}_{}.jp2'.format(t, d1, '{}')
             cloud_mask_name = 'MSK_CLOUDS_B00.gml'
 
-        granule_id = self.id
+        granule_id = self.granule_id
         base_url = '{}/tiles/{}/{}/{}/{}.SAFE'.format(GCLOUD_URL_L1C,
                                                       self.utm_zone,
                                                       self.lat_band,
@@ -181,6 +202,14 @@ class DevSeedParser:
         self.urls['gcloud']['cloud_mask'] = '{}/GRANULE/{}/QI_DATA/{}'.format(base_url, granule_id, cloud_mask_name)
 
     def _build_s3_links(self):
+        # d = self.meta.copy()
+        # for band in ALL_BANDS:
+        #     href =d['assets'][band][href]
+        #     if 'l1c' in href:
+        #         href = href.replace('https://sentinel-s2-l1c.s3.amazonaws.com', AWS_S3_URL_L1C)
+        #     else:
+        #         href = href.replace('https://sentinel-s2-l2a.s3.amazonaws.com', AWS_S3_URL_L2A)
+        #     self.urls['aws'][band] = href
         aws_s3_url = AWS_S3_URL_L2A if 'MSIL2A' in self.title else AWS_S3_URL_L1C
         base_url = '{}/tiles/{}/{}/{}/{}/{}/{}/0'.format(aws_s3_url, self.utm_zone, self.lat_band, self.sqid,
                                                          self.date.year, self.date.month, self.date.day)
@@ -188,7 +217,6 @@ class DevSeedParser:
         for band in ALL_BANDS:
             self.urls['aws'][band] = full_url.format(band) if 'MLSL2A' not in self.title else full_url.format(band_resolution(band), band)
         self.urls['aws']['cloud_mask'] = '{}/qi/MSK_CLOUDS_B00.gml'.format(base_url)
-
 
 class GcloudParser:
     def __init__(self, img):
