@@ -77,7 +77,8 @@ def post_scihub(url, query, user, password):
 
 def build_scihub_query(aoi, start_date=None, end_date=None,
                        satellite='Sentinel-1', product_type='GRD',
-                       operational_mode='IW', relative_orbit_number=None):
+                       operational_mode='IW', relative_orbit_number=None,
+                       swath_identifier=None):
     """
     """
     # default start/end dates
@@ -95,6 +96,9 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
                                                       end_date.isoformat())
     if relative_orbit_number is not None:
         query += ' AND relativeorbitnumber:{}'.format(relative_orbit_number)
+
+    if swath_identifier is not None:
+        query += ' AND swathidentifier:{}'.format(swath_identifier)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
@@ -174,7 +178,9 @@ def prettify_scihub_dict(d):
 
 
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
-           product_type='GRD', operational_mode='IW', relative_orbit_number=None, api='copernicus'):
+           product_type='GRD', operational_mode='IW',
+           relative_orbit_number=None, swath_identifier=None,
+           api='copernicus'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
@@ -182,7 +188,8 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
         product_type = 'S2MSI1C'
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
-                               product_type, operational_mode, relative_orbit_number)
+                               product_type, operational_mode,
+                               relative_orbit_number, swath_identifier)
     results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
 
     # check if the image footprint contains the area of interest
@@ -220,6 +227,8 @@ if __name__ == '__main__':
                         help='type of image: RAW, SLC, GRD, OCN (for S1), S2MSI1C, S2MSI2A, S2MSI2Ap (for S2)')
     parser.add_argument('--operational-mode', default='IW',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
+    parser.add_argument('--swath-identifier',
+                        help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
     parser.add_argument('--api', default='copernicus',
                         help='mirror to use: copernicus, austria or finland')
     args = parser.parse_args()
@@ -240,4 +249,5 @@ if __name__ == '__main__':
                             satellite=args.satellite,
                             product_type=args.product_type,
                             operational_mode=args.operational_mode,
+                            swath_identifier=args.swath_identifier,
                             api=args.api)))
