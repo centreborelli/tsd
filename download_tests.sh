@@ -7,14 +7,15 @@ python3 tsd/get_landsat.py --lon 31.1346 --lat 29.9793 -w 5000 -l 5000 -s 2015-0
 python3 tsd/get_sentinel2.py --lon 31.1346 --lat 29.9793 -w 5000 -l 5000 -s 2016-04-05 -e 2016-05-12 -o tests/s2
 
 # test the 8 (api, mirror) combinations
-#for API in devseed planet scihub gcloud
-#do
+# for API in devseed planet scihub gcloud
+# for API in devseed gcloud
+# do
 #    for MIRROR in aws gcloud
 #    do
 #        echo ${API} ${MIRROR}
-#        python3 tsd/get_sentinel2.py --lon -102.5364 --lat 32.4396 -w 2560 -l 2560 -s 2016-04-05 -e 2016-07-20 -o tests/s2_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
+#        python3 tsd/get_sentinel2.py --lon -102.5364 --lat 32.4396 -w 2560 -l 2560 -s 2018-04-05 -e 2018-07-20 -o tests/s2_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
 #        echo
 #        echo
 #        echo
 #    done
-#done
+# done
