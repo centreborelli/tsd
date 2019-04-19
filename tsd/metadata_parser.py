@@ -35,7 +35,7 @@ import dateutil.parser
 import requests
 import json
 from bs4 import BeautifulSoup
-from search_scihub import read_copernicus_credentials_from_environment_variables
+from tsd.search_scihub import read_copernicus_credentials_from_environment_variables
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'

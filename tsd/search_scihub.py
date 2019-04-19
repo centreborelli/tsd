@@ -32,7 +32,7 @@ import shapely.wkt
 import requests
 import dateutil.parser
 
-import utils
+from tsd import utils
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com

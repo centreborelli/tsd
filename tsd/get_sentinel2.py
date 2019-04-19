@@ -37,9 +37,9 @@ import botocore
 import geojson
 import shapely.geometry
 
-import utils
-import parallel
-import metadata_parser
+from tsd import utils
+from tsd import parallel
+from tsd import metadata_parser
 
 # list of spectral bands
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
@@ -98,12 +98,12 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
     """
     # list available images
     if api == 'devseed':
-        import search_devseed
+        from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
                                        'Sentinel-2')
         images = [metadata_parser.DevSeedParser(img) for img in images]
     elif api == 'scihub':
-        import search_scihub
+        from tsd import search_scihub
         if product_type is not None:
             product_type = 'S2MSI{}'.format(product_type[1:])
         images = search_scihub.search(aoi, start_date, end_date,
@@ -111,12 +111,12 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
                                       product_type=product_type)
         images = [metadata_parser.SciHubParser(img) for img in images]
     elif api == 'planet':
-        import search_planet
+        from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])
         images = [metadata_parser.PlanetParser(img) for img in images]
     elif api == 'gcloud':
-        import search_gcloud
+        from tsd import search_gcloud
         images = search_gcloud.search(aoi, start_date, end_date)
         images = [metadata_parser.GcloudParser(img) for img in images]
 

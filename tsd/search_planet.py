@@ -31,7 +31,7 @@ import shapely.geometry
 import dateutil.parser
 from planet import api
 
-import utils
+from tsd import utils
 
 client = api.ClientV1()
 ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrthoTile',

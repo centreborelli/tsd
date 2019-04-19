@@ -28,7 +28,7 @@ import shapely.geometry
 
 import satsearch
 
-import utils
+from tsd import utils
 
 
 def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):

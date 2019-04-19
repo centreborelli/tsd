@@ -30,8 +30,8 @@ import dateutil.parser
 import bs4
 import requests
 
-import utils
-import search_scihub
+from tsd import utils
+from tsd import search_scihub
 
 
 PEPS_URL_SEARCH = 'https://peps.cnes.fr/resto/api/collections'

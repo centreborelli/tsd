@@ -34,9 +34,9 @@ import numpy as np
 import dateutil.parser
 import rasterio
 
-import utils
-import parallel
-import search_planet
+from tsd import utils
+from tsd import parallel
+from tsd import search_planet
 
 ITEM_TYPES = search_planet.ITEM_TYPES
 ASSETS = ['udm',

@@ -26,7 +26,7 @@ import shapely.geometry
 import rasterio
 import pyproj
 
-import rpc_model
+from tsd import rpc_model
 
 
 warnings.filterwarnings("ignore",

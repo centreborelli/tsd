@@ -1,7 +1,7 @@
 import datetime
 
-import search_scihub
-import utils
+from tsd import search_scihub
+from tsd import utils
 
 aoi = utils.geojson_geometry_object(29.9793, 31.1346, 5000, 5000)
 results = search_scihub.search(aoi,

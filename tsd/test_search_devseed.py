@@ -1,7 +1,7 @@
 import datetime
 
-import utils
-import search_devseed
+from tsd import utils
+from tsd import search_devseed
 
 aoi = utils.geojson_geometry_object(29.9793, 31.1346, 5000, 5000)
 results = search_devseed.search(aoi,
