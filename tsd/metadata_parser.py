@@ -36,7 +36,6 @@ import dateutil.parser
 import requests
 import json
 from bs4 import BeautifulSoup
-import sentinelhub
 from tsd.search_scihub import read_copernicus_credentials_from_environment_variables
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
@@ -45,6 +44,7 @@ AWS_HTTPS_URL_L8 = 'https://landsat-pds.s3.amazonaws.com'
 GCLOUD_URL_L1C = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 GCLOUD_URL_LANDSAT = 'https://storage.googleapis.com/gcp-public-data-landsat'
 SCIHUB_API_URL = "https://scihub.copernicus.eu/apihub/odata/v1"
+RODA_URL = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles'
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
@@ -76,6 +76,7 @@ def get_s2_granule_id_of_scihub_item_from_sentinelhub(img):
     Return:
         str: granule id, e.g. L1C_T36RTV_A005095_20180226T084545
     """
+    import sentinelhub
     mgrs_id = img['tileid']
     orbit_number = img['orbitnumber']
     date = dateutil.parser.parse(img['beginposition'])
@@ -86,6 +87,37 @@ def get_s2_granule_id_of_scihub_item_from_sentinelhub(img):
     assert(isinstance(r, dict))
 
     granule_date = dateutil.parser.parse(r['properties']['startDate']).strftime("%Y%m%dT%H%M%S")
+    return "L1C_T{}_A{:06d}_{}".format(mgrs_id, orbit_number, granule_date)
+
+
+def get_s2_granule_id_of_scihub_item_from_roda(img):
+    """
+    Build the granule id of a given single tile SAFE.
+
+    The hard part is to get the timestamp in the granule id. Unfortunately this
+    timestamp is not part of the metadata returned by scihub. This function queries
+    roda to retrieve it. It takes about 200 ms.
+
+    Args:
+        img (dict): single SAFE metadata as returned by scihub opensearch API
+
+    Return:
+        str: granule id, e.g. L1C_T36RTV_A005095_20180226T084545
+    """
+    mgrs_id = img['tileid']
+    orbit_number = img['orbitnumber']
+    date = dateutil.parser.parse(img['beginposition'])
+
+    utm_zone = mgrs_id[:2]
+    lat_band = mgrs_id[2]
+    sqid = mgrs_id[3:]
+
+    roda_url = '{}/{}/{}/{}/{}/{}/{}/0/productInfo.json'.format(RODA_URL, utm_zone, lat_band, sqid,
+                                                                date.year, date.month, date.day)
+    r = requests.get(roda_url)
+    if r.ok:
+        d = r.json()
+        granule_date = dateutil.parser.parse(d['tiles'][0]['timestamp']).strftime("%Y%m%dT%H%M%S")
     return "L1C_T{}_A{:06d}_{}".format(mgrs_id, orbit_number, granule_date)
 
 
@@ -393,7 +425,7 @@ class SciHubParser:
                                                       self.sqid,
                                                       self.title)
 
-        granule = get_s2_granule_id_of_scihub_item_from_sentinelhub(self.meta)
+        granule = get_s2_granule_id_of_scihub_item_from_roda(self.meta)
         full_url = '{}/GRANULE/{}'.format(base_url, granule)
 
         self.urls['gcloud']['cloud_mask'] = '{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(full_url)
