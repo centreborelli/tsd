@@ -31,10 +31,12 @@ Each parser returns an object with the following data structure:
 from __future__ import print_function
 import re
 import pprint
+import datetime
 import dateutil.parser
 import requests
 import json
 from bs4 import BeautifulSoup
+import sentinelhub
 from tsd.search_scihub import read_copernicus_credentials_from_environment_variables
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
@@ -58,6 +60,56 @@ def get_granule_id_from_xml(url):
     r = requests.get(url).text
     soup = BeautifulSoup(r, 'lxml')
     return soup.find('mask_filename').text.split('/')[1]
+
+
+def get_s2_granule_id_of_scihub_item_from_sentinelhub(img):
+    """
+    Build the granule id of a given single tile SAFE.
+
+    The hard part is to get the timestamp in the granule id. Unfortunately this
+    timestamp is not part of the metadata returned by scihub. This function queries
+    sentinelhub to retrieve it. It takes about 3 seconds.
+
+    Args:
+        img (dict): single SAFE metadata as returned by scihub opensearch API
+
+    Return:
+        str: granule id, e.g. L1C_T36RTV_A005095_20180226T084545
+    """
+    mgrs_id = img['tileid']
+    orbit_number = img['orbitnumber']
+    date = dateutil.parser.parse(img['beginposition'])
+
+    t0 = (date - datetime.timedelta(hours=2)).isoformat()
+    t1 = (date + datetime.timedelta(hours=2)).isoformat()
+    r = sentinelhub.opensearch.get_tile_info('T{}'.format(mgrs_id), time=(t0, t1))
+    assert(isinstance(r, dict))
+
+    granule_date = dateutil.parser.parse(r['properties']['startDate']).strftime("%Y%m%dT%H%M%S")
+    return "L1C_T{}_A{:06d}_{}".format(mgrs_id, orbit_number, granule_date)
+
+
+def get_s2_granule_id_of_scihub_item_from_scihub(img):
+    """
+    Build the granule id of a given single tile SAFE.
+
+    The hard part is to get the timestamp in the granule id. Unfortunately this
+    timestamp is not part of the metadata returned by scihub. This function queries
+    scihub OData API to retrieve it. It can be insanely slow (a few minutes).
+    Another con is that it needs credentials.
+
+    Args:
+        img (dict): single SAFE metadata as returned by scihub opensearch API
+
+    Return:
+        str: granule id, e.g. L1C_T36RTV_A005095_20180226T084545
+    """
+    granule_request = "{}/Products('{}')/Nodes('{}')/Nodes('GRANULE')/Nodes?$format=json".format(SCIHUB_API_URL,
+                                                                                                 img['id'],
+                                                                                                 img['filename'])
+    granules = requests.get(granule_request, auth=(read_copernicus_credentials_from_environment_variables())).json()
+    return granules["d"]["results"][0]["Id"]
+
 
 def band_resolution(b):
     """
@@ -309,71 +361,46 @@ class SciHubParser:
         self._parse()
         self._build_gs_links()
         self._build_s3_links()
-        self.filename = '{}_{}_orbit_{:03d}_tile_{}_{}'.format(self.date.date().isoformat(),
+        self.filename = '{}_{}_orbit_{:03d}_tile_{}'.format(self.date.date().isoformat(),
                                                             self.satellite, self.orbit,
-                                                            self.mgrs_id, self.granule_id)
+                                                            self.mgrs_id)
 
     def _parse(self):
         d = self.meta.copy()
-        date_string = d["beginposition"]
-        self.date = dateutil.parser.parse(date_string, ignoretz=True)
+        self.date = dateutil.parser.parse(d["beginposition"], ignoretz=True)
         if "tileid" not in d:
             self.mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['title'])[0]
         else:
             self.mgrs_id = d["tileid"]
         self.utm_zone, self.lat_band, self.sqid = re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', self.mgrs_id)[1:4]
-        self.orbit = int(d['orbitnumber'])
+        s = re.search('_R([0-9]{3})_', d['title'])
+        self.orbit = int(s.group(1)) if s else 0
         self.satellite = d['title'][:3]  # S2A_MSIL1C_2018010... --> S2A
         self.title = d['title']
         self.name = d['filename']
 
     def _build_gs_links(self):
-        d = self.meta.copy()
-        mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", d['identifier'])[0]
-        self.utm_zone, self.lat_band, self.sqid = mgrs_id[:2], mgrs_id[2], mgrs_id[3:]
-        self.mgrs_id = mgrs_id
-        self.date = dateutil.parser.parse(d['beginposition'])
-        self.title = d['title']
-        self.id = d['id']
-        s = re.search('_R([0-9]{3})_', self.title)
-        self.orbit = int(s.group(1)) if s else 0
-        self.satellite = d['platformname'].replace("Sentinel-", "S")  # Sentinel-2B --> S2B
-        self.is_old = True if 'OPER' in self.title else False
+        """
+        Example:
+        https://storage.googleapis.com/gcp-public-data-sentinel-2/tiles/36/R/TV/S2B_MSIL1C_20180226T083909_N0206_R064_T36RTV_20180226T122942.SAFE/GRANULE/L1C_T36RTV_A005095_20180226T084545/IMG_DATA/T36RTV_20180226T083909_B01.jp2
 
-        if self.is_old:  # old safes, before 2016-12-6
-            _, _, _, msi, _, d1, r, v, d2 = self.title.split('_')
-            _, _, _, _, _, _, _, d3, a, t, n = self.id.split('_')
-            safe_name = '_'.join([self.satellite, msi, v[1:], n.replace('.', ''), r, t, d1])
-            img_name = '{}_{}.jp2'.format('_'.join(self.id.split('_')[:-1]), '{}')
-            cloud_mask_name = '{}_B00_MSIL1C.gml'.format('_'.join(self.id.split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
-
-        else:
-            safe_name = self.title
-            _, _, d1, _, r, t, d2 = self.title.split('_')
-            img_name = '{}_{}_{}.jp2'.format(t, d1, '{}')
-            cloud_mask_name = 'MSK_CLOUDS_B00.gml'
-
-        granule_id = self.id
-
+        The tricky part is to find the time (084545 in the example above) in
+        the granule name, which is not part of the scihub API response.
+        """
         base_url = '{}/tiles/{}/{}/{}/{}.SAFE'.format(GCLOUD_URL_L1C,
                                                       self.utm_zone,
                                                       self.lat_band,
                                                       self.sqid,
-                                                      safe_name)
+                                                      self.title)
 
-        granule_request = "{}/Products('{}')/Nodes('{}')/Nodes('GRANULE')/Nodes?$format=json".format(SCIHUB_API_URL,
-                                                                                                     self.id,
-                                                                                                     self.name)
+        granule = get_s2_granule_id_of_scihub_item_from_sentinelhub(self.meta)
+        full_url = '{}/GRANULE/{}'.format(base_url, granule)
 
-        granules = requests.get(granule_request, auth=(read_copernicus_credentials_from_environment_variables())).json()
-
-        gran_id = granules["d"]["results"][0]["Id"]
-        self.granule_id = gran_id
-
-        full_url = '{}/GRANULE/{}/IMG_DATA/{}'.format(base_url, gran_id, img_name)
+        self.urls['gcloud']['cloud_mask'] = '{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(full_url)
+        date = self.title.split('_')[2]
         for band in ALL_BANDS:
-            self.urls['gcloud'][band] = full_url.format(band)
-        self.urls['gcloud']['cloud_mask'] = '{}/GRANULE/{}/QI_DATA/{}'.format(base_url, gran_id, cloud_mask_name)
+            self.urls['gcloud'][band] = '{}/IMG_DATA/T{}_{}_{}.jp2'.format(full_url, self.mgrs_id, date, band)
+
 
     def _build_s3_links(self):
         aws_s3_url = AWS_S3_URL_L1C
