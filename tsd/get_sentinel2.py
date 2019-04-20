@@ -36,11 +36,10 @@ import boto3
 import botocore
 import geojson
 import shapely.geometry
-import tqdm
 
 from tsd import utils
 from tsd import parallel
-from tsd import metadata_parser
+from tsd import s2_metadata_parser
 
 # list of spectral bands
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
@@ -67,7 +66,7 @@ def check_args(api, mirror, product_type):
 
         if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
             try:
-                boto3.session.Session().client('s3').list_objects_v2(Bucket=metadata_parser.AWS_S3_URL_L1C[5:],
+                boto3.session.Session().client('s3').list_objects_v2(Bucket=s2_metadata_parser.AWS_S3_URL_L1C[5:],
                                                                      RequestPayer='requester')
             except botocore.exceptions.ClientError:
                 raise ValueError(
@@ -102,7 +101,6 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
                                        'Sentinel-2')
-        images = [metadata_parser.DevSeedParser(img) for img in images]
     elif api == 'scihub':
         from tsd import search_scihub
         if product_type is not None:
@@ -110,18 +108,16 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         images = search_scihub.search(aoi, start_date, end_date,
                                       satellite='Sentinel-2',
                                       product_type=product_type)
-        print('Building download urls...')
-        for i, img in enumerate(tqdm.tqdm(images)):
-            images[i] = metadata_parser.SciHubParser(img)
     elif api == 'planet':
         from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])
-        images = [metadata_parser.PlanetParser(img) for img in images]
     elif api == 'gcloud':
         from tsd import search_gcloud
         images = search_gcloud.search(aoi, start_date, end_date)
-        images = [metadata_parser.GcloudParser(img) for img in images]
+
+    # parse the API metadata
+    images = [s2_metadata_parser.Sentinel2Image(img, api) for img in images]
 
     # sort images by acquisition day, then by mgrs id
     images.sort(key=(lambda k: (k.date.date(), k.mgrs_id)))
@@ -135,7 +131,7 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
             unique_images.append(img)
 
     print('Found {} images'.format(len(unique_images)))
-    return [vars(img) for img in unique_images]
+    return unique_images
 
 
 def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
@@ -150,16 +146,25 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
         out_dir (str): path where to store the downloaded crops
         parallel_downloads (int): number of parallel downloads
     """
+    print('Building {} {} download urls...'.format(len(imgs), mirror),)
+    if mirror == 'gcloud':
+        parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
+                           imgs, pool_type='threads',
+                           nb_workers=parallel_downloads)
+    else:
+        parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_s3_links,
+                           imgs, pool_type='threads',
+                           nb_workers=parallel_downloads)
+
     crops_args = []
     for img in imgs:
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
-        coords = utils.utm_bbx(aoi, utm_zone=int(img['utm_zone']),
+        coords = utils.utm_bbx(aoi, utm_zone=int(img.utm_zone),
                                r=60)  # round to multiples of 60 (B01 resolution)
 
         for b in bands:
-            fname = os.path.join(
-                out_dir, '{}_band_{}.tif'.format(img['filename'], b))
-            crops_args.append((fname, img['urls'][mirror][b], *coords))
+            fname = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            crops_args.append((fname, img.urls[mirror][b], *coords))
 
     out_dir = os.path.abspath(os.path.expanduser(out_dir))
     os.makedirs(out_dir, exist_ok=True)
@@ -176,7 +181,7 @@ def bands_files_are_valid(img, bands, api, directory):
     """
     Check if all bands images files are valid.
     """
-    filenames = ['{}_band_{}.tif'.format(img['filename'], b) for b in bands]
+    filenames = ['{}_band_{}.tif'.format(img.filename, b) for b in bands]
     paths = [os.path.join(directory, f) for f in filenames]
     return all(utils.is_valid(p) for p in paths)
 
@@ -294,13 +299,13 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
-        d = img['meta']
-        d.update({'downloaded_by': 'TSD on {}'.format(
-            datetime.datetime.now().isoformat())})
+        metadata = vars(img)
+        metadata.pop('urls')
+        metadata['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
+
         for b in bands:
-            filepath = os.path.join(
-                out_dir, '{}_band_{}.tif'.format(img['filename'], b))
-            utils.set_geotif_metadata_items(filepath, d)
+            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            utils.set_geotif_metadata_items(filepath, metadata)
 
     if cloud_masks:  # discard images that are totally covered by clouds
         read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,
@@ -332,7 +337,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
-                        default='scihub', help='search API')
+                        default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
     parser.add_argument(

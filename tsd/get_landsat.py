@@ -40,7 +40,7 @@ import numpy as np
 
 from tsd import utils
 from tsd import parallel
-from tsd import metadata_parser
+from tsd import l8_metadata_parser
 
 # list of spectral bands
 ALL_BANDS = ['B{}'.format(i) for i in range(1,12)] + ['BQA']
@@ -86,11 +86,11 @@ def search(aoi, start_date, end_date, satellite, sensor, api='gcloud'):
     if api == 'gcloud':
         from tsd import search_gcloud
         images = search_gcloud.search(aoi, start_date, end_date, satellite=satellite, sensor=sensor)
-        images = [metadata_parser.LandsatGcloudParser(img) for img in images]
+        images = [l8_metadata_parser.LandsatGcloudParser(img) for img in images]
     elif api == 'devseed':
         from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
-        images = [metadata_parser.LandsatDevSeedParser(img) for img in images]
+        images = [l8_metadata_parser.LandsatDevSeedParser(img) for img in images]
 
     # sort images by acquisition day, then by mgrs id
     images.sort(key=(lambda k: (k.date.date(), k.row, k.path)))
