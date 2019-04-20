@@ -90,6 +90,15 @@ def get_s2_granule_id_of_scihub_item_from_sentinelhub(img):
     return "L1C_T{}_A{:06d}_{}".format(mgrs_id, orbit_number, granule_date)
 
 
+def get_s2_granule_timestamp_from_roda_tileinfo(url):
+    """
+    """
+    r = requests.get(url)
+    if r.ok:
+        d = r.json()
+        return dateutil.parser.parse(d['timestamp']).strftime("%Y%m%dT%H%M%S")
+
+
 def get_s2_granule_id_of_scihub_item_from_roda(img):
     """
     Build the granule id of a given single tile SAFE.
@@ -112,12 +121,9 @@ def get_s2_granule_id_of_scihub_item_from_roda(img):
     lat_band = mgrs_id[2]
     sqid = mgrs_id[3:]
 
-    roda_url = '{}/{}/{}/{}/{}/{}/{}/0/productInfo.json'.format(RODA_URL, utm_zone, lat_band, sqid,
-                                                                date.year, date.month, date.day)
-    r = requests.get(roda_url)
-    if r.ok:
-        d = r.json()
-        granule_date = dateutil.parser.parse(d['tiles'][0]['timestamp']).strftime("%Y%m%dT%H%M%S")
+    roda_url = '{}/{}/{}/{}/{}/{}/{}/0/tileInfo.json'.format(RODA_URL, utm_zone, lat_band, sqid,
+                                                             date.year, date.month, date.day)
+    granule_date = get_s2_granule_timestamp_from_roda_tileinfo(roda_url)
     return "L1C_T{}_A{:06d}_{}".format(mgrs_id, orbit_number, granule_date)
 
 
@@ -239,7 +245,7 @@ class DevSeedParser:
                                                             self.mgrs_id)
 
     def _parse(self):
-        d = self.meta.copy()
+        d = self.meta
         self.utm_zone  = d['properties']['sentinel:utm_zone']
         self.lat_band  = d['properties']['sentinel:latitude_band']
         self.sqid  = d['properties']['sentinel:grid_square']
@@ -247,8 +253,6 @@ class DevSeedParser:
         self.date = dateutil.parser.parse(d['properties']['datetime'])
         self.title = d['properties']['sentinel:product_id']
         self.id = d['id']
-        self.granule_id = get_granule_id_from_xml(d['assets']['metadata']['href'])
-
         s = re.search('_R([0-9]{3})_', self.title)
         self.orbit = int(s.group(1)) if s else 0
         self.satellite = d['properties']['eo:platform'].replace("sentinel-", "S")  # Sentinel-2B --> S2B
@@ -256,6 +260,8 @@ class DevSeedParser:
         self.cloud_cover = d['properties']['eo:cloud_cover']
         self.thumbnail = d['assets']['thumbnail']['href'].replace('sentinel-s2-l1c.s3.amazonaws.com',
                                                                   'roda.sentinel-hub.com/sentinel-s2-l1c')
+        granule_date = get_s2_granule_timestamp_from_roda_tileinfo(d['assets']['info']['href'])
+        self.granule_id = "L1C_T{}_A{:06d}_{}".format(self.mgrs_id, self.orbit, granule_date)
 
 
     def _build_gs_links(self):
