@@ -36,6 +36,7 @@ import boto3
 import botocore
 import geojson
 import shapely.geometry
+import tqdm
 
 from tsd import utils
 from tsd import parallel
@@ -109,7 +110,9 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         images = search_scihub.search(aoi, start_date, end_date,
                                       satellite='Sentinel-2',
                                       product_type=product_type)
-        images = [metadata_parser.SciHubParser(img) for img in images]
+        print('Building download urls...')
+        for i, img in enumerate(tqdm.tqdm(images)):
+            images[i] = metadata_parser.SciHubParser(img)
     elif api == 'planet':
         from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,
@@ -329,7 +332,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
-                        default='devseed', help='search API')
+                        default='scihub', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
     parser.add_argument(
