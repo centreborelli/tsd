@@ -158,10 +158,11 @@ def is_image_cloudy(qa_band_file, p=0.5):
     mask = np.in1d(x, bqa_cloud_yes + bqa_cloud_maybe).reshape(x.shape)
     return np.count_nonzero(mask) > p * x.size
 
+
 def read_cloud_masks(imgs, bands, parallel_downloads, p=0.5,
                      out_dir=''):
     """
-    Read Sentinel-2 GML cloud masks and intersects them with the input aoi.
+    Read Landsat-8 cloud masks and intersects them with the input aoi.
 
     Args:
         imgs (list): list of images
@@ -185,6 +186,7 @@ def read_cloud_masks(imgs, bands, parallel_downloads, p=0.5,
                 f = '{}_band_{}.tif'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
+
 
 def read_empty_images(imgs, bands, parallel_downloads,
                      out_dir=''):
@@ -217,7 +219,7 @@ def read_empty_images(imgs, bands, parallel_downloads,
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
                     satellite='Landsat', sensor=None,
                     out_dir='', api='devseed', mirror='gcloud',
-                    cloud_masks=False, check_empty=True,
+                    cloud_masks=False, check_empty=False,
                     parallel_downloads=multiprocessing.cpu_count()):
     """
     Main function: crop and download a time series of Sentinel-2 images.
@@ -244,6 +246,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
 
     # list available images
     images = search(aoi, start_date, end_date, satellite, sensor, api=api)
+
     # download crops
     download(images, bands, aoi, mirror, out_dir, parallel_downloads)
 
@@ -252,11 +255,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
-        d = img.meta
-        d.update({'downloaded_by': 'TSD on {}'.format(datetime.datetime.now().isoformat())})
+        metadata = vars(img)
+        metadata['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
         for b in bands:
             filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
-            utils.set_geotif_metadata_items(filepath, d)
+            utils.set_geotif_metadata_items(filepath, metadata)
 
     if cloud_masks:  # discard images that are totally covered by clouds
         read_cloud_masks(images, bands, parallel_downloads,
