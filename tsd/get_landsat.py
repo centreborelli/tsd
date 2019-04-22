@@ -244,6 +244,12 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
     # check access to the selected search api and download mirror
     check_args(api, mirror)
 
+    # default date range
+    if end_date is None:
+        end_date = datetime.date.today()
+    if start_date is None:
+        start_date = end_date - datetime.timedelta(91)  # 3 months
+
     # list available images
     images = search(aoi, start_date, end_date, satellite, sensor, api=api)
 
