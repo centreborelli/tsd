@@ -207,7 +207,10 @@ class Sentinel2Image():
                 opensearch API response
         """
         self.title = img['title']
-        self.mgrs_id = img['tileid']
+        try:
+            self.mgrs_id = img['tileid']
+        except KeyError:
+            self.mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", img['title'])[0]
         self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
         self.date = dateutil.parser.parse(img['beginposition'], ignoretz=True)
         self.satellite = self.title[:3]  # S2A_MSIL1C_2018010... --> S2A
