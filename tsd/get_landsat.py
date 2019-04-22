@@ -177,7 +177,7 @@ def read_cloud_masks(imgs, bands, parallel_downloads, p=0.5,
 
     for img, cloud in zip(imgs, cloudy):
         if cloud:
-            utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+            os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
             for b in list(set(bands + ['BQA'])):
                 f = '{}_band_{}.tif'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
@@ -204,7 +204,7 @@ def read_empty_images(imgs, bands, parallel_downloads,
 
     for img, cloud in zip(imgs, cloudy):
         if cloud is True:
-            utils.mkdir_p(os.path.join(out_dir, 'empty'))
+            os.makedirs(os.path.join(out_dir, 'empty'), exist_ok=True)
             for b in list(set(bands + ['BQA'])):
                 f = '{}_band_{}.tif'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
