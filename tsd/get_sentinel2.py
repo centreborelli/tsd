@@ -297,7 +297,6 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
         metadata = vars(img)
-        metadata.pop('urls')
         metadata['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
 
         for b in bands:
