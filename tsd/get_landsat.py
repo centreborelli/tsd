@@ -66,7 +66,9 @@ def check_args(api, mirror):
         except KeyError:
             raise ValueError('You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
 
-def search(aoi, start_date, end_date, satellite, sensor, api='gcloud'):
+
+def search(aoi, start_date=None, end_date=None, satellite='L8',
+           sensor='OLITIRS', api='devseed'):
     """
     Search Landsat images covering an AOI and timespan using a given API.
 
@@ -94,8 +96,9 @@ def search(aoi, start_date, end_date, satellite, sensor, api='gcloud'):
 
     # sort images by acquisition day, then by mgrs id
     images.sort(key=(lambda k: (k.date.date(), k.row, k.path)))
-    return images
 
+    print('Found {} images'.format(len(images)))
+    return images
 
 
 def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
