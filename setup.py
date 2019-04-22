@@ -19,7 +19,8 @@ requirements = ['area',
                 'sat-search>=0.2',
                 'shapely',
                 'tqdm',
-                'utm']
+                'utm',
+                'sentinelhub']
 
 setup(name="tsd",
       version="0.2",
