@@ -1,7 +1,7 @@
 VERSION = (
     0,
     4,
-    6,
+    7,
 )
 
 __title__ = "tsd"

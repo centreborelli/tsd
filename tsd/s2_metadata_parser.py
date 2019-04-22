@@ -78,6 +78,28 @@ def parse_safe_name_for_mgrs_id(safe_name):
     return re.findall(r"_T([0-9]{2}[A-Z]{3})_", safe_name)[0]
 
 
+def parse_datastrip_id_for_granule_date(datastrip_id):
+    """
+    Parse a datastrip id for the corresponding granule acquisition date.
+
+    Examples of datastrip ids:
+      S2B_OPER_MSI_L1C_DS_SGS__20180510T205109_S20180510T185438_N02.06 -> 20180510T185438
+      S2A_OPER_MSI_L1C_DS_EPAE_20180516T000159_S20180515T190003_N02.06 -> 20180515T190003
+    """
+    date_str = re.findall(r"_S(2[0-9]{3}[0-1][0-9][0-3][0-9]T[0-9]{6})_",
+                          datastrip_id)[0]
+    return dateutil.parser.parse(date_str)
+
+
+def parse_datatake_id_for_absolute_orbit(datatake_id):
+    """
+    Examples of datatake ids:
+        GS2B_20180510T184929_006145_N02.06
+        GS2A_20180515T184941_015125_N02.06
+    """
+    return int(datatake_id.split('_')[2])
+
+
 def filename_from_metadata(img):
     """
     Args:
@@ -270,11 +292,11 @@ class Sentinel2Image():
         if not hasattr(self, 'granule_date'):
             tile_info = get_roda_metadata(self, filename='tileInfo.json')
             #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
-            self.granule_date = dateutil.parser.parse(tile_info['datastrip']['id'].split('_')[8][1:])
+            self.granule_date = parse_datastrip_id_for_granule_date(tile_info['datastrip']['id'])
 
         if not hasattr(self, 'absolute_orbit'):
             product_info = get_roda_metadata(self, filename='productInfo.json')
-            self.absolute_orbit = int(product_info['datatakeIdentifier'].split('_')[2])
+            self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
 
     #    if self.is_old:
     #        img_name = '{}_{}.jp2'.format('_'.join(granule_id.split('_')[:-1]), '{}')
