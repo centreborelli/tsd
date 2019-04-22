@@ -190,7 +190,7 @@ class Sentinel2Image():
         self.mgrs_id = '{}{}{}'.format(self.utm_zone, self.lat_band, self.sqid)
 
         self.date = dateutil.parser.parse(self.title.split('_')[2])
-        self.granule_date = dateutil.parser.parse(p['datetime'])
+        #self.granule_date = dateutil.parser.parse(p['datetime'])
         self.satellite = p['eo:platform'].replace("sentinel-", "S").upper()  # sentinel-2b --> S2B
         self.relative_orbit = parse_safe_name_for_relative_orbit_number(self.title)
 
@@ -266,7 +266,8 @@ class Sentinel2Image():
         """
         if not hasattr(self, 'granule_date'):
             tile_info = get_roda_metadata(self, filename='tileInfo.json')
-            self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
+            #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
+            self.granule_date = dateutil.parser.parse(tile_info['datastrip']['id'].split('_')[8][1:])
 
         if not hasattr(self, 'absolute_orbit'):
             product_info = get_roda_metadata(self, filename='productInfo.json')
