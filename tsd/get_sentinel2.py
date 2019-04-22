@@ -202,12 +202,10 @@ def is_image_cloudy(img, aoi, mirror, p=0.5):
     Return:
         boolean (True if the image is cloudy, False otherwise)
     """
-    url = img['urls'][mirror]['cloud_mask']
+    url = img.urls[mirror]['cloud_mask']
 
     if mirror == 'gcloud':
-        url = url.replace('gs://', 'http://storage.googleapis.com/')
         gml_content = requests.get(url).text
-
     else:
         bucket, *key = url.replace('s3://', '').split('/')
         f = boto3.client('s3').get_object(Bucket=bucket, Key='/'.join(key),
@@ -248,8 +246,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
     """
     print('Reading {} cloud masks...'.format(len(imgs)), end=' ')
     cloudy = parallel.run_calls(is_image_cloudy, imgs,
-                                extra_args=(
-                                    utils.geojson_lonlat_to_utm(aoi), mirror, p),
+                                extra_args=(utils.geojson_lonlat_to_utm(aoi), mirror, p),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
     print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
@@ -259,7 +256,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
             out_dir = os.path.abspath(os.path.expanduser(out_dir))
             os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
             for b in bands:
-                f = '{}_band_{}.tif'.format(img['filename'], b)
+                f = '{}_band_{}.tif'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
 
