@@ -36,14 +36,15 @@ from tsd import search_scihub
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
-GCLOUD_URL_L1C = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
+GCLOUD_URL = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
 RODA_URL = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles'
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
 
-BANDS_RESOLUTION = {'B01': 60,
+BANDS_RESOLUTION = {'TCI': 10,
+                    'B01': 60,
                     'B02': 10,
                     'B03': 10,
                     'B04': 10,
@@ -198,6 +199,9 @@ class Sentinel2Image():
         self.filename = filename_from_metadata(self)
         self.urls = {'aws': {}, 'gcloud': {}}
 
+        if not hasattr(self, 'processing_level'):
+            self.processing_level = '1C'  # right now only scihub api allows L2A
+
 
     def devseed_parser(self, img):
         """
@@ -238,6 +242,7 @@ class Sentinel2Image():
         self.satellite = self.title[:3]  # S2A_MSIL1C_2018010... --> S2A
         self.absolute_orbit = img['orbitnumber']
         self.relative_orbit = img['relativeorbitnumber']
+        self.processing_level = img['processinglevel'].split('-')[1]  # Level-1C --> L1C
         self.thumbnail = img['links']['icon']
 
 
@@ -302,22 +307,33 @@ class Sentinel2Image():
     #        img_name = '{}_{}.jp2'.format('_'.join(granule_id.split('_')[:-1]), '{}')
     #        cloud_mask_name = '{}_B00_MSIL1C.gml'.format('_'.join(granule_id.split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
 
-        granule_id = 'L1C_T{}_A{:06d}_{}'.format(self.mgrs_id,
+        granule_id = 'L{}_T{}_A{:06d}_{}'.format(self.processing_level,
+                                                 self.mgrs_id,
                                                  self.absolute_orbit,
                                                  self.granule_date.strftime("%Y%m%dT%H%M%S"))
-        base_url = '{}/tiles/{}/{}/{}/{}.SAFE/GRANULE/{}'.format(GCLOUD_URL_L1C,
-                                                                 self.utm_zone,
-                                                                 self.lat_band,
-                                                                 self.sqid,
-                                                                 self.title,
-                                                                 granule_id)
+        base_url = '{}/L2'.format(GCLOUD_URL) if self.processing_level == '2A' else GCLOUD_URL
+        base_url += '/tiles/{}/{}/{}/{}.SAFE/GRANULE/{}'.format(self.utm_zone,
+                                                                self.lat_band,
+                                                                self.sqid,
+                                                                self.title,
+                                                                granule_id)
         urls = self.urls['gcloud']
         urls['cloud_mask'] = '{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(base_url)
         for b in ALL_BANDS:
-            urls[b] = '{}/IMG_DATA/T{}_{}_{}.jp2'.format(base_url,
-                                                         self.mgrs_id,
-                                                         self.date.strftime("%Y%m%dT%H%M%S"),
-                                                         b)
+            if self.processing_level == '1C':
+                urls[b] = '{}/IMG_DATA/T{}_{}_{}.jp2'.format(base_url,
+                                                             self.mgrs_id,
+                                                             self.date.strftime("%Y%m%dT%H%M%S"),
+                                                             b)
+            elif self.processing_level == '2A':
+                urls[b] = '{}/IMG_DATA/R{}m/T{}_{}_{}_{}m.jp2'.format(base_url,
+                                                                      BANDS_RESOLUTION[b],
+                                                                      self.mgrs_id,
+                                                                      self.date.strftime("%Y%m%dT%H%M%S"),
+                                                                      b,
+                                                                      BANDS_RESOLUTION[b])
+            else:
+                raise Exception("processing_level of {} is neither L1C nor L2A".format(self['title']))
 
 
     def build_s3_links(self):
