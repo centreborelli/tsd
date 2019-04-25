@@ -286,7 +286,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # default date range
     if end_date is None:
-        end_date = datetime.date.today()
+        end_date = datetime.datetime.now()
     if start_date is None:
         start_date = end_date - datetime.timedelta(91)  # 3 months
 
