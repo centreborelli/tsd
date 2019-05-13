@@ -2,6 +2,9 @@ fast_finish: true
 
 matrix:
   include:
+    - os: linux
+      dist: xenial
+      python: 3.7
     - os: osx
       language: generic
 
@@ -9,11 +12,14 @@ env:
     GOOGLE_APPLICATION_CREDENTIALS=$TRAVIS_BUILD_DIR/.gcloud-credentials.json
 
 before_install:
-    openssl aes-256-cbc -K $encrypted_1637a71a6097_key -iv $encrypted_1637a71a6097_iv -in .gcloud-credentials.json.enc -out .gcloud-credentials.json -d
-
-install:
+  openssl aes-256-cbc -K $encrypted_1637a71a6097_key -iv $encrypted_1637a71a6097_iv -in .gcloud-credentials.json.enc -out .gcloud-credentials.json -d
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-add-repository -y ppa:ubuntugis/ppa; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install gdal-bin; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget https://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-2.3.dmg; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then X=$(echo `hdiutil mount GDAL_Complete-2.3.dmg | tail -1 | awk '{$1=$2=""; print $0}'` | xargs -0 echo) && sudo installer -pkg "${X}/"Install\ GDAL\ Complete.pkg -target /; export PATH="/Library/Frameworks/GDAL.framework/Programs:$PATH"; fi
+
+install:
   - pip3 install numpy
   - pip3 install . --no-binary rasterio --user
 
