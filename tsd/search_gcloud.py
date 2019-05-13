@@ -130,15 +130,14 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-2', sensor=N
     df = pd.DataFrame(dict(row.items()) for row in rows)
 
     # check if the image footprint contains the area of interest
-    if satellite=='Sentinel-2':
+    if satellite == 'Sentinel-2':
         res = []
         for i, row in df.iterrows():
             footprint, epsg = get_footprint(row)
             utm_aoi = convert_aoi_to_utm(aoi, epsg)
             if footprint.contains(utm_aoi):
                 res.append(row.to_dict())
-    else:
-        # We need to remove duplicates
+    else:  # we need to remove duplicates
         order_collection_category = {'T1':0, 'T2':1, 'T3':2, 'RT':3, 'N/A':4}
         order_collection_number = {'01':0, 'PRE':1}
         df['order_collection_category'] = df['collection_category'].apply(lambda x: order_collection_category[x])
@@ -151,8 +150,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-2', sensor=N
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Search of Sentinel-2 images.')
+    parser = argparse.ArgumentParser(description='Search of Sentinel-2 and Landsat images.')
     parser.add_argument('--satellite', choices=['Sentinel-2', 'Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-6', 'Landsat-7', 'Landsat-8'],
                         help=('either all "Landsat", one specific "Landsat-8" or "Sentinel-2"'),
                         default='Sentinel-2')

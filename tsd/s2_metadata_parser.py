@@ -290,14 +290,15 @@ class Sentinel2Image():
         self.title = img['product_id']
         self.mgrs_id = img['mgrs_tile']
         self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
-        self.date = dateutil.parser.parse(img['sensing_time'], ignoretz=True)
+        self.date = parse_safe_name_for_acquisition_date(self.title)  # 'sensing_time' contains the granule datetime
         self.satellite = img['product_id'][:3]
         self.relative_orbit = parse_safe_name_for_relative_orbit_number(self.title)
 
         self.absolute_orbit = int(img['granule_id'].split('_')[2][1:])
-        self.granule_date = dateutil.parser.parse(img['granule_id'].split('_')[3])
+        self.granule_date = dateutil.parser.parse(img['sensing_time'], ignoretz=True)
+        #self.granule_date = dateutil.parser.parse(img['granule_id'].split('_')[3])
 
-        self.thumbnail = None  ## TODO
+        self.cloud_cover = img['cloud_cover']
         #self.is_old = True if '.' in img['granule_id'] else False
 
 
