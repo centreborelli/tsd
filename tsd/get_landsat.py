@@ -88,11 +88,11 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
     if api == 'gcloud':
         from tsd import search_gcloud
         images = search_gcloud.search(aoi, start_date, end_date, satellite=satellite, sensor=sensor)
-        images = [l8_metadata_parser.LandsatGcloudParser(img) for img in images]
     elif api == 'devseed':
         from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
-        images = [l8_metadata_parser.LandsatDevSeedParser(img) for img in images]
+
+    images = [l8_metadata_parser.LandsatImage(img, api) for img in images]
 
     # sort images by acquisition day, then by mgrs id
     images.sort(key=(lambda k: (k.date.date(), k.row, k.path)))
