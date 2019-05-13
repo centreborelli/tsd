@@ -7,7 +7,7 @@ stores them in an object with standard attributes (i.e. the attributes are the
 same for all APIs). The detailed list of attributes is given below. This allows
 TSD to use any search API with any download mirror.
 
-Each parser returns a Sentinel2Images object with the following attributes:
+Each parser returns a Sentinel2Image object with the following attributes:
 
     utm_zone (int): integer between 1 and 60 indicating the UTM longitude zone
     lat_band (str): letter between C and X, excluding I and O, indicating the
@@ -190,9 +190,15 @@ def get_roda_metadata(img, filename='tileInfo.json'):
         raise Exception("{} not found on roda".format(img.title))
 
 
-class Sentinel2Image():
+class Sentinel2Image(dict):
     """
+    Sentinel-2 image metadata class.
     """
+    # use dict setters and getters, so that object interaction is like a dict
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
     def __init__(self, img, api='devseed'):
         """
         """
@@ -211,7 +217,7 @@ class Sentinel2Image():
         self.filename = filename_from_metadata(self)
         self.urls = {'aws': {}, 'gcloud': {}}
 
-        if not hasattr(self, 'processing_level'):
+        if 'processing_level' not in self:
             self.processing_level = '1C'  # right now only scihub api allows L2A
 
 
@@ -314,12 +320,12 @@ class Sentinel2Image():
         part neither of the devseed nor of the scihub API responses. This function
         queries roda to retrieve it. It takes about 200 ms.
         """
-        if not hasattr(self, 'granule_date'):
+        if 'granule_date' not in self:
             tile_info = get_roda_metadata(self, filename='tileInfo.json')
             #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
             self.granule_date = parse_datastrip_id_for_granule_date(tile_info['datastrip']['id'])
 
-        if not hasattr(self, 'absolute_orbit'):
+        if 'absolute_orbit' not in self:
             product_info = get_roda_metadata(self, filename='productInfo.json')
             self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
 
