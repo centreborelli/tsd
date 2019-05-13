@@ -12,6 +12,6 @@ install:
   - pip3 install . --no-binary rasterio --user
 
 script:
-  - bash download_tests.sh
+  - bash tests.sh
   - python3 tsd/test_search_scihub.py
   - python3 tsd/test_search_devseed.py

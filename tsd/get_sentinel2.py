@@ -146,7 +146,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
         out_dir (str): path where to store the downloaded crops
         parallel_downloads (int): number of parallel downloads
     """
-    print('Building {} {} download urls...'.format(len(imgs), mirror),)
+    print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
     if mirror == 'gcloud':
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
                            imgs, pool_type='threads',
