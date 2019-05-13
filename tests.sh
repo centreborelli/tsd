@@ -24,7 +24,7 @@ echo
 # test the 8 (api, mirror) combinations for Sentinel-2
 echo
 echo "Sentinel-2 downloads..."
-for API in devseed scihub #planet gcloud
+for API in devseed scihub planet #gcloud
 do
    for MIRROR in gcloud aws
    do

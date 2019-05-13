@@ -79,6 +79,18 @@ def parse_safe_name_for_mgrs_id(safe_name):
     return re.findall(r"_T([0-9]{2}[A-Z]{3})_", safe_name)[0]
 
 
+def parse_safe_name_for_acquisition_date(safe_name):
+    """
+    Parse a SAFE name for the corresponding acquisition date.
+
+    Example of a SAFE name:
+        S2A_MSIL1C_20180105T185751_N0206_R113_T10SEG_20180105T204427 --> 20180105T185751
+    """
+    date_str = re.findall(r"_(2[0-9]{3}[0-1][0-9][0-3][0-9]T[0-9]{6})_",
+                          safe_name)[0]
+    return dateutil.parser.parse(date_str)
+
+
 def parse_datastrip_id_for_granule_date(datastrip_id):
     """
     Parse a datastrip id for the corresponding granule acquisition date.
@@ -253,13 +265,20 @@ class Sentinel2Image():
                 API response
         """
         self.title = img['id']
-        self.mgrs_id = img['properties']['mgrs_grid_id']
+        p = img['properties']
+        self.mgrs_id = p['mgrs_grid_id']
         self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
-        self.date = dateutil.parser.parse(img['properties']['acquired'])
-        self.satellite = img['properties']['satellite_id'].replace("Sentinel-", "S")  # Sentinel-2A --> S2A
-        self.relative_orbit = img['properties']['rel_orbit_number']
-        self.absolute_orbit = None ## TODO
-        self.thumbnail = None  ## TODO
+        self.date = parse_safe_name_for_acquisition_date(self.title)  # 'acquired' contains the granule datetime
+        self.satellite = p['satellite_id'].replace("Sentinel-", "S")  # Sentinel-2A --> S2A
+        self.relative_orbit = p['rel_orbit_number']
+        self.absolute_orbit = p['abs_orbit_number']
+        self.granule_date = dateutil.parser.parse(p['acquired'])
+        #self.granule_date = dateutil.parser.parse(p['granule_id'].split('_')[3])
+        self.thumbnail = img['_links']['thumbnail']
+
+        self.cloud_cover = p['cloud_cover']
+        self.sun_azimuth = p['sun_azimuth']
+        self.sun_elevation = p['sun_elevation']
 
 
     def gcloud_parser(self, img):
