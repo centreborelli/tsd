@@ -24,7 +24,7 @@ do
    do
        echo
        echo ${API} ${MIRROR}
-       echo python3 tsd/get_landsat.py --lon ${LON} --lat ${LAT} -w ${SIZE} -l ${SIZE} -s ${START} -e ${END} --satellite Landsat-8 -o tests/l8_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
+       python3 tsd/get_landsat.py --lon ${LON} --lat ${LAT} -w ${SIZE} -l ${SIZE} -s ${START} -e ${END} --satellite Landsat-8 -o tests/l8_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
        echo
     done
 done
