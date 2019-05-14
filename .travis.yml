@@ -22,7 +22,8 @@ before_install:
 
 install:
   - pip3 install numpy
-  - pip3 install . --no-binary rasterio
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip3 install . --no-binary rasterio; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pip3 install . --no-binary rasterio --user; fi
 
 script:
   - bash tests.sh
