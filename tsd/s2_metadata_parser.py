@@ -118,10 +118,11 @@ def filename_from_metadata(img):
     Args:
         img (Sentinel2Image instance): Sentinel-2 image metadata
     """
-    return '{}_{}_orbit_{:03d}_tile_{}'.format(img.date.date().isoformat(),
-                                               img.satellite,
-                                               img.relative_orbit,
-                                               img.mgrs_id)
+    return '{}_{}_orbit_{:03d}_tile_{}_L{}'.format(img.date.date().isoformat(),
+                                                   img.satellite,
+                                                   img.relative_orbit,
+                                                   img.mgrs_id,
+                                                   img.processing_level)
 
 
 def get_s2_granule_id_of_scihub_item_from_scihub(img):
@@ -214,11 +215,11 @@ class Sentinel2Image(dict):
         elif api == 'gcloud':
             self.gcloud_parser(img)
 
-        self.filename = filename_from_metadata(self)
-        self.urls = {'aws': {}, 'gcloud': {}}
-
         if 'processing_level' not in self:
             self.processing_level = '1C'  # right now only scihub api allows L2A
+
+        self.filename = filename_from_metadata(self)
+        self.urls = {'aws': {}, 'gcloud': {}}
 
 
     def devseed_parser(self, img):
