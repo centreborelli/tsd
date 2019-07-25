@@ -261,11 +261,10 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
-        metadata = vars(img)
-        metadata['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
+        img['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
         for b in bands:
             filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
-            utils.set_geotif_metadata_items(filepath, metadata)
+            utils.set_geotif_metadata_items(filepath, img)
 
     if cloud_masks:  # discard images that are totally covered by clouds
         read_cloud_masks(images, bands, parallel_downloads,
