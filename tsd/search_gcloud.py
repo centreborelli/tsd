@@ -12,7 +12,7 @@ from google.cloud import bigquery
 
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-import utils
+from tsd import utils
 
 from pyproj import Proj, transform
 from json.decoder import JSONDecodeError
