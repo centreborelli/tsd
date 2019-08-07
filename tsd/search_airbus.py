@@ -27,7 +27,7 @@ import argparse
 import datetime
 import requests
 import numpy as np
-from shapely.geometry import shape
+import shapely.geometry
 
 from tsd import utils
 
@@ -61,7 +61,7 @@ def search(aoi, start_date=None, end_date=None, satellites=['PHR1A', 'PHR1B'], m
 
     # build the query
     query = {
-        "geometry": shape(aoi).wkt,
+        "geometry": shapely.geometry.shape(aoi).wkt,
         "constellation": constellations,
         "acquisitionDate": "[{},{}T23:59:59]".format(start_date.isoformat(),
                                                      end_date.isoformat()),
@@ -92,12 +92,14 @@ def search(aoi, start_date=None, end_date=None, satellites=['PHR1A', 'PHR1B'], m
             print(x['properties']['satellite'])
             to_remove.add(i)
 
+    # TODO: remove duplicated entries
+
     # check if the image footprint contains the area of interest
-#    aoi = shapely.geometry.shape(aoi)
-#    for i, x in enumerate(d['features']):
-#        if 'data_geometry' in x:
-#            if not shapely.geometry.shape(x['data_geometry']).contains(aoi):
-#                to_remove.add(i)
+    aoi = shapely.geometry.shape(aoi)
+    for i, x in enumerate(d['features']):
+        if 'data_geometry' in x:
+            if not shapely.geometry.shape(x['data_geometry']).contains(aoi):
+                to_remove.add(i)
 
     for i in sorted(to_remove, reverse=True):  # delete the higher index first
         del d['features'][i]
