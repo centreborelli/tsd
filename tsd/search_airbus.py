@@ -29,7 +29,7 @@ import requests
 import numpy as np
 from shapely.geometry import shape
 
-import utils
+from tsd import utils
 
 API_URL = "https://search.federated.geoapi-airbusds.com/api/v1/search"
 
