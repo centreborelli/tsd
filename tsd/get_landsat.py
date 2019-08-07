@@ -3,7 +3,7 @@
 # pylint: disable=C0103
 
 """
-Automatic crop and download of Landsat timeseries.
+Automatic crop and download of Landsat images.
 
 Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
@@ -21,132 +21,126 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from __future__ import print_function
+import re
 import os
 import sys
 import shutil
 import argparse
+import multiprocessing
+import dateutil.parser
 import datetime
-import numpy as np
-import utm
+import requests
+import bs4
 import boto3
 import botocore
-import dateutil.parser
-import requests
+import geojson
+import shapely.geometry
 import rasterio
+import numpy as np
 
-import search_devseed
-import utils
-import parallel
-
-
-# https://landsatonaws.com/
-AWS_HTTP_URL = 'http://landsat-pds.s3.amazonaws.com'
-AWS_S3_URL = 's3://landsat-pds'
+from tsd import utils
+from tsd import parallel
+from tsd import l8_metadata_parser
 
 # list of spectral bands
-ALL_BANDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9',
-             '10', '11', 'QA']
+ALL_BANDS = ['B{}'.format(i) for i in range(1,12)] + ['BQA']
 
-def we_can_access_aws_through_s3():
-    """
-    Test if we can access AWS through s3.
-    """
-    if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
-        try:
-            boto3.session.Session().client('s3').list_objects_v2(Bucket=AWS_S3_URL[5:])
+def is_image_empty(path, bands):
+    band_files = [path.format(band) for band in bands if band!='BQA']
+    for band_file in band_files:
+        nonzero = rasterio.open(band_file).read().sum()
+        # print('There are {} pixels in {}'.format(nonzero, band_file))
+        if nonzero==0:
             return True
-        except botocore.exceptions.ClientError:
-            pass
+        else:
+            continue
     return False
 
 
-WE_CAN_ACCESS_AWS_THROUGH_S3 = we_can_access_aws_through_s3()
+def check_args(api, mirror):
+    if mirror == 'gcloud' and api not in ['gcloud', 'devseed']:
+        raise ValueError("ERROR: You must use gcloud or devseed api to use gcloud as mirror")
+    if api == 'gcloud':
+        try:
+            private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+        except KeyError:
+            raise ValueError('You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
 
 
-def google_url_from_metadata_dict_backend(d, api='devseed'):
+def search(aoi, start_date=None, end_date=None, satellite='L8',
+           sensor='OLITIRS', api='devseed'):
     """
-    Build the Google url of a Landsat image from it's metadata.
+    Search Landsat images covering an AOI and timespan using a given API.
+
+    Args:
+        aoi (geojson.Polygon): area of interest
+        start_date (datetime.datetime): start of the search time range
+        end_date (datetime.datetime): end of the search time range
+        api (str, optional): either gcloud (default), scihub, planet or devseed
+        satellite (str, optional): either L1...L8
+        sensor (str, optional): MSS, TM, ETM, OLITIRS
+        see https://landsat.usgs.gov/what-are-band-designations-landsat-satellites
+
+    Returns:
+        list of image objects
     """
-    if api == 'devseed':
-        return d['download_links']['google'][0].rsplit('_', 1)[0]
+    # list available images
+    if api == 'gcloud':
+        from tsd import search_gcloud
+        images = search_gcloud.search(aoi, start_date, end_date, satellite=satellite, sensor=sensor)
+    elif api == 'devseed':
+        from tsd import search_devseed
+        images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
+
+    images = [l8_metadata_parser.LandsatImage(img, api) for img in images]
+
+    # sort images by acquisition day, then by mgrs id
+    images.sort(key=(lambda k: (k.date.date(), k.row, k.path)))
+
+    print('Found {} images'.format(len(images)))
+    return images
 
 
-def google_url_from_metadata_dict(d, api='devseed', band=None):
+def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
     """
-    Build the Google url of a Landsat image from it's metadata.
+    Download a timeseries of crops with GDAL VSI feature.
+
+    Args:
+        imgs (list): list of images
+        bands (list): list of bands
+        aoi (geojson.Polygon): area of interest
+        mirror (str): either 'aws' or 'gcloud'
+        out_dir (str): path where to store the downloaded crops
+        parallel_downloads (int): number of parallel downloads
     """
-    baseurl = google_url_from_metadata_dict_backend(d, api)
-    if band and band in ALL_BANDS:
-        return '{}_B{}.TIF'.format(baseurl, band)
-    else:
-        return baseurl
+    coords = utils.utm_bbx(aoi)
+    crops_args = []
+    for img in imgs:
+        for b in set(bands + ['BQA']):
+            fname = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            crops_args.append((fname, img.urls[mirror][b]))
+
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
+    os.makedirs(out_dir, exist_ok=True)
+    print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
+                                                                     len(imgs),
+                                                                     len(bands) +1),
+          end=' ')
+    parallel.run_calls(utils.crop_with_gdal_translate, crops_args,
+                       extra_args=(*coords,), pool_type='threads',
+                       nb_workers=parallel_downloads)
 
 
-def aws_paths_from_metadata_dict(d, api='devseed'):
+def bands_files_are_valid(img, bands, api, directory):
     """
-    Build the AWS path of a Landsat-8 image from its metadata.
+    Check if all bands images files are valid.
     """
-    if api == 'devseed':
-        # remove the http://landsat-pds.s3.amazonaws.com/ prefix from the urls
-        return ['/'.join(url.split('/')[3:]) for url in d['download_links']['aws_s3']]
-        # Is this issue still a problem?
-        # https://github.com/sat-utils/landsat8-metadata/issues/6
-    elif api == 'planet':  # currently broken
-        col = d['properties']['wrs_path']
-        row = d['properties']['wrs_row']
-        scene_id = d['id']
-        return 'L8/{0:03d}/{1:03d}/{2}/{2}'.format(col, row, scene_id)
+    filenames = ['{}_band_{}.tif'.format(img.filename, b) for b in bands]
+    paths = [os.path.join(directory, f) for f in filenames]
+    return all(utils.is_valid(p) for p in paths)
 
 
-def aws_urls_from_metadata_dict(d, api='devseed'):
-    """
-    Build the AWS s3 or http urls of the 12 bands of a Landsat-8 image.
-    """
-    if WE_CAN_ACCESS_AWS_THROUGH_S3:
-        aws_url = AWS_S3_URL
-    else:
-        aws_url = AWS_HTTP_URL
-    return ['{}/{}'.format(aws_url, p) for p in aws_paths_from_metadata_dict(d, api)]
-
-
-def filename_from_metadata_dict(d, api='devseed'):
-    """
-    Build a string using the image acquisition date and identifier.
-    """
-    if api == 'devseed':
-        scene_id = d['sceneID']
-        date_str = d['date']
-    elif api == 'planet':
-        scene_id = d['id']
-        date_str = d['properties']['acquired']
-    date = dateutil.parser.parse(date_str).date()
-    return '{}_scene_{}'.format(date.isoformat(), scene_id)
-
-
-def metadata_from_metadata_dict(d, api='devseed'):
-    """
-    Return a dict containing some string-formatted metadata.
-    """
-    if api == 'devseed':
-        date = dateutil.parser.parse(d['date']).date()
-        time = datetime.time(*map(int, d['sceneStartTime'].split(':')[2:4]))
-        imaging_date = datetime.datetime.combine(date, time)
-        sun_zenith = 90 - d['sunElevation']  # zenith and elevation are complementary
-        sun_azimuth = d['sunAzimuth']
-    elif api == 'planet':
-        imaging_date = dateutil.parser.parse(d['properties']['acquired'])
-        sun_zenith = 90 - d['properties']['sun_elevation']  # zenith and elevation are complementary
-        sun_azimuth = d['properties']['sun_azimuth']
-
-    return {
-        "IMAGING_DATE": imaging_date.strftime('%Y-%m-%dT%H:%M:%S'),
-        "SUN_ZENITH": str(sun_zenith),
-        "SUN_AZIMUTH": str(sun_azimuth)
-    }
-
-
-def is_image_cloudy(qa_band_file, p=.5):
+def is_image_cloudy(qa_band_file, p=0.5):
     """
     Tell if a Landsat-8 image crop is cloud-covered according to the QA band.
 
@@ -165,111 +159,120 @@ def is_image_cloudy(qa_band_file, p=.5):
     return np.count_nonzero(mask) > p * x.size
 
 
-def bands_files_are_valid(img, bands, search_api, directory):
+def read_cloud_masks(imgs, bands, parallel_downloads, p=0.5,
+                     out_dir=''):
     """
-    Check if all bands images files are valid.
+    Read Landsat-8 cloud masks and intersects them with the input aoi.
+
+    Args:
+        imgs (list): list of images
+        bands (list): list of bands
+        parallel_downloads (int): number of parallel gml files downloads
+        p (float): cloud area threshold above which our aoi is said to be
+            'cloudy' in the current image
     """
-    name = filename_from_metadata_dict(img, search_api)
-    filenames = ['{}_band_{}.tif'.format(name, b) for b in bands]
-    paths = [os.path.join(directory, f) for f in filenames]
-    return all(utils.is_valid(p) for p in paths)
-
-
-def get_time_series(aoi, start_date=None, end_date=None, bands=[8],
-                    out_dir='', search_api='devseed', parallel_downloads=100,
-                    debug=False):
-    """
-    Main function: crop and download a time series of Landsat-8 images.
-    """
-    utils.print_elapsed_time.t0 = datetime.datetime.now()
-
-    # list available images
-    seen = set()
-    if search_api == 'devseed':
-        images = search_devseed.search(aoi, start_date, end_date,
-                                       'Landsat-8')['results']
-        images.sort(key=lambda k: (k['acquisitionDate'], k['row'], k['path']))
-
-        # remove duplicates (same acquisition day)
-        images = [x for x in images if not (x['acquisitionDate'] in seen
-                                            or  # seen.add() returns None
-                                            seen.add(x['acquisitionDate']))]
-    elif search_api == 'planet':
-        import search_planet
-        images = search_planet.search(aoi, start_date, end_date,
-                                      item_types=['Landsat8L1G'])
-
-        # sort images by acquisition date, then by acquisiton row and path
-        images.sort(key=lambda k: (k['properties']['acquired'],
-                                   k['properties']['wrs_row'],
-                                   k['properties']['wrs_path']))
-
-        # remove duplicates (same acquisition day)
-        images = [x for x in images if not (x['properties']['acquired'] in seen
-                                            or  # seen.add() returns None
-                                            seen.add(x['properties']['acquired']))]
-    print('Found {} images'.format(len(images)))
-    utils.print_elapsed_time()
-
-    # build urls
-    urls = parallel.run_calls(aws_urls_from_metadata_dict, list(images),
-                              extra_args=(search_api,), pool_type='threads',
-                              nb_workers=parallel_downloads, verbose=False)
-
-    # build gdal urls and filenames
-    download_urls = []
-    fnames = []
-    for img, bands_urls in zip(images, urls):
-        name = filename_from_metadata_dict(img, search_api)
-        for b in set(bands + ['QA']):  # the QA band is needed for cloud detection
-            download_urls += [s for s in bands_urls if s.endswith('B{}.TIF'.format(b))]
-            fnames.append(os.path.join(out_dir, '{}_band_{}.tif'.format(name, b)))
-
-    # convert aoi coordinates to utm
-    ulx, uly, lrx, lry, utm_zone, lat_band = utils.utm_bbx(aoi)
-
-    # download crops
-    utils.mkdir_p(out_dir)
-    print('Downloading {} crops ({} images with {} bands)...'.format(len(download_urls),
-                                                                     len(images),
-                                                                     len(bands) + 1),
-         end=' ')
-    parallel.run_calls(utils.crop_with_gdal_translate, list(zip(fnames, download_urls)),
-                       extra_args=(ulx, uly, lrx, lry, utm_zone, lat_band),
-                       pool_type='threads', nb_workers=parallel_downloads)
-    utils.print_elapsed_time()
-
-    # discard images that failed to download
-    images = [x for x in images if bands_files_are_valid(x, list(set(bands + ['QA'])),
-                                                         search_api, out_dir)]
-    # discard images that are totally covered by clouds
-    utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
-    names = [filename_from_metadata_dict(img, search_api) for img in images]
-    qa_names = [os.path.join(out_dir, '{}_band_QA.tif'.format(f)) for f in names]
+    print('Reading {} cloud masks...'.format(len(imgs)), end=' ')
+    names = [img.filename for img in imgs]
+    qa_names = [os.path.join(out_dir, '{}_band_BQA.tif'.format(f)) for f in names]
     cloudy = parallel.run_calls(is_image_cloudy, qa_names,
                                 pool_type='processes',
                                 nb_workers=parallel_downloads, verbose=False)
-    for name, cloud in zip(names, cloudy):
+    print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
+
+    for img, cloud in zip(imgs, cloudy):
         if cloud:
-            for b in list(set(bands + ['QA'])):
-                f = '{}_band_{}.tif'.format(name, b)
+            os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
+            for b in list(set(bands + ['BQA'])):
+                f = '{}_band_{}.tif'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
-    print('{} cloudy images out of {}'.format(sum(cloudy), len(images)))
-    images = [i for i, c in zip(images, cloudy) if not c]
-    utils.print_elapsed_time()
 
-    # group band crops per image
-    crops = []  # list of lists: [[crop1_b1, crop1_b2 ...], [crop2_b1 ...] ...]
+
+def read_empty_images(imgs, bands, parallel_downloads,
+                     out_dir=''):
+    """
+    Check whether image is empty, since we do not have access to the footprint.
+
+    Args:
+        imgs (list): list of images
+        bands (list): list of bands
+        parallel_downloads (int): number of parallel gml files downloads
+    """
+    print('Reading {} QA masks...'.format(len(imgs)), end=' ')
+    names = [img.filename for img in imgs]
+    base_names = [os.path.join(out_dir, '{}_band_{{}}.tif'.format(f)) for f in names]
+    cloudy = parallel.run_calls(is_image_empty, base_names,
+                                pool_type='processes',
+                                extra_args=(bands,),
+                                nb_workers=parallel_downloads, verbose=False)
+    print('{} empty images out of {}'.format(sum(cloudy), len(imgs)))
+
+    for img, cloud in zip(imgs, cloudy):
+        if cloud is True:
+            os.makedirs(os.path.join(out_dir, 'empty'), exist_ok=True)
+            for b in list(set(bands + ['BQA'])):
+                f = '{}_band_{}.tif'.format(img.filename, b)
+                shutil.move(os.path.join(out_dir, f),
+                            os.path.join(out_dir, 'empty', f))
+
+
+def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
+                    satellite='Landsat', sensor=None,
+                    out_dir='', api='devseed', mirror='gcloud',
+                    cloud_masks=False, check_empty=False,
+                    parallel_downloads=multiprocessing.cpu_count()):
+    """
+    Main function: crop and download a time series of Sentinel-2 images.
+
+    Args:
+        aoi (geojson.Polygon): area of interest
+        start_date (datetime.datetime, optional): start of the time range
+        end_date (datetime.datetime, optional): end of the time range
+        bands (list, optional): list of bands
+        satellite (str, optional): either L1...L8
+        sensor (str, optional): MSS, TM, ETM, OLI
+        see https://landsat.usgs.gov/what-are-band-designations-landsat-satellites
+        out_dir (str, optional): path where to store the downloaded crops
+        api (str, optional): either devseed (default), scihub, planet or gcloud
+        mirror (str, optional): either 'aws' or 'gcloud'
+        cloud_masks (bool, optional): if True, cloud masks are downloaded and
+            cloudy images are discarded
+        check_empty (bool, optional): if True, QA masks are downloaded and
+            empty images are discarded
+        parallel_downloads (int): number of parallel gml files downloads
+    """
+    # check access to the selected search api and download mirror
+    check_args(api, mirror)
+
+    # default date range
+    if end_date is None:
+        end_date = datetime.date.today()
+    if start_date is None:
+        start_date = end_date - datetime.timedelta(91)  # 3 months
+
+    # list available images
+    images = search(aoi, start_date, end_date, satellite, sensor, api=api)
+
+    # download crops
+    download(images, bands, aoi, mirror, out_dir, parallel_downloads)
+
+    # discard images that failed to download
+    images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
+
+    # embed all metadata as GeoTIFF tags in the image files
     for img in images:
-        name = filename_from_metadata_dict(img, search_api)
-        crops.append([os.path.join(out_dir, '{}_band_{}.tif'.format(name, b))
-                      for b in bands])
+        img['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
+        for b in bands:
+            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            utils.set_geotif_metadata_items(filepath, img)
 
-    # embed some metadata in the remaining image files
-    for bands_fnames in crops:
-        for f in bands_fnames:  # embed some metadata as gdal geotiff tags
-            utils.set_geotif_metadata_items(f, metadata_from_metadata_dict(img, search_api))
+    if cloud_masks:  # discard images that are totally covered by clouds
+        read_cloud_masks(images, bands, parallel_downloads,
+                         out_dir=out_dir)
+
+    if check_empty:  # discard images that are totally empty
+        read_empty_images(images, bands, parallel_downloads,
+                         out_dir=out_dir)
 
 
 if __name__ == '__main__':
@@ -289,20 +292,28 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-b', '--band', nargs='*', default=['8'],
+    parser.add_argument('-b', '--band', nargs='*', default=['B8'],
                         choices=ALL_BANDS + ['all'], metavar='',
                         help=('space separated list of spectral bands to'
                               ' download. Default is 8 (panchro). Allowed values'
                               ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('-d', '--debug', action='store_true', help=('save '
-                                                                    'intermediate '
-                                                                    'images'))
-    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub'],
+    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
                         default='devseed', help='search API')
-    parser.add_argument('--parallel-downloads', type=int, default=100,
+    parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
+                        default='gcloud', help='download mirror')
+    parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-6', 'Landsat-7', 'Landsat-8'],
+                        default='Landsat', help='satellite')
+    parser.add_argument('--sensor', type=str, choices=['MSS', 'TM', 'ETM', 'OLITIRS'],
+                        default=None, help='sensor')
+    parser.add_argument('--parallel-downloads', type=int,
+                        default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
+    parser.add_argument('--cloud-masks',  action='store_true',
+                        help=('download cloud masks crops from provided GML files'))
+    parser.add_argument('--check-empty',  action='store_true',
+                        help=('download QA masks to remove empty images'))
     args = parser.parse_args()
 
     if 'all' in args.band:
@@ -320,6 +331,10 @@ if __name__ == '__main__':
         aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
                                             args.height)
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-                    bands=args.band, out_dir=args.outdir, debug=args.debug,
-                    search_api=args.api,
+                    bands=args.band,
+                    satellite=args.satellite, sensor=args.sensor,
+                    out_dir=args.outdir, api=args.api,
+                    mirror=args.mirror,
+                    cloud_masks=args.cloud_masks,
+                    check_empty=args.check_empty,
                     parallel_downloads=args.parallel_downloads)

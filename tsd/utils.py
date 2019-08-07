@@ -10,7 +10,6 @@ Copyright (C) 2018, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 from __future__ import print_function
 import os
 import re
-import errno
 import shutil
 import argparse
 import datetime
@@ -27,7 +26,7 @@ import shapely.geometry
 import rasterio
 import pyproj
 
-import rpc_model
+from tsd import rpc_model
 
 
 warnings.filterwarnings("ignore",
@@ -38,7 +37,8 @@ def download(from_url, to_file, auth=('', '')):
     """
     Download a file from an url to a file.
     """
-    mkdir_p(os.path.dirname(to_file))
+    to_file = os.path.abspath(os.path.expanduser(to_file))
+    os.makedirs(os.path.dirname(to_file), exist_ok=True)
     response = requests.get(from_url, stream=True, auth=auth)
     with open(to_file, 'wb') as handle:
         for data in response.iter_content():
@@ -165,20 +165,6 @@ def tmpfile(ext=''):
     return out
 
 
-def mkdir_p(path):
-    """
-    Create a directory without complaining if it already exists.
-    """
-    if path:
-        try:
-            os.makedirs(path)
-        except OSError as exc:  # requires Python > 2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
-
-
 def pixel_size(path):
     """
     Read the resolution (in meters per pixel) of a GeoTIFF image.
@@ -264,8 +250,10 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
     # these GDAL configuration options speed up the access to remote files
     if inpath.startswith(('http://', 'https://', 's3://', 'gs://')):
         env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
-        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'TRUE'
+        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'EMPTY_DIR'
         env['VSI_CACHE'] = 'TRUE'
+        env['GDAL_HTTP_MAX_RETRY'] = '10000'  # needed for storage.googleapis.com 503
+        env['GDAL_HTTP_RETRY_DELAY'] = '1'
 
     # add the relevant "/vsi" prefix to the input url
     if inpath.startswith(('http://', 'https://')):
@@ -279,8 +267,8 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
         path = inpath
 
     # build the gdal_translate shell command
-    cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-projwin', str(ulx),
-           str(uly), str(lrx), str(lry)]
+    cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-co', 'COMPRESS=DEFLATE',
+           '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
     if output_type is not None:
         cmd += ['-ot', output_type]
     if utm_zone is not None:
@@ -309,6 +297,27 @@ def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
 
     if outpath == inpath:  # hack to allow the output to overwrite the input
         shutil.move(out, outpath)
+
+
+def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
+    """
+    Crop and download an AOI from a georeferenced image.
+
+    Args:
+        output_path (string): path to the output GeoTIFF file
+        aoi (geojson.Polygon): area of interest defined by a polygon in longitude, latitude coordinates
+        metadata_dict (dict): metadata dictionary
+        band (str): desired band, e.g. 'B04' for Sentinel-2 or 'B8' for Landsat-8
+    """
+    try:  # Sentinel-2
+        inpath = metadata_dict['urls']['gcloud'][band]
+    except KeyError:  # Landsat-8
+        inpath = metadata_dict['assets'][band]['href']
+    utm_zone = int(metadata_dict['utm_zone']) if 'utm_zone' in metadata_dict else None
+    ulx, uly, lrx, lry, utm_zone, lat_band = utm_bbx(aoi, utm_zone=utm_zone,
+                                                     r=60)
+    crop_with_gdal_translate(output_path, inpath, ulx, uly, lrx, lry, utm_zone,
+                             lat_band)
 
 
 def crop_with_gdalwarp(outpath, inpath, geojson_path):
@@ -554,7 +563,7 @@ def rasterio_crop(filename, x, y, w, h, boundless=True, fill_value=0):
                 raise CropOutside(('crop {} {} {} {} falls outside of input image '
                                    'whose shape is {}'.format(x, y, w, h, src.shape)))
 
-        crop = fill_value * np.ones((src.count, h, w))
+        crop = fill_value * np.ones((src.count, h, w), dtype=src.profile['dtype'])
         y0 = max(y, 0)
         y1 = min(y + h, src.shape[0])
         x0 = max(x, 0)

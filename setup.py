@@ -1,18 +1,53 @@
-from setuptools import setup, find_packages
+import os
+from codecs import open
+from setuptools import setup
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
+here = os.path.abspath(os.path.dirname(__file__))
 
-setup(
-    name="tsd",
-    version="0.1",
-    description='Automatic download of Sentinel, Landsat and Planet crops.',
-    author='Carlo de Franchis (CMLA)'
-           'With contributions from Enric Meinhardt-Llopis (ENS Cachan), Axel Davy (CMLA) and Tristan Dagobert (CMLA)',
-    packages=find_packages(),
-    install_requires=requirements,
-    package_data={'': ['s2_mgrs_grid.txt']},
-    include_package_data=True,
-    python_requires='>=3.5',
-    zip_safe=False
-)
+package = "tsd"
+
+about = {}
+with open(os.path.join(here, package, "__about__.py"), "r", "utf-8") as f:
+    exec(f.read(), about)
+
+def readme():
+    with open(os.path.join(here, 'README.md'), 'r', 'utf-8') as f:
+        return f.read()
+
+requirements = ['area',
+                'boto3',
+                'bs4',
+                'click',
+                'future',
+                'geojson',
+                'google-auth',
+                'google-cloud-bigquery',
+                'lxml',
+                'mgrs',
+                'numpy>=1.12',
+                'pandas',
+                'planet',
+                'pyproj',
+                'python-dateutil',
+                'rasterio[s3]>=1.0',
+                'requests',
+                'sat-search>=0.2',
+                'shapely',
+                'tqdm',
+                'utm',
+                'sentinelhub']
+
+
+setup(name=about["__title__"],
+      version=about["__version__"],
+      description=about["__description__"],
+      long_description=readme(),
+      long_description_content_type='text/markdown',
+      url=about["__url__"],
+      author=about["__author__"],
+      author_email=about["__author_email__"],
+      packages=[package],
+      package_data={'': ['s2_mgrs_grid.txt']},
+      include_package_data=True,
+      install_requires=requirements,
+      python_requires=">=3.5")

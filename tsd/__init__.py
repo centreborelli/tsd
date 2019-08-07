@@ -1,13 +1,11 @@
-import os
-import sys
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-
-import utils
-import search_devseed
-import search_scihub
-import search_planet
-
-import get_landsat
-import get_sentinel2
-import get_sentinel1
-import get_planet
+from tsd import utils
+from tsd import search_devseed
+from tsd import search_scihub
+from tsd import search_planet
+from tsd import search_gcloud
+from tsd import s2_metadata_parser
+from tsd import l8_metadata_parser
+from tsd import get_landsat
+from tsd import get_sentinel2
+from tsd import get_sentinel1
+from tsd import get_planet

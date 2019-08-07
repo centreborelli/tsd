@@ -37,9 +37,9 @@ import botocore
 import geojson
 import shapely.geometry
 
-import utils
-import parallel
-import metadata_parser
+from tsd import utils
+from tsd import parallel
+from tsd import s2_metadata_parser
 
 # list of spectral bands
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
@@ -49,12 +49,6 @@ ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
 def check_args(api, mirror, product_type):
     if product_type is not None and api != 'scihub':
         print("WARNING: product_type option is available only with api='scihub'")
-    if mirror == 'gcloud' and api not in ['gcloud', 'devseed']:
-        raise ValueError(
-            "ERROR: You must use gcloud or devseed api to use gcloud as mirror")
-    if api == 'gcloud' and mirror != 'gcloud':
-        raise ValueError(
-            "ERROR: You must use gcloud mirror to use gcloud as api")
     if api == 'gcloud':
         try:
             private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
@@ -66,7 +60,7 @@ def check_args(api, mirror, product_type):
 
         if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
             try:
-                boto3.session.Session().client('s3').list_objects_v2(Bucket=metadata_parser.AWS_S3_URL_L1C[5:],
+                boto3.session.Session().client('s3').list_objects_v2(Bucket=s2_metadata_parser.AWS_S3_URL_L1C[5:],
                                                                      RequestPayer='requester')
             except botocore.exceptions.ClientError:
                 raise ValueError(
@@ -81,7 +75,8 @@ def check_args(api, mirror, product_type):
                              "per GB. More info: {}".format(info_url))
 
 
-def search(aoi, start_date, end_date, product_type=None, api='devseed'):
+def search(aoi, start_date=None, end_date=None, product_type=None,
+           api='devseed'):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
 
@@ -97,27 +92,26 @@ def search(aoi, start_date, end_date, product_type=None, api='devseed'):
     """
     # list available images
     if api == 'devseed':
-        import search_devseed
+        from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date,
-                                       'Sentinel-2')['results']
-        images = [metadata_parser.DevSeedParser(img) for img in images]
+                                       'Sentinel-2')
     elif api == 'scihub':
-        import search_scihub
+        from tsd import search_scihub
         if product_type is not None:
             product_type = 'S2MSI{}'.format(product_type[1:])
         images = search_scihub.search(aoi, start_date, end_date,
                                       satellite='Sentinel-2',
                                       product_type=product_type)
-        images = [metadata_parser.SciHubParser(img) for img in images]
     elif api == 'planet':
-        import search_planet
+        from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,
                                       item_types=['Sentinel2L1C'])
-        images = [metadata_parser.PlanetParser(img) for img in images]
     elif api == 'gcloud':
-        import search_gcloud
+        from tsd import search_gcloud
         images = search_gcloud.search(aoi, start_date, end_date)
-        images = [metadata_parser.GcloudParser(img) for img in images]
+
+    # parse the API metadata
+    images = [s2_metadata_parser.Sentinel2Image(img, api) for img in images]
 
     # sort images by acquisition day, then by mgrs id
     images.sort(key=(lambda k: (k.date.date(), k.mgrs_id)))
@@ -146,6 +140,16 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
         out_dir (str): path where to store the downloaded crops
         parallel_downloads (int): number of parallel downloads
     """
+    print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
+    if mirror == 'gcloud':
+        parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
+                           imgs, pool_type='threads',
+                           nb_workers=parallel_downloads)
+    else:
+        parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_s3_links,
+                           imgs, pool_type='threads',
+                           nb_workers=parallel_downloads)
+
     crops_args = []
     for img in imgs:
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
@@ -153,11 +157,11 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
                                r=60)  # round to multiples of 60 (B01 resolution)
 
         for b in bands:
-            fname = os.path.join(
-                out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            fname = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
             crops_args.append((fname, img.urls[mirror][b], *coords))
 
-    utils.mkdir_p(out_dir)
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
+    os.makedirs(out_dir, exist_ok=True)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
                                                                      len(imgs),
                                                                      len(bands)),
@@ -195,9 +199,7 @@ def is_image_cloudy(img, aoi, mirror, p=0.5):
     url = img.urls[mirror]['cloud_mask']
 
     if mirror == 'gcloud':
-        url = url.replace('gs://', 'http://storage.googleapis.com/')
         gml_content = requests.get(url).text
-
     else:
         bucket, *key = url.replace('s3://', '').split('/')
         f = boto3.client('s3').get_object(Bucket=bucket, Key='/'.join(key),
@@ -238,15 +240,15 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
     """
     print('Reading {} cloud masks...'.format(len(imgs)), end=' ')
     cloudy = parallel.run_calls(is_image_cloudy, imgs,
-                                extra_args=(
-                                    utils.geojson_lonlat_to_utm(aoi), mirror, p),
+                                extra_args=(utils.geojson_lonlat_to_utm(aoi), mirror, p),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
     print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
 
     for img, cloud in zip(imgs, cloudy):
         if cloud:
-            utils.mkdir_p(os.path.join(out_dir, 'cloudy'))
+            out_dir = os.path.abspath(os.path.expanduser(out_dir))
+            os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
             for b in bands:
                 f = '{}_band_{}.tif'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
@@ -276,6 +278,12 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     # check access to the selected search api and download mirror
     check_args(api, mirror, product_type)
 
+    # default date range
+    if end_date is None:
+        end_date = datetime.datetime.now()
+    if start_date is None:
+        start_date = end_date - datetime.timedelta(91)  # 3 months
+
     # list available images
     images = search(aoi, start_date, end_date,
                     product_type=product_type, api=api)
@@ -284,18 +292,15 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
     download(images, bands, aoi, mirror, out_dir, parallel_downloads)
 
     # discard images that failed to download
-    images = [i for i in images if bands_files_are_valid(
-        i, bands, api, out_dir)]
+    images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
-        d = img.meta
-        d.update({'downloaded_by': 'TSD on {}'.format(
-            datetime.datetime.now().isoformat())})
+        img['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
+
         for b in bands:
-            filepath = os.path.join(
-                out_dir, '{}_band_{}.tif'.format(img.filename, b))
-            utils.set_geotif_metadata_items(filepath, d)
+            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            utils.set_geotif_metadata_items(filepath, img)
 
     if cloud_masks:  # discard images that are totally covered by clouds
         read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,

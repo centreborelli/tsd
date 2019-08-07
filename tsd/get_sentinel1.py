@@ -30,13 +30,30 @@ import dateutil.parser
 import bs4
 import requests
 
-import utils
-import search_scihub
+from tsd import utils
+from tsd import search_scihub
 
 
 PEPS_URL_SEARCH = 'https://peps.cnes.fr/resto/api/collections'
 PEPS_URL_DOWNLOAD = 'https://peps.cnes.fr/resto/collections'
 CODEDE_URL = 'https://code-de.org/Sentinel1'
+
+
+def read_copernicus_credentials_from_environment_variables():
+    """
+    Read the user Copernicus Open Access Hub credentials.
+    """
+    try:
+        login = os.environ['COPERNICUS_LOGIN']
+        password = os.environ['COPERNICUS_PASSWORD']
+    except KeyError as e:
+        print("The {} module requires the COPERNICUS_LOGIN and".format(os.path.basename(__file__)),
+              "COPERNICUS_PASSWORD environment variables to be defined with valid",
+              "credentials for https://scihub.copernicus.eu/. Create an account if",
+              "you don't have one (it's free) then edit the relevant configuration",
+              "files (eg .bashrc) to define these environment variables.")
+        raise e
+    return login, password
 
 
 def query_data_hub(output_filename, url, user, password, verbose=False):
@@ -90,7 +107,8 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
     """
     # create output directory
     if out_dir:
-        utils.mkdir_p(out_dir)
+        out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        os.makedirs(out_dir, exist_ok=True)
 
     # download zip file
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))
@@ -127,6 +145,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', operational_mode='IW',
+                    relative_orbit_number=None, swath_identifier=None,
                     search_api='copernicus', download_mirror='peps'):
     """
     Main function: download a Sentinel-1 image time serie.
@@ -135,6 +154,8 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
     images = search_scihub.search(aoi, start_date, end_date,
                                   product_type=product_type,
                                   operational_mode=operational_mode,
+                                  swath_identifier=swath_identifier,
+                                  relative_orbit_number=relative_orbit_number,
                                   api=search_api)
 
     # download
@@ -166,6 +187,8 @@ if __name__ == '__main__':
                         help='type of image: GRD, SLC, RAW', default='GRD')
     parser.add_argument('-m', '--operational-mode', default='IW',
                         help='acquisiton mode: SM, IW, EW or WV')
+    parser.add_argument('--swath-identifier',
+                        help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
     parser.add_argument('--api', default='copernicus',
                         help='search API to use: copernicus, austria or finland')
     parser.add_argument('--mirror', default='peps',
@@ -192,4 +215,5 @@ if __name__ == '__main__':
         get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                         out_dir=args.outdir, product_type=args.product_type,
                         operational_mode=args.operational_mode,
+                        swath_identifier=args.swath_identifier,
                         search_api=args.api, download_mirror=args.mirror)

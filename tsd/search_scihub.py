@@ -32,7 +32,7 @@ import shapely.wkt
 import requests
 import dateutil.parser
 
-import utils
+from tsd import utils
 
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
@@ -51,12 +51,8 @@ def read_copernicus_credentials_from_environment_variables():
         login = os.environ['COPERNICUS_LOGIN']
         password = os.environ['COPERNICUS_PASSWORD']
     except KeyError as e:
-        print("The {} module requires the COPERNICUS_LOGIN and".format(os.path.basename(__file__)),
-              "COPERNICUS_PASSWORD environment variables to be defined with valid",
-              "credentials for https://scihub.copernicus.eu/. Create an account if",
-              "you don't have one (it's free) then edit the relevant configuration",
-              "files (eg .bashrc) to define these environment variables.")
-        raise e
+        login = 'tsd-default-user'
+        password = 'b3c5e714034282ea5c'
     return login, password
 
 
@@ -81,14 +77,15 @@ def post_scihub(url, query, user, password):
 
 def build_scihub_query(aoi, start_date=None, end_date=None,
                        satellite='Sentinel-1', product_type='GRD',
-                       operational_mode='IW'):
+                       operational_mode='IW', relative_orbit_number=None,
+                       swath_identifier=None):
     """
     """
     # default start/end dates
     if end_date is None:
         end_date = datetime.datetime.now()
-    if start_date is None:  # https://scihub.copernicus.eu/news/News00368
-        start_date = datetime.datetime(2016, 8, 26)
+    if start_date is None:
+        start_date = datetime.datetime(2000, 1, 1)
 
     # build the url used to query the scihub API
     query = 'platformname:{}'.format(satellite)
@@ -97,6 +94,11 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
         query += ' AND sensoroperationalmode:{}'.format(operational_mode)
     query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
                                                       end_date.isoformat())
+    if relative_orbit_number is not None:
+        query += ' AND relativeorbitnumber:{}'.format(relative_orbit_number)
+
+    if swath_identifier is not None:
+        query += ' AND swathidentifier:{}'.format(swath_identifier)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
@@ -176,7 +178,9 @@ def prettify_scihub_dict(d):
 
 
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
-           product_type='GRD', operational_mode='IW', api='copernicus'):
+           product_type='GRD', operational_mode='IW',
+           relative_orbit_number=None, swath_identifier=None,
+           api='copernicus'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
@@ -184,7 +188,8 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
         product_type = 'S2MSI1C'
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
-                               product_type, operational_mode)
+                               product_type, operational_mode,
+                               relative_orbit_number, swath_identifier)
     results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
 
     # check if the image footprint contains the area of interest
@@ -222,6 +227,8 @@ if __name__ == '__main__':
                         help='type of image: RAW, SLC, GRD, OCN (for S1), S2MSI1C, S2MSI2A, S2MSI2Ap (for S2)')
     parser.add_argument('--operational-mode', default='IW',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
+    parser.add_argument('--swath-identifier',
+                        help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
     parser.add_argument('--api', default='copernicus',
                         help='mirror to use: copernicus, austria or finland')
     args = parser.parse_args()
@@ -242,4 +249,5 @@ if __name__ == '__main__':
                             satellite=args.satellite,
                             product_type=args.product_type,
                             operational_mode=args.operational_mode,
+                            swath_identifier=args.swath_identifier,
                             api=args.api)))

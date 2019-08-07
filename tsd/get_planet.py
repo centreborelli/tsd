@@ -34,9 +34,9 @@ import numpy as np
 import dateutil.parser
 import rasterio
 
-import utils
-import parallel
-import search_planet
+from tsd import utils
+from tsd import parallel
+from tsd import search_planet
 
 ITEM_TYPES = search_planet.ITEM_TYPES
 ASSETS = ['udm',
@@ -348,6 +348,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
 
     # build filenames
     ext = 'zip' if clip_and_ship else 'tif'
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
     fnames = [os.path.join(out_dir, '{}.{}'.format(fname_from_metadata(i),
                                                    ext)) for i in items]
 
@@ -369,7 +370,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
                            timeout=3600)
 
     elif no_crop:  # download full images
-        utils.mkdir_p(out_dir)
+        os.makedirs(out_dir, exist_ok=True)
         print('Downloading {} full images...'.format(len(assets)), end=' ')
         parallel.run_calls(download_asset, list(zip(fnames, assets)),
                            pool_type='threads', nb_workers=parallel_downloads,
@@ -383,7 +384,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
             aoi_type = 'lonlat_polygon'
 
         # download crops with gdal through vsicurl
-        utils.mkdir_p(out_dir)
+        os.makedirs(out_dir, exist_ok=True)
         print('Downloading {} crops...'.format(len(assets)), end=' ')
         parallel.run_calls(download_crop, list(zip(fnames, assets)),
                            extra_args=(aoi, aoi_type),
