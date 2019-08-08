@@ -3,6 +3,7 @@ from tsd import search_devseed
 from tsd import search_scihub
 from tsd import search_planet
 from tsd import search_gcloud
+from tsd import search_airbus
 from tsd import s2_metadata_parser
 from tsd import l8_metadata_parser
 from tsd import get_landsat
