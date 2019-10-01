@@ -24,7 +24,8 @@ Each parser returns a LandsatImage object with the following attributes:
 import dateutil
 
 AWS_HTTPS_URL_L8 = 'https://s3-us-west-2.amazonaws.com/landsat-pds'
-GCLOUD_URL_LANDSAT = 'https://storage.googleapis.com/gcp-public-data-landsat'
+GCLOUD_URL = 'https://storage.googleapis.com/'
+GCLOUD_BUCKET_LANDSAT = 'gcp-public-data-landsat'
 ALL_BANDS_LANDSAT = ['B{}'.format(i) for i in range(1, 12)] + ['BQA']
 
 
@@ -130,12 +131,12 @@ class LandsatImage(dict):
         Build Gcloud urls for all the available Landsat bands.
         """
         if 'gcloud_base_url' in self:
-            base_url = self.gcloud_base_url
+            base_url = self.gcloud_base_url.replace('gs://', GCLOUD_URL)
         else:
             sat, *_, collection, _ = self.product_id.split('_')
-            base_url = '{}/{}/{}/{}/{}/{}'.format(GCLOUD_URL_LANDSAT, sat,
-                                                  collection, self.path,
-                                                  self.row, self.product_id)
+            base_url = '{}{}/{}/{}/{}/{}/{}'.format(GCLOUD_URL, GCLOUD_BUCKET_LANDSAT,
+                                                    sat, collection, self.path,
+                                                    self.row, self.product_id)
         for band in ALL_BANDS_LANDSAT:
             self.urls['gcloud'][band] = '{}/{}_{}.TIF'.format(base_url,
                                                               self.product_id,
