@@ -13,7 +13,7 @@ Each parser returns a Sentinel2Image object with the following attributes:
     lat_band (str): letter between C and X, excluding I and O, indicating the
         UTM latitude band
     sqid (str): pair of letters indicating the MGRS 100x100 km square
-    mgrd_id (str): concatenation of utm_zone, lat_band and sqid. It has length
+    mgrs_id (str): concatenation of utm_zone, lat_band and sqid. It has length
         five (utm_zone is zero padded).
     date (datetime.datetime): acquisition date and time of the image
     satellite (str): either 'S2A' or 'S2B'
