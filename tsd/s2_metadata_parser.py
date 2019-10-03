@@ -61,9 +61,11 @@ BANDS_RESOLUTION = {'TCI': 10,
 
 def split_mgrs_id(mgrs_id):
     """
-    Split an mgrs identifier such as 10SEG into (10, S, EG).
+    Split an mgrs identifier such as 10SEG into (10, 'S', 'EG').
     """
-    return re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', mgrs_id)[1:4]
+    utm_zone, lat_band, sqid = re.split(r'(\d+)([a-zA-Z])([a-zA-Z]+)', mgrs_id)[1:4]
+    utm_zone = int(utm_zone)
+    return utm_zone, lat_band, sqid
 
 
 def parse_safe_name_for_relative_orbit_number(safe_name):
@@ -229,7 +231,7 @@ class Sentinel2Image(dict):
         """
         p = img['properties']
         self.title = p['sentinel:product_id']
-        self.utm_zone = p['sentinel:utm_zone']
+        self.utm_zone = int(p['sentinel:utm_zone'])
         self.lat_band = p['sentinel:latitude_band']
         self.sqid  = p['sentinel:grid_square']
         self.mgrs_id = '{}{}{}'.format(self.utm_zone, self.lat_band, self.sqid)
