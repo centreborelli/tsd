@@ -12,6 +12,7 @@ Each parser returns a Sentinel2Image object with the following attributes:
     utm_zone (int): integer between 1 and 60 indicating the UTM longitude zone
     lat_band (str): letter between C and X, excluding I and O, indicating the
         UTM latitude band
+    epsg (int): integer indicating the EPSG code of the UTM zone
     sqid (str): pair of letters indicating the MGRS 100x100 km square
     mgrs_id (str): concatenation of utm_zone, lat_band and sqid. It has length
         five (utm_zone is zero padded).
@@ -32,7 +33,7 @@ import datetime
 import dateutil.parser
 import requests
 
-from tsd import search_scihub
+from tsd import search_scihub, utils
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
@@ -216,6 +217,8 @@ class Sentinel2Image(dict):
             self.planet_parser(img)
         elif api == 'gcloud':
             self.gcloud_parser(img)
+
+        self.epsg = utils.utm_to_epsg_code(self.utm_zone, self.lat_band)
 
         if 'processing_level' not in self:
             self.processing_level = '1C'  # right now only scihub api allows L2A

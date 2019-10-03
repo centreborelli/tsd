@@ -252,6 +252,27 @@ def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
                              lat_band)
 
 
+def utm_to_epsg_code(utm_zone, lat_band):
+    """
+    Computes an EPSG code number from a UTM zone and latitude band
+
+    EPSG = CONST + UTM_ZONE where CONST is
+    - 32600 for positive latitudes
+    - 32700 for negative latitudes
+
+    Args:
+        utm_zone (int): integer between 1 and 60 indicating the UTM longitude zone
+        lat_band (str): letter between C and X, excluding I and O, indicating the
+            UTM latitude band
+
+    Returns:
+        int: integer indicating the EPSG code of the UTM zone
+    """
+    const = 32600 if lat_band >= "N" else 32700
+    epsg = const + utm_zone
+    return epsg
+
+
 def geojson_lonlat_to_utm(aoi):
     """
     """
