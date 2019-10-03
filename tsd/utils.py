@@ -22,6 +22,7 @@ import geojson
 import requests
 import shapely.geometry
 import rasterio
+import rasterio.warp
 import pyproj
 
 from tsd import rpc_model
@@ -167,68 +168,62 @@ def gdal_translate_version():
     return v.decode().split()[1].split(',')[0]
 
 
-def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
-                             utm_zone=None, lat_band=None, output_type=None):
+def crop_with_rasterio(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_type=None):
     """
     """
-    if outpath == inpath:  # hack to allow the output to overwrite the input
-        fd, out = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(inpath))
-        os.close(fd)
-    else:
-        out = outpath
-
-    env = os.environ.copy()
+    gdal_options = dict()
 
     # these GDAL configuration options speed up the access to remote files
-    if inpath.startswith(('http://', 'https://', 's3://', 'gs://')):
-        env['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = inpath[-3:]
-        env['GDAL_DISABLE_READDIR_ON_OPEN'] = 'EMPTY_DIR'
-        env['VSI_CACHE'] = 'TRUE'
-        env['GDAL_HTTP_MAX_RETRY'] = '10000'  # needed for storage.googleapis.com 503
-        env['GDAL_HTTP_RETRY_DELAY'] = '1'
+    if inpath.startswith(("http://", "https://", "s3://")):
+        _, file_ext = os.path.splitext(inpath)
+        file_ext = file_ext[1:]  # Remove the leading dot from file_ext
+        gdal_options["CPL_VSIL_CURL_ALLOWED_EXTENSIONS"] = file_ext
+        gdal_options["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+        gdal_options["VSI_CACHE"] = "TRUE"
+        gdal_options["GDAL_HTTP_MAX_RETRY"] = "10000"  # needed for storage.googleapis.com 503
+        gdal_options["GDAL_HTTP_RETRY_DELAY"] = "1"
 
-    # add the relevant "/vsi" prefix to the input url
-    if inpath.startswith(('http://', 'https://')):
-        path = '/vsicurl/{}'.format(inpath)
-    elif inpath.startswith('s3://'):
-        env['AWS_REQUEST_PAYER'] = 'requester'
-        path = '/vsis3/{}'.format(inpath[len('s3://'):])
-    elif inpath.startswith('gs://'):
-        path = '/vsicurl/http://storage.googleapis.com/{}'.format(inpath[len('gs://'):])
+    if inpath.startswith("s3://"):
+        session = rasterio.session.AWSSession(requester_pays=True)
     else:
-        path = inpath
+        session = None
 
-    # build the gdal_translate shell command
-    cmd = ['gdal_translate', path, out, '-of', 'GTiff', '-co', 'COMPRESS=DEFLATE',
-           '-projwin', str(ulx), str(uly), str(lrx), str(lry)]
-    if output_type is not None:
-        cmd += ['-ot', output_type]
-    if utm_zone is not None:
-        if gdal_translate_version() < '2.0':
-            print('WARNING: utils.crop_with_gdal_translate argument utm_zone requires gdal >= 2.0')
-        else:
-            srs = '+proj=utm +zone={}'.format(utm_zone)
-            # latitude bands in the southern hemisphere range from 'C' to 'M'
-            if lat_band and lat_band < 'N':
-                srs += ' +south'
-            cmd += ['-projwin_srs', srs]
-            #print(' '.join(cmd))
+    with rasterio.Env(session=session, **gdal_options):
+        with rasterio.open(inpath) as src:
+            bounds = (ulx, lry, lrx, uly)
 
-    # run the gdal_translate command
-    try:
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=env)
-    except subprocess.CalledProcessError as e:
-        if inpath.startswith(('http://', 'https://')):
-            if not requests.head(inpath).ok:
-                print('{} is not available'.format(inpath))
-                return
-        print('ERROR: this command failed')
-        print(' '.join(cmd))
-        print(e.output)
-        return
+            # Convert the bounds to the CRS of inpath if epsg is given
+            if epsg:
+                bounds = rasterio.warp.transform_bounds(
+                    rasterio.crs.CRS.from_epsg(epsg), src.crs, *bounds
+                )
 
-    if outpath == inpath:  # hack to allow the output to overwrite the input
-        shutil.move(out, outpath)
+            # Get the pixel coordinates of the bounds in inpath
+            window = src.window(*bounds)
+
+            # Do a "floor" operation on offsets to match what gdal_translate does
+            window = window.round_offsets()
+
+            # Do a "round" operation on lengths to match what gdal_translate does
+            width = round(window.width)
+            height = round(window.height)
+            window = rasterio.windows.Window(window.col_off, window.row_off, width, height)
+
+            profile = src.profile
+            profile.update(
+                {
+                    "driver": "GTiff",
+                    "compress": "deflate",
+                    "height": height,
+                    "width": width,
+                    "transform": src.window_transform(window),
+                }
+            )
+            if output_type:
+                profile["dtype"] = output_type.lower()
+
+            with rasterio.open(outpath, "w", **profile) as out:
+                out.write(src.read(window=window))
 
 
 def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
@@ -245,11 +240,9 @@ def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
         inpath = metadata_dict['urls']['gcloud'][band]
     except KeyError:  # Landsat-8
         inpath = metadata_dict['assets'][band]['href']
-    utm_zone = int(metadata_dict['utm_zone']) if 'utm_zone' in metadata_dict else None
-    ulx, uly, lrx, lry, utm_zone, lat_band = utm_bbx(aoi, utm_zone=utm_zone,
-                                                     r=60)
-    crop_with_gdal_translate(output_path, inpath, ulx, uly, lrx, lry, utm_zone,
-                             lat_band)
+    epsg = int(metadata_dict['epsg']) if 'epsg' in metadata_dict else None
+    ulx, uly, lrx, lry, epsg = utm_bbx(aoi, epsg=epsg, r=60)
+    crop_with_rasterio(output_path, inpath, ulx, uly, lrx, lry, epsg)
 
 
 def utm_to_epsg_code(utm_zone, lat_band):
@@ -288,21 +281,61 @@ def geojson_lonlat_to_utm(aoi):
     return geojson.Polygon([c])
 
 
-def utm_bbx(aoi, utm_zone=None, r=None):
+def compute_epsg(lon, lat):
+    """
+    Compute the EPSG code of the UTM zone which contains
+    the point with given longitude and latitude
+
+    Args:
+        lon (float): longitude of the point
+        lat (float): latitude of the point
+
+    Returns:
+        int: EPSG code
+    """
+    # UTM zone number starts from 1 at longitude -180,
+    # and increments by 1 every 6 degrees of longitude
+    zone = int((lon + 180) // 6 + 1)
+
+    # EPSG = CONST + ZONE where CONST is
+    # - 32600 for positive latitudes
+    # - 32700 for negative latitudes
+    const = 32600 if lat > 0 else 32700
+    return const + zone
+
+
+def pyproj_transform(x, y, in_epsg, out_epsg):
+    """
+    Wrapper around pyproj to convert coordinates from an EPSG system
+    to another.
+
+    Args:
+        x (scalar or array): x coordinate(s) of the point(s), expressed in `in_epsg`
+        y (scalar or array): y coordinate(s) of the point(s), expressed in `in_epsg`
+        in_epsg (int): EPSG code of the input coordinate system
+        out_epsg (int): EPSG code of the output coordinate system
+
+    Returns:
+        scalar or array: x coordinate(s) of the point(s) in the output EPSG system
+        scalar or array: y coordinate(s) of the point(s) in the output EPSG system
+    """
+    in_proj = pyproj.Proj(init="epsg:{}".format(in_epsg))
+    out_proj = pyproj.Proj(init="epsg:{}".format(out_epsg))
+    return pyproj.transform(in_proj, out_proj, x, y)
+
+
+def utm_bbx(aoi, epsg=None, r=None):
     """
     """
     lon, lat = aoi['coordinates'][0][0]
-    if utm_zone is None:  # compute the utm zone number of the first vertex
-        utm_zone, lat_band = utm.from_latlon(lat, lon)[2:]
-    else:
-        lat_band = utm.from_latlon(lat, lon, force_zone_number=utm_zone)[3]
+    if epsg is None:  # compute the EPSG code of the first vertex
+        epsg = compute_epsg(lon, lat)
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
-    c = []
-    for lon, lat in aoi['coordinates'][0]:
-        hemisphere = 'north' if lat>=0 else 'south'
-        x,y = pyproj.transform(pyproj.Proj('+proj=latlong'), pyproj.Proj('+proj=utm +zone={}{} +{}'.format(utm_zone,lat_band,hemisphere)), lon, lat)
-        c.append((x,y))
+    lons = [el[0] for el in aoi['coordinates'][0]]
+    lats = [el[1] for el in aoi['coordinates'][0]]
+    xs, ys = pyproj_transform(lons, lats, 4326, epsg)
+    c = list(zip(xs, ys))
 
     # utm bounding box
     bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
@@ -314,8 +347,7 @@ def utm_bbx(aoi, utm_zone=None, r=None):
         lrx = r * np.round(lrx / r)
         lry = r * np.round(lry / r)
 
-    return ulx, uly, lrx, lry, utm_zone, lat_band
-
+    return ulx, uly, lrx, lry, epsg
 
 
 def latlon_rectangle_centered_at(lat, lon, w, h):
