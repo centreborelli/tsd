@@ -17,9 +17,7 @@ import subprocess
 import tempfile
 import numpy as np
 import utm
-import traceback
 import warnings
-import sys
 import geojson
 import requests
 import shapely.geometry
@@ -150,35 +148,6 @@ def is_valid(f):
         return False
 
 
-def tmpfile(ext=''):
-    """
-    Creates a temporary file.
-
-    Args:
-        ext: desired file extension. The dot has to be included.
-
-    Returns:
-        absolute path to the created file
-    """
-    fd, out = tempfile.mkstemp(suffix=ext)
-    os.close(fd)           # http://www.logilab.org/blogentry/17873
-    return out
-
-
-def pixel_size(path):
-    """
-    Read the resolution (in meters per pixel) of a GeoTIFF image.
-
-    Args:
-        path (string): path to a GeoTIFF image file
-
-    Return:
-        rx, ry (tuple): two floats giving the horizontal and vertical pixel size
-    """
-    with rasterio.open(path, 'r') as f:
-        return f.res
-
-
 def set_geotif_metadata_items(path, tags={}):
     """
     Append key, value pairs to the GDAL "metadata" tag of a GeoTIFF file.
@@ -191,48 +160,11 @@ def set_geotif_metadata_items(path, tags={}):
         dst.update_tags(**tags)
 
 
-def geotiff_utm_zone(path):
-    """
-    Read the UTM zone of a GeoTIFF image.
-
-    Args:
-        path (string): path to a GeoTIFF image file
-
-    Return:
-        int between 1 and 60 identifying the UTM zone
-    """
-    with rasterio.open(path, 'r') as f:
-        return int(f.crs['init'][-2:])
-
-
 def gdal_translate_version():
     """
     """
     v = subprocess.check_output(['gdal_translate', '--version'])
     return v.decode().split()[1].split(',')[0]
-
-
-def inplace_utm_reprojection_with_gdalwarp(src, utm_zone, ulx, uly, lrx, lry):
-    """
-    """
-    if geotiff_utm_zone(src) != utm_zone:
-
-        # hack to allow the output to overwrite the input
-        fd, dst = tempfile.mkstemp(suffix='.tif', dir=os.path.dirname(src))
-        os.close(fd)
-
-        cmd = ['gdalwarp', '-t_srs', '+proj=utm +zone={}'.format(utm_zone),
-               '-te', str(ulx), str(lry), str(lrx), str(uly),  # xmin ymin xmax ymax
-               '-overwrite', src, dst]
-        print(' '.join(cmd))
-        try:
-            #print(' '.join(cmd))
-            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            shutil.move(dst, src)
-        except subprocess.CalledProcessError as e:
-            print('ERROR: this command failed')
-            print(' '.join(cmd))
-            print(e.output)
 
 
 def crop_with_gdal_translate(outpath, inpath, ulx, uly, lrx, lry,
@@ -320,14 +252,6 @@ def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
                              lat_band)
 
 
-def crop_with_gdalwarp(outpath, inpath, geojson_path):
-    """
-    """
-    cmd = ['gdalwarp', inpath, outpath, '-ot', 'UInt16', '-of', 'GTiff',
-           '-overwrite', '-crop_to_cutline', '-cutline', geojson_path]
-    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-
-
 def geojson_lonlat_to_utm(aoi):
     """
     """
@@ -371,29 +295,6 @@ def utm_bbx(aoi, utm_zone=None, r=None):
 
     return ulx, uly, lrx, lry, utm_zone, lat_band
 
-
-
-def latlon_to_pix(path, lat, lon):
-   """
-   Get the pixel coordinates of a geographic location in a GeoTIFF image.
-
-   Args:
-       path: path to the input image
-       lat, lon: geographic coordinates of the input location
-
-   Returns:
-       x, y: pixel coordinates
-   """
-   with rasterio.open(path, 'r') as f:
-       crs = f.crs
-       transform = f.transform
-
-   # transform (lon, lat) to the coordinate reference system of the image
-   x, y = pyproj.transform(pyproj.Proj('+proj=latlong'), pyproj.Proj(crs),
-                           lon, lat)
-
-   # transform x, y to pixel coordinates
-   return ~transform * (x, y)
 
 
 def latlon_rectangle_centered_at(lat, lon, w, h):
@@ -451,15 +352,6 @@ def show(img):
 
     ax.format_coord = format_coord
     plt.show()
-
-
-def warn_with_traceback(message, category, filename, lineno, file=None,
-                        line=None):
-    traceback.print_stack()
-    log = file if hasattr(file,'write') else sys.stderr
-    log.write(warnings.formatwarning(message, category, filename, lineno, line))
-
-#warnings.showwarning = warn_with_traceback
 
 
 def bounding_box2D(pts):
