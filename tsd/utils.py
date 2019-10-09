@@ -116,6 +116,10 @@ def valid_geojson(filepath):
         geo = geojson.load(f)
     if type(geo) == geojson.geometry.Polygon:
         return geo
+    if type(geo) == geojson.feature.Feature:
+        p = geo['geometry']
+        if type(p) == geojson.geometry.Polygon:
+            return p
     if type(geo) == geojson.feature.FeatureCollection:
         p = geo['features'][0]['geometry']
         if type(p) == geojson.geometry.Polygon:
