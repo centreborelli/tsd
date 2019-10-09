@@ -98,8 +98,8 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
     dates.sort()
 
     # remove duplicates (two images are said to be duplicates if within 5 minutes)
+    to_remove = []
     if remove_duplicates:
-        to_remove = []
         for i, (d, r) in enumerate(list(zip(dates, results))[:-1]):
             if dates[i+1] - d < datetime.timedelta(seconds=300):
                 to_remove.append(r)
@@ -154,4 +154,4 @@ if __name__ == '__main__':
                             item_types=args.item_types,
                             search_type=args.search_type,
                             satellite_id=args.satellite_id,
-                            remove_duplicates=~args.keep_duplicates)))
+                            remove_duplicates=not args.keep_duplicates)))
