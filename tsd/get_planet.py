@@ -39,21 +39,31 @@ from tsd import parallel
 from tsd import search_planet
 
 ITEM_TYPES = search_planet.ITEM_TYPES
-ASSETS = ['udm',
-          'visual',
-          'visual_xml',
-          'analytic',
-          'analytic_xml',
-          'analytic_dn',
-          'analytic_dn_xml',
-          'analytic_sr',
-          'basic_udm',
-          'basic_analytic',
-          'basic_analytic_xml',
-          'basic_analytic_rpc',
-          'basic_analytic_dn',
-          'basic_analytic_dn_xml',
-          'basic_analytic_dn_rpc']
+ASSETS = ["analytic",
+          "basic_analytic",
+          "basic_analytic_dn",
+          "basic_analytic_dn_rpc",
+          "basic_analytic_rpc",
+          "basic_analytic_udm2",
+          "basic_l1a_panchromatic_dn",
+          "basic_l1a_panchromatic_dn_rpc",
+          "basic_panchromatic",
+          "basic_panchromatic_dn",
+          "basic_panchromatic_dn_rpc",
+          "basic_panchromatic_rpc",
+          "basic_panchromatic_udm2",
+          "ortho_analytic",
+          "ortho_analytic_dn",
+          "ortho_analytic_udm",
+          "ortho_analytic_udm2",
+          "ortho_panchromatic",
+          "ortho_panchromatic_dn",
+          "ortho_panchromatic_udm",
+          "ortho_panchromatic_udm2",
+          "ortho_pansharpened",
+          "ortho_pansharpened_udm",
+          "ortho_pansharpened_udm2",
+          "ortho_visual"]
 client = search_planet.client
 
 CAS_URL = 'https://api.planet.com/compute/ops/clips/v1'  # clip and ship
