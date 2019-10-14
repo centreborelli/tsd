@@ -66,13 +66,13 @@ def check_args(api, mirror, product_type):
                 raise ValueError(
                     'Could not connect to AWS server. Check credentials or use mirror=gcloud')
         else:
-            raise ValueError("TSD downloads Sentinel-2 image crops from the s3://sentinel-s2-l1c",
-                             "AWS bucket, which used to be free. On the 7th of August 2018,",
-                             "the bucket was switched to 'Requester Pays'. As a consequence,",
-                             "you need an AWS account and your credentials stored in the",
-                             "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment",
-                             "variables in order to use TSD. The price ranges in 0.05-0.09 $",
-                             "per GB. More info: {}".format(info_url))
+            raise ValueError(("TSD downloads Sentinel-2 image crops from the s3://sentinel-s2-l1c "
+                              "AWS bucket, which used to be free. On the 7th of August 2018, "
+                              "the bucket was switched to 'Requester Pays'. As a consequence, "
+                              "you need an AWS account and your credentials stored in the "
+                              "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment "
+                              "variables in order to use TSD. The price ranges in 0.05-0.09 $ "
+                              "per GB. More info: {}".format(info_url)))
 
 
 def search(aoi, start_date=None, end_date=None, product_type=None,
