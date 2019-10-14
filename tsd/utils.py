@@ -10,14 +10,12 @@ Copyright (C) 2018, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 from __future__ import print_function
 import os
 import re
-import shutil
 import argparse
 import datetime
-import subprocess
-import tempfile
+import warnings
+
 import numpy as np
 import utm
-import warnings
 import geojson
 import requests
 import shapely.geometry
@@ -159,13 +157,6 @@ def set_geotif_metadata_items(path, tags={}):
     """
     with rasterio.open(path, 'r+') as dst:
         dst.update_tags(**tags)
-
-
-def gdal_translate_version():
-    """
-    """
-    v = subprocess.check_output(['gdal_translate', '--version'])
-    return v.decode().split()[1].split(',')[0]
 
 
 def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_type=None):
