@@ -126,7 +126,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
                                                                      len(imgs),
                                                                      len(bands) +1),
           end=' ')
-    parallel.run_calls(utils.crop_with_rasterio, crops_args,
+    parallel.run_calls(utils.rasterio_geo_crop, crops_args,
                        extra_args=(*coords,), pool_type='threads',
                        nb_workers=parallel_downloads)
 

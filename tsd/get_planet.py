@@ -133,11 +133,15 @@ def download_crop(outfile, asset, aoi, aoi_type):
     url = poll_activation(asset)
     if url is not None:
         if aoi_type == "utm_rectangle":
-            utils.crop_with_rasterio(outfile, url, *aoi)
+            utils.rasterio_geo_crop(outfile, url, *aoi)
         elif aoi_type == "lonlat_polygon":
             with rasterio.open(url, 'r') as src:
                 rpc_tags = src.tags(ns='RPC')
             crop, x, y = utils.crop_aoi(url, aoi)
+
+            # interleave channels
+            crop = np.moveaxis(crop, 0, 2).squeeze()
+
             utils.rio_write(outfile, crop,
                             tags={'CROP_OFFSET_XY': '{} {}'.format(x, y)},
                             namespace_tags={'RPC': rpc_tags})

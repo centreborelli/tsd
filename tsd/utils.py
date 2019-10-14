@@ -168,8 +168,19 @@ def gdal_translate_version():
     return v.decode().split()[1].split(',')[0]
 
 
-def crop_with_rasterio(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_type=None):
+def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_type=None):
     """
+    Write a crop to disk from an input image, given the coordinates of the geographical
+    bounding box.
+
+    Args:
+        outpath (str): path to the output crop
+        inpath (str): path to the input image
+        ulx, uly, lrx, lry (float): geographical coordinates of the crop bounding box
+        epsg (int): EPSG code of the coordinate system in which the bounding box
+            coordinates are expressed. If None, it is assumed that the coordinates
+            are expressed in the CRS of the input image.
+        output_type (str): output type of the crop
     """
     gdal_options = dict()
 
@@ -222,8 +233,10 @@ def crop_with_rasterio(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_ty
             if output_type:
                 profile["dtype"] = output_type.lower()
 
+            crop = rasterio_window_crop(src, window.col_off, window.row_off, width, height)
+
             with rasterio.open(outpath, "w", **profile) as out:
-                out.write(src.read(window=window))
+                out.write(crop)
 
 
 def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
@@ -242,7 +255,7 @@ def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
         inpath = metadata_dict['assets'][band]['href']
     epsg = int(metadata_dict['epsg']) if 'epsg' in metadata_dict else None
     ulx, uly, lrx, lry, epsg = utm_bbx(aoi, epsg=epsg, r=60)
-    crop_with_rasterio(output_path, inpath, ulx, uly, lrx, lry, epsg)
+    rasterio_geo_crop(output_path, inpath, ulx, uly, lrx, lry, epsg)
 
 
 def utm_to_epsg_code(utm_zone, lat_band):
@@ -484,15 +497,13 @@ class CropOutside(Exception):
     pass
 
 
-def rasterio_crop(filename, x, y, w, h, boundless=True, fill_value=0):
+def rasterio_window_crop(src, x, y, w, h, boundless=True, fill_value=0):
     """
-    Read a crop from a file with rasterio and return it as an array.
-
-    This is a working alternative to this rasterio oneliner which currently fails:
-    src.read(window=((y, y + h), (x, x + w)), boundless=True, fill_value=0)
+    Read a crop from a rasterio dataset and return it as an array.
+    This uses rasterio's windowed reading functionality
 
     Args:
-        filename: path to the input image file
+        src: rasterio dataset opened in read mode
         x, y: pixel coordinates of the top-left corner of the crop
         w, h: width and height of the crop, in pixels
         boundless (bool): similar to gdal_translate "epo: error when partially
@@ -502,21 +513,13 @@ def rasterio_crop(filename, x, y, w, h, boundless=True, fill_value=0):
         fill_value (scalar): constant value used to fill pixels outside of the
             input image.
     """
-    with rasterio.open(filename, 'r') as src:
-        if not boundless:
-            if y < 0 or y + h > src.shape[0] or x < 0 or x + w > src.shape[1]:
-                raise CropOutside(('crop {} {} {} {} falls outside of input image '
-                                   'whose shape is {}'.format(x, y, w, h, src.shape)))
+    if not boundless:
+        if y < 0 or y + h > src.shape[0] or x < 0 or x + w > src.shape[1]:
+            raise CropOutside(('crop {} {} {} {} falls outside of input image '
+                               'whose shape is {}'.format(x, y, w, h, src.shape)))
 
-        crop = fill_value * np.ones((src.count, h, w), dtype=src.profile['dtype'])
-        y0 = max(y, 0)
-        y1 = min(y + h, src.shape[0])
-        x0 = max(x, 0)
-        x1 = min(x + w, src.shape[1])
-        crop[:, y0 - y:y1 - y, x0 - x:x1 - x] = src.read(window=((y0, y1), (x0, x1)))
-
-    # interleave channels
-    return np.moveaxis(crop, 0, 2).squeeze()
+    window = rasterio.windows.Window(x, y, w, h)
+    return src.read(window=window, boundless=boundless, fill_value=fill_value)
 
 
 def crop_aoi(geotiff, aoi, z=0):
@@ -536,7 +539,9 @@ def crop_aoi(geotiff, aoi, z=0):
             of the crop.
     """
     x, y, w, h = bounding_box_of_projected_aoi(rpc_from_geotiff(geotiff), aoi, z)
-    return rasterio_crop(geotiff, x, y, w, h), x, y
+    with rasterio.open(geotiff) as src:
+        crop = rasterio_window_crop(src, x, y, w, h)
+    return crop, x, y
 
 
 def rio_dtype(numpy_dtype):
