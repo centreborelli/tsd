@@ -153,7 +153,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
     crops_args = []
     for img in imgs:
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
-        coords = utils.utm_bbx(aoi, utm_zone=int(img.utm_zone),
+        coords = utils.utm_bbx(aoi, epsg=int(img.epsg),
                                r=60)  # round to multiples of 60 (B01 resolution)
 
         for b in bands:
@@ -166,7 +166,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
                                                                      len(imgs),
                                                                      len(bands)),
           end=' ')
-    parallel.run_calls(utils.crop_with_gdal_translate, crops_args,
+    parallel.run_calls(utils.rasterio_geo_crop, crops_args,
                        extra_args=('UInt16',), pool_type='threads',
                        nb_workers=parallel_downloads)
 

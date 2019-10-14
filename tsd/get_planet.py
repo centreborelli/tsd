@@ -123,22 +123,25 @@ def download_crop(outfile, asset, aoi, aoi_type):
         outfile (string): path to the output file
         asset (dict): dictionary containing the image information
         aoi (geojson.Polygon or 6-tuple): either a (lon, lat) polygon or a UTM
-            rectangle (ulx, uly, lrx, lry, utm_zone, lat_band), where
+            rectangle (ulx, uly, lrx, lry, epsg), where
             ulx, uly (floats): x/y UTM coordinates of the upper left (ul) corner
             lrx, lry (floats): x/y UTM coordinates of the lower right (lr) corner
-            utm_zone (int): number between 1 and 60 indicating the UTM zone with
+            epsg (int): number indicating the EPSG code of the UTM zone with
                 respect to which the UTM coordinates have to be interpreted.
-            lat_band (string): letter between C and X indicating the latitude band.
         aoi_type (string): "lonlat_polygon" or "utm_rectangle"
     """
     url = poll_activation(asset)
     if url is not None:
         if aoi_type == "utm_rectangle":
-            utils.crop_with_gdal_translate(outfile, url, *aoi)
+            utils.rasterio_geo_crop(outfile, url, *aoi)
         elif aoi_type == "lonlat_polygon":
             with rasterio.open(url, 'r') as src:
                 rpc_tags = src.tags(ns='RPC')
             crop, x, y = utils.crop_aoi(url, aoi)
+
+            # interleave channels
+            crop = np.moveaxis(crop, 0, 2).squeeze()
+
             utils.rio_write(outfile, crop,
                             tags={'CROP_OFFSET_XY': '{} {}'.format(x, y)},
                             namespace_tags={'RPC': rpc_tags})

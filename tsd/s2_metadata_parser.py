@@ -12,8 +12,9 @@ Each parser returns a Sentinel2Image object with the following attributes:
     utm_zone (int): integer between 1 and 60 indicating the UTM longitude zone
     lat_band (str): letter between C and X, excluding I and O, indicating the
         UTM latitude band
+    epsg (int): integer indicating the EPSG code of the UTM zone
     sqid (str): pair of letters indicating the MGRS 100x100 km square
-    mgrd_id (str): concatenation of utm_zone, lat_band and sqid. It has length
+    mgrs_id (str): concatenation of utm_zone, lat_band and sqid. It has length
         five (utm_zone is zero padded).
     date (datetime.datetime): acquisition date and time of the image
     satellite (str): either 'S2A' or 'S2B'
@@ -32,7 +33,7 @@ import datetime
 import dateutil.parser
 import requests
 
-from tsd import search_scihub
+from tsd import search_scihub, utils
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
@@ -61,9 +62,11 @@ BANDS_RESOLUTION = {'TCI': 10,
 
 def split_mgrs_id(mgrs_id):
     """
-    Split an mgrs identifier such as 10SEG into (10, S, EG).
+    Split an mgrs identifier such as 10SEG into (10, 'S', 'EG').
     """
-    return re.split('(\d+)([a-zA-Z])([a-zA-Z]+)', mgrs_id)[1:4]
+    utm_zone, lat_band, sqid = re.split(r'(\d+)([a-zA-Z])([a-zA-Z]+)', mgrs_id)[1:4]
+    utm_zone = int(utm_zone)
+    return utm_zone, lat_band, sqid
 
 
 def parse_safe_name_for_relative_orbit_number(safe_name):
@@ -215,6 +218,8 @@ class Sentinel2Image(dict):
         elif api == 'gcloud':
             self.gcloud_parser(img)
 
+        self.epsg = utils.utm_to_epsg_code(self.utm_zone, self.lat_band)
+
         if 'processing_level' not in self:
             self.processing_level = '1C'  # right now only scihub api allows L2A
 
@@ -229,7 +234,7 @@ class Sentinel2Image(dict):
         """
         p = img['properties']
         self.title = p['sentinel:product_id']
-        self.utm_zone = p['sentinel:utm_zone']
+        self.utm_zone = int(p['sentinel:utm_zone'])
         self.lat_band = p['sentinel:latitude_band']
         self.sqid  = p['sentinel:grid_square']
         self.mgrs_id = '{}{}{}'.format(self.utm_zone, self.lat_band, self.sqid)
