@@ -191,7 +191,8 @@ def get_roda_metadata(img, filename='tileInfo.json'):
     if r.ok:
         return r.json()
     else:
-        raise Exception("{} not found on roda".format(img.title))
+        print("{} not found on roda".format(img.title, url))
+        return None
 
 
 class Sentinel2Image(dict):
@@ -329,10 +330,14 @@ class Sentinel2Image(dict):
         if 'granule_date' not in self:
             tile_info = get_roda_metadata(self, filename='tileInfo.json')
             #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
+            if not tile_info:  # abort if file not found on roda
+                return
             self.granule_date = parse_datastrip_id_for_granule_date(tile_info['datastrip']['id'])
 
         if 'absolute_orbit' not in self:
             product_info = get_roda_metadata(self, filename='productInfo.json')
+            if not tile_info:  # abort if file not found on roda
+                return
             self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
 
     #    if self.is_old:
