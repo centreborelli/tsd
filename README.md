@@ -91,3 +91,12 @@ to their docstrings to get usage information. Here are some examples.
 
     # search Landsat-8 images available on the AOI with Development Seed's API
     x = tsd.search_devseed.search(aoi, satellite='Landsat-8')
+
+
+# Common issues
+
+_Warning_: A `rasterio` issue on Ubuntu causes the need for this environment
+variable (more info on [rasterio's
+github](https://github.com/mapbox/rasterio/issues/942)):
+
+    export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
