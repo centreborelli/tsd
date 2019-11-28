@@ -336,7 +336,7 @@ class Sentinel2Image(dict):
 
         if 'absolute_orbit' not in self:
             product_info = get_roda_metadata(self, filename='productInfo.json')
-            if not tile_info:  # abort if file not found on roda
+            if not product_info:  # abort if file not found on roda
                 return
             self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
 
