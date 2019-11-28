@@ -151,7 +151,13 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
                            nb_workers=parallel_downloads)
 
     crops_args = []
+    nb_removed = 0
     for img in imgs:
+
+        if not img.urls[mirror]:  # then it cannot be downloaded
+            nb_removed = nb_removed + 1
+            continue
+
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
         coords = utils.utm_bbx(aoi, epsg=int(img.epsg),
                                r=60)  # round to multiples of 60 (B01 resolution)
@@ -160,10 +166,13 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
             crops_args.append((fname, img.urls[mirror][b], *coords))
 
+    if nb_removed:
+        print('Removed {} image(s) with invalid urls'.format(nb_removed))
+
     out_dir = os.path.abspath(os.path.expanduser(out_dir))
     os.makedirs(out_dir, exist_ok=True)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
-                                                                     len(imgs),
+                                                                     len(imgs) - nb_removed,
                                                                      len(bands)),
           end=' ')
     parallel.run_calls(utils.rasterio_geo_crop, crops_args,
