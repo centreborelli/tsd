@@ -35,6 +35,7 @@ requirements = ['area',
                 'shapely',
                 'tqdm',
                 'utm',
+                'xmltodict',
                 'sentinelhub']
 
 
