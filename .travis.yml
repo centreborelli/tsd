@@ -16,8 +16,7 @@ env:
     GOOGLE_APPLICATION_CREDENTIALS=$TRAVIS_BUILD_DIR/.gcloud-credentials.json
 
 before_install:
-  - openssl aes-256-cbc -K $encrypted_1637a71a6097_key -iv $encrypted_1637a71a6097_iv -in .gcloud-credentials.json.enc -out .gcloud-credenti
-als.json -d
+  - openssl aes-256-cbc -K $encrypted_1637a71a6097_key -iv $encrypted_1637a71a6097_iv -in .gcloud-credentials.json.enc -out .gcloud-credentials.json -d
 
 install:
   - |
