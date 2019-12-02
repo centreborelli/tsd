@@ -8,12 +8,11 @@ matrix:
     - os: linux
       dist: xenial
       python: 3.7
-      env: CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
     - os: osx
       language: generic
 
 env:
-    GOOGLE_APPLICATION_CREDENTIALS=$TRAVIS_BUILD_DIR/.gcloud-credentials.json
+    GOOGLE_APPLICATION_CREDENTIALS=$TRAVIS_BUILD_DIR/.gcloud-credentials.json CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 before_install:
   - openssl aes-256-cbc -K $encrypted_1637a71a6097_key -iv $encrypted_1637a71a6097_iv -in .gcloud-credentials.json.enc -out .gcloud-credentials.json -d
