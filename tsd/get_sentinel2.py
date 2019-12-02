@@ -267,7 +267,8 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                     out_dir='', api='devseed', mirror='gcloud',
                     product_type=None, cloud_masks=False,
-                    parallel_downloads=multiprocessing.cpu_count()):
+                    parallel_downloads=multiprocessing.cpu_count(),
+                    satellite_angles=False):
     """
     Main function: crop and download a time series of Sentinel-2 images.
 
@@ -283,6 +284,8 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
             cloudy images are discarded
         parallel_downloads (int): number of parallel gml files downloads
+        satellite_angles (bool): whether or not to download satellite zenith
+            and azimuth angles and include them in metadata
     """
     # check access to the selected search api and download mirror
     check_args(api, mirror, product_type)
@@ -302,6 +305,10 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # discard images that failed to download
     images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
+
+    if satellite_angles:  # retrieve satellite elevation and azimuth angles
+        for img in images:
+            img.get_satellite_angles()
 
     # embed all metadata as GeoTIFF tags in the image files
     for img in images:
@@ -344,13 +351,16 @@ if __name__ == '__main__':
                         default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
-    parser.add_argument(
-        '--product-type', choices=['L1C', 'L2A'], help='type of image')
+    parser.add_argument('--product-type', choices=['L1C', 'L2A'],
+                        help='type of image')
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
-    parser.add_argument('--cloud-masks',  action='store_true',
+    parser.add_argument('--cloud-masks', action='store_true',
                         help=('download cloud masks crops from provided GML files'))
+    parser.add_argument('--satellite-angles', action='store_true',
+                        help=('retrieve satellite zenith and azimuth angles',
+                              ' and include them in tiff metadata'))
     args = parser.parse_args()
 
     if 'all' in args.band:
@@ -372,4 +382,5 @@ if __name__ == '__main__':
                     mirror=args.mirror,
                     product_type=args.product_type,
                     cloud_masks=args.cloud_masks,
-                    parallel_downloads=args.parallel_downloads)
+                    parallel_downloads=args.parallel_downloads,
+                    satellite_angles=args.satellite_angles)

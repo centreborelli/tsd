@@ -38,7 +38,7 @@ do
    do
        echo
        echo ${API} ${MIRROR}
-       python3 tsd/get_sentinel2.py --lon ${LON} --lat ${LAT} -w ${SIZE} -l ${SIZE} -s ${START} -e ${END} -o tests/s2_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
+       python3 tsd/get_sentinel2.py --lon ${LON} --lat ${LAT} -w ${SIZE} -l ${SIZE} -s ${START} -e ${END} -o tests/s2_${API}_${MIRROR} --api ${API} --mirror ${MIRROR} --satellite-angles
        echo
    done
 done

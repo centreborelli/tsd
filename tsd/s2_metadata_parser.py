@@ -29,9 +29,12 @@ Each parser returns a Sentinel2Image object with the following attributes:
 """
 from __future__ import print_function
 import re
+import json
 import datetime
+
 import dateutil.parser
 import requests
+import xmltodict
 
 from tsd import search_scihub, utils
 
@@ -59,6 +62,21 @@ BANDS_RESOLUTION = {'TCI': 10,
                     'B11': 20,
                     'B12': 20}
 
+# Correspondence between band name and band index, from page 57 / 496 of
+# https://sentinel.esa.int/documents/247904/349490/S2_MSI_Product_Specification.pdf
+BANDS_INDEX = {'0': 'B01',
+               '1': 'B02',
+               '2': 'B03',
+               '3': 'B04',
+               '4': 'B05',
+               '5': 'B06',
+               '6': 'B07',
+               '7': 'B08',
+               '8': 'B8A',
+               '9': 'B09',
+               '10': 'B10',
+               '11': 'B11',
+               '12': 'B12'}
 
 def split_mgrs_id(mgrs_id):
     """
@@ -189,7 +207,10 @@ def get_roda_metadata(img, filename='tileInfo.json'):
                                              img.date.day, filename)
     r = requests.get(url)
     if r.ok:
-        return r.json()
+        try:
+            return r.json()
+        except json.decoder.JSONDecodeError:
+            return r.text
     else:
         print("{} not found on roda".format(img.title, url))
         return None
@@ -394,3 +415,18 @@ class Sentinel2Image(dict):
                 urls[b] = '{}/R{}m/{}.jp2'.format(base_url, BANDS_RESOLUTION[b], b)
             else:
                 urls[b] = '{}/{}.jp2'.format(base_url, b)
+
+
+    def get_satellite_angles(self):
+        """
+        Get satellite mean zenith and azimuth angles from xml metadata file.
+        """
+        metadata_xml = get_roda_metadata(self, filename="metadata.xml")
+        if metadata_xml:
+            d = xmltodict.parse(metadata_xml)
+        else:
+            return
+
+        angles = d["n1:Level-1C_Tile_ID"]["n1:Geometric_Info"]["Tile_Angles"]["Mean_Viewing_Incidence_Angle_List"]["Mean_Viewing_Incidence_Angle"]
+        self.satellite_zenith = dict(sorted([(BANDS_INDEX[x["@bandId"]], float(x["ZENITH_ANGLE"]["#text"])) for x in angles]))
+        self.satellite_azimuth = dict(sorted([(BANDS_INDEX[x["@bandId"]], float(x["AZIMUTH_ANGLE"]["#text"])) for x in angles]))
