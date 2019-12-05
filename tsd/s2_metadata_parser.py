@@ -208,7 +208,7 @@ def get_roda_metadata(img, filename='tileInfo.json'):
     r = requests.get(url)
     if r.ok:
         try:
-            return r.json()
+            return json.loads(r.text)
         except json.decoder.JSONDecodeError:
             return r.text
     else:
