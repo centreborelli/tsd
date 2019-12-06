@@ -327,8 +327,10 @@ def pyproj_transform(x, y, in_epsg, out_epsg):
         scalar or array: x coordinate(s) of the point(s) in the output EPSG system
         scalar or array: y coordinate(s) of the point(s) in the output EPSG system
     """
-    in_proj = pyproj.Proj(init="epsg:{}".format(in_epsg))
-    out_proj = pyproj.Proj(init="epsg:{}".format(out_epsg))
+    with warnings.catch_warnings():  # noisy warnings here with pyproj>=2.4.2
+        warnings.filterwarnings("ignore", category=FutureWarning)
+        in_proj = pyproj.Proj(init="epsg:{}".format(in_epsg))
+        out_proj = pyproj.Proj(init="epsg:{}".format(out_epsg))
     return pyproj.transform(in_proj, out_proj, x, y)
 
 
