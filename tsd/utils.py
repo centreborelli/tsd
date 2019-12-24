@@ -7,7 +7,6 @@ Wrappers for gdal and rasterio.
 Copyright (C) 2018, Carlo de Franchis <carlo.de-franchis@ens-cachan.fr>
 """
 
-from __future__ import print_function
 import os
 import re
 import argparse
@@ -163,7 +162,8 @@ def set_geotif_metadata_items(path, tags={}):
         dst.update_tags(**tags)
 
 
-def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_type=None):
+def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
+                      output_type=None, debug=True):
     """
     Write a crop to disk from an input image, given the coordinates of the geographical
     bounding box.
@@ -189,12 +189,23 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_typ
         gdal_options["GDAL_HTTP_MAX_RETRY"] = "10000"  # needed for storage.googleapis.com 503
         gdal_options["GDAL_HTTP_RETRY_DELAY"] = "1"
 
+#    if debug:
+#        left = ulx
+#        bottom = lry
+#        right = lrx
+#        top = uly
+#        print('AWS_REQUEST_PAYER=requester rio clip {} {} --bounds "{} {} {} {}" --geographic'.format(inpath, outpath, left, bottom, right, top))
+
+    if debug:
+        print('AWS_REQUEST_PAYER=requester gdal_translate /vsis3/{} {} -projwin {} {} {} {}'.format(inpath[5:], outpath, ulx, uly, lrx, lry))
+
     if inpath.startswith("s3://"):
         session = rasterio.session.AWSSession(requester_pays=True)
     else:
         session = None
 
     with rasterio.Env(session=session, **gdal_options):
+        #print("opening {}...".format(inpath))
         with rasterio.open(inpath) as src:
             bounds = (ulx, lry, lrx, uly)
 
@@ -232,6 +243,24 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None, output_typ
 
             with rasterio.open(outpath, "w", **profile) as out:
                 out.write(crop)
+
+
+def crop_with_gdalwarp(outpath, inpath, ulx, uly, lrx, lry, epsg=None):
+
+    if inpath.startswith(("http://", "https://", "s3://")):
+        inpath = inpath.replace("s3://", "/vsis3/")
+
+    cmd = "CPL_VSIL_CURL_ALLOWED_EXTENSIONS=tiff"
+    cmd += " GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR"
+    cmd += " VSI_CACHE=TRUE"
+    cmd += " AWS_REQUEST_PAYER=requester"
+    cmd += " gdalwarp {} {}".format(inpath, outpath)
+    if epsg:
+        cmd += " -t_srs epsg:{}".format(epsg)
+    cmd += " -tr 10 10"
+    cmd += " -te {} {} {} {}".format(ulx, lry, lrx, uly)
+    cmd += " -overwrite"
+    os.system(cmd)
 
 
 def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
@@ -516,6 +545,7 @@ def rasterio_window_crop(src, x, y, w, h, boundless=True, fill_value=0):
                                'whose shape is {}'.format(x, y, w, h, src.shape)))
 
     window = rasterio.windows.Window(x, y, w, h)
+    #print("reading...")
     return src.read(window=window, boundless=boundless, fill_value=fill_value)
 
 

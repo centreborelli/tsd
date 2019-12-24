@@ -26,12 +26,16 @@ import zipfile
 import argparse
 import subprocess
 import dateutil.parser
+import multiprocessing
 
 import bs4
 import requests
+import shapely.geometry
 
 from tsd import utils
+from tsd import parallel
 from tsd import search_scihub
+from tsd import s1_metadata_parser
 
 
 PEPS_URL_SEARCH = 'https://peps.cnes.fr/resto/api/collections'
@@ -143,24 +147,120 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
     return zip_path
 
 
+def search(aoi, start_date=None, end_date=None, product_type="GRD",
+           operational_mode="IW", swath_identifier=None,
+           relative_orbit_number=None, api='scihub'):
+    """
+    Search Sentinel-1 images covering an AOI and timespan using a given API.
+
+    Args:
+        aoi (geojson.Polygon): area of interest
+        start_date (datetime.datetime): start of the search time range
+        end_date (datetime.datetime): end of the search time range
+        product_type (str, optional): either 'GRD' or 'SLC'
+        api (str, optional): either scihub (default) or planet
+
+    Returns:
+        list of image objects
+    """
+    # list available images
+    #if api in ['copernicus', 'austria', 'finland']:
+    if api == "scihub":
+        from tsd import search_scihub
+        images = search_scihub.search(aoi, start_date, end_date,
+                                      satellite='Sentinel-1',
+                                      product_type=product_type,
+                                      operational_mode=operational_mode,
+                                      swath_identifier=swath_identifier,
+                                      relative_orbit_number=relative_orbit_number,
+                                      api="copernicus")
+    elif api == 'planet':
+        from tsd import search_planet
+        images = search_planet.search(aoi, start_date, end_date,
+                                      item_types=['Sentinel1L1C'])
+
+    # parse the API metadata
+    images = [s1_metadata_parser.Sentinel1Image(img, api) for img in images]
+
+    # sort images by acquisition day, then by mgrs id
+    images.sort(key=(lambda k: k.date.date()))
+
+    print('Found {} images'.format(len(images)))
+    return images
+
+
+def download(imgs, aoi, mirror, out_dir, parallel_downloads):
+    """
+    Download a timeseries of crops with GDAL VSI feature.
+
+    Args:
+        imgs (list): list of images
+        aoi (geojson.Polygon): area of interest
+        mirror (str): either 'aws' or 'gcloud'
+        out_dir (str): path where to store the downloaded crops
+        parallel_downloads (int): number of parallel downloads
+    """
+    print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
+    if mirror == 'gcloud':
+        parallel.run_calls(s1_metadata_parser.Sentinel1Image.build_gs_links,
+                           imgs, pool_type='threads',
+                           nb_workers=parallel_downloads)
+    else:
+        parallel.run_calls(s1_metadata_parser.Sentinel1Image.build_s3_links,
+                           imgs, pool_type='threads',
+                           nb_workers=parallel_downloads)
+
+    # convert aoi coords from (lon, lat) to UTM
+    coords = utils.utm_bbx(aoi)
+
+    crops_args = []
+    nb_removed = 0
+    for img in imgs:
+
+        if not img.urls[mirror]:  # then it cannot be downloaded
+            nb_removed = nb_removed + 1
+            continue
+
+        for p in img.polarisations:
+            fname = os.path.join(out_dir, '{}_{}.tif'.format(img.filename, p))
+            crops_args.append((fname, img.urls[mirror][p], *coords))
+
+    if nb_removed:
+        print('Removed {} image(s) with invalid urls'.format(nb_removed))
+
+    out_dir = os.path.abspath(os.path.expanduser(out_dir))
+    os.makedirs(out_dir, exist_ok=True)
+    print('Downloading {} crops ({} images with 1 or 2 polarisations)...'.format(len(crops_args),
+                                                                                 len(imgs) - nb_removed),
+          end=' ')
+    parallel.run_calls(utils.crop_with_gdalwarp, crops_args,
+                       pool_type='threads',
+                       nb_workers=parallel_downloads)
+
+
+
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', operational_mode='IW',
                     relative_orbit_number=None, swath_identifier=None,
-                    search_api='copernicus', download_mirror='peps'):
+                    search_api='copernicus', download_mirror='peps',
+                    parallel_downloads=multiprocessing.cpu_count()):
     """
     Main function: download a Sentinel-1 image time serie.
     """
     # list available images
-    images = search_scihub.search(aoi, start_date, end_date,
-                                  product_type=product_type,
-                                  operational_mode=operational_mode,
-                                  swath_identifier=swath_identifier,
-                                  relative_orbit_number=relative_orbit_number,
-                                  api=search_api)
+    images = search(aoi, start_date, end_date, product_type=product_type,
+                    operational_mode=operational_mode,
+                    swath_identifier=swath_identifier,
+                    relative_orbit_number=relative_orbit_number,
+                    api=search_api)
 
-    # download
-    for image in images:
-        download_sentinel_image(image, out_dir, download_mirror)
+    # download crops
+    download(images, aoi, download_mirror, out_dir, parallel_downloads)
+
+#    # download full images
+#    for image in images:
+#        download_sentinel_image(image, out_dir, download_mirror)
+
 
 
 if __name__ == '__main__':
