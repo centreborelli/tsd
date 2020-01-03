@@ -354,7 +354,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
     if clip_and_ship:
         a = n * area.area(aoi)
     else:
-        a = np.sum(area.area(i['geometry']) for i in items)
+        a = sum(area.area(i['geometry']) for i in items)
     print('Your current quota usage is {}'.format(get_quota()), flush=True)
     print('Downloading these {} images will increase it by {:.3f} km²'.format(n, a/1e6),
           flush=True)
