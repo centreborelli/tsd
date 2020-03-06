@@ -17,7 +17,6 @@ import numpy as np
 import utm
 import geojson
 import requests
-import shapely.geometry
 import rasterio
 import rasterio.warp
 import pyproj
@@ -363,20 +362,30 @@ def pyproj_transform(x, y, in_epsg, out_epsg):
 
 def utm_bbx(aoi, epsg=None, r=None):
     """
+    Compute UTM bounding box of a longitude, latitude AOI.
+
+    Args:
+        aoi (geojson.Polygon): area of interest, defined as a (lon, lat) polygon
+        epsg (int): EPSG code of the desired UTM zone
+        r (int): if not None, round bounding box vertices to multiples of r
+
+    Returns:
+        ulx, uly, lrx, lry (floats): bounding box upper left (ul) and lower
+            right (lr) x, y coordinates
+        epsg (int): EPSG code of the UTM zone
     """
-    lon, lat = aoi['coordinates'][0][0]
-    if epsg is None:  # compute the EPSG code of the first vertex
+    if epsg is None:  # compute the EPSG code of the AOI centroid
+        lon, lat = np.mean(aoi['coordinates'][0][:-1], axis=0)
         epsg = compute_epsg(lon, lat)
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
-    lons = [el[0] for el in aoi['coordinates'][0]]
-    lats = [el[1] for el in aoi['coordinates'][0]]
+    lons, lats = np.asarray(aoi['coordinates'][0]).T
     xs, ys = pyproj_transform(lons, lats, 4326, epsg)
     c = list(zip(xs, ys))
 
     # utm bounding box
-    bbx = shapely.geometry.Polygon(c).bounds  # minx, miny, maxx, maxy
-    ulx, uly, lrx, lry = bbx[0], bbx[3], bbx[2], bbx[1]  # minx, maxy, maxx, miny
+    x, y, w, h = bounding_box2D(c)  # minx, miny, width, height
+    ulx, uly, lrx, lry = x, y + h, x + w, y
 
     if r is not None:  # round to multiples of the given resolution
         ulx = r * np.round(ulx / r)
@@ -446,7 +455,14 @@ def show(img):
 
 def bounding_box2D(pts):
     """
-    bounding box for the points pts
+    Rectangular bounding box for a list of 2D points.
+
+    Args:
+        pts (list): list of 2D points represented as 2-tuples or lists of length 2
+
+    Returns:
+        x, y, w, h (floats): coordinates of the top-left corner, width and
+            height of the bounding box
     """
     dim = len(pts[0])  # should be 2
     bb_min = [min([t[i] for t in pts]) for i in range(dim)]
