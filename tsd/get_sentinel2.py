@@ -22,19 +22,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from __future__ import print_function
-import re
 import os
-import sys
 import shutil
 import argparse
 import multiprocessing
-import dateutil.parser
 import datetime
 import requests
 import bs4
 import boto3
 import botocore
-import geojson
 import shapely.geometry
 
 from tsd import utils
