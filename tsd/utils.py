@@ -163,7 +163,7 @@ def set_geotif_metadata_items(path, tags={}):
 
 
 def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
-                      output_type=None, debug=True):
+                      output_type=None, debug=False):
     """
     Write a crop to disk from an input image, given the coordinates of the geographical
     bounding box.
@@ -189,15 +189,13 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
         gdal_options["GDAL_HTTP_MAX_RETRY"] = "10000"  # needed for storage.googleapis.com 503
         gdal_options["GDAL_HTTP_RETRY_DELAY"] = "1"
 
-#    if debug:
-#        left = ulx
-#        bottom = lry
-#        right = lrx
-#        top = uly
-#        print('AWS_REQUEST_PAYER=requester rio clip {} {} --bounds "{} {} {} {}" --geographic'.format(inpath, outpath, left, bottom, right, top))
-
     if debug:
-        print('AWS_REQUEST_PAYER=requester gdal_translate /vsis3/{} {} -projwin {} {} {} {}'.format(inpath[5:], outpath, ulx, uly, lrx, lry))
+        left = ulx
+        bottom = lry
+        right = lrx
+        top = uly
+        print('AWS_REQUEST_PAYER=requester rio clip {} {} --bounds "{} {} {} {}" --geographic'.format(inpath, outpath, left, bottom, right, top))
+        #print('AWS_REQUEST_PAYER=requester gdal_translate /vsis3/{} {} -projwin {} {} {} {}'.format(inpath[5:], outpath, ulx, uly, lrx, lry))
 
     if inpath.startswith("s3://"):
         session = rasterio.session.AWSSession(requester_pays=True)
