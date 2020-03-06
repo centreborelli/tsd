@@ -15,6 +15,8 @@ START="2018-04-05"
 END="2018-04-20"
 SIZE=2560
 
+export SATUTILS_API_URL=https://sat-api.developmentseed.org
+
 # test Landsat-8
 echo
 echo "Landsat-8 downloads..."

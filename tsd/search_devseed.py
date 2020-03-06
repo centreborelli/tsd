@@ -66,7 +66,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
     for x in r.items():
         try:
             if shapely.geometry.shape(x.geometry).contains(aoi):
-                results.append(vars(x)['data'])
+                results.append(vars(x)['_data'])
         except AttributeError:
             pass
 

@@ -28,4 +28,4 @@ install:
 script:
   - bash tests.sh
   - python3 tsd/test_search_scihub.py
-  - python3 tsd/test_search_devseed.py
+  - SATUTILS_API_URL=https://sat-api.developmentseed.org python3 tsd/test_search_devseed.py
