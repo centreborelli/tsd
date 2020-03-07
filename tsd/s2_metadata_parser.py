@@ -12,10 +12,10 @@ Each parser returns a Sentinel2Image object with the following attributes:
     utm_zone (int): integer between 1 and 60 indicating the UTM longitude zone
     lat_band (str): letter between C and X, excluding I and O, indicating the
         UTM latitude band
-    epsg (int): integer indicating the EPSG code of the UTM zone
     sqid (str): pair of letters indicating the MGRS 100x100 km square
     mgrs_id (str): concatenation of utm_zone, lat_band and sqid. It has length
         five (utm_zone is zero padded).
+    epsg (int): integer indicating the EPSG code of the image CRS
     date (datetime.datetime): acquisition date and time of the image
     satellite (str): either 'S2A' or 'S2B'
     orbit (int): relative orbit number
@@ -27,7 +27,6 @@ Each parser returns a Sentinel2Image object with the following attributes:
         each key is a dict with one key per band containing download urls.
     metadata_original (dict): the original response of the API for this image
 """
-from __future__ import print_function
 import re
 import json
 import datetime

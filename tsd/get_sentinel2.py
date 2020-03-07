@@ -5,7 +5,7 @@
 """
 Automatic crop and download of Sentinel-2 images.
 
-Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-2020, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -21,7 +21,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from __future__ import print_function
 import os
 import shutil
 import argparse

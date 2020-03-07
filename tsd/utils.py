@@ -360,14 +360,16 @@ def pyproj_transform(x, y, in_epsg, out_epsg):
     return pyproj.transform(in_proj, out_proj, x, y)
 
 
-def utm_bbx(aoi, epsg=None, r=None):
+def utm_bbx(aoi, epsg=None, r=None, offset=(0, 0)):
     """
     Compute UTM bounding box of a longitude, latitude AOI.
 
     Args:
         aoi (geojson.Polygon): area of interest, defined as a (lon, lat) polygon
         epsg (int): EPSG code of the desired UTM zone
-        r (int): if not None, round bounding box vertices to multiples of r
+        r (int): if not None, round bounding box vertices to vertices of an
+            r-periodic grid
+        offset (tuple): origin of the r-periodic grid
 
     Returns:
         ulx, uly, lrx, lry (floats): bounding box upper left (ul) and lower
@@ -388,10 +390,11 @@ def utm_bbx(aoi, epsg=None, r=None):
     ulx, uly, lrx, lry = x, y + h, x + w, y
 
     if r is not None:  # round to multiples of the given resolution
-        ulx = r * np.round(ulx / r)
-        uly = r * np.round(uly / r)
-        lrx = r * np.round(lrx / r)
-        lry = r * np.round(lry / r)
+        ox, oy = offset
+        ulx = ox + r * np.round((ulx - ox) / r)
+        uly = oy + r * np.round((uly - oy) / r)
+        lrx = ox + r * np.round((lrx - ox) / r)
+        lry = oy + r * np.round((lry - oy) / r)
 
     return ulx, uly, lrx, lry, epsg
 
@@ -540,7 +543,8 @@ class CropOutside(Exception):
 def rasterio_window_crop(src, x, y, w, h, boundless=True, fill_value=0):
     """
     Read a crop from a rasterio dataset and return it as an array.
-    This uses rasterio's windowed reading functionality
+
+    This uses rasterio's windowed reading functionality.
 
     Args:
         src: rasterio dataset opened in read mode
@@ -559,7 +563,6 @@ def rasterio_window_crop(src, x, y, w, h, boundless=True, fill_value=0):
                                'whose shape is {}'.format(x, y, w, h, src.shape)))
 
     window = rasterio.windows.Window(x, y, w, h)
-    #print("reading...")
     return src.read(window=window, boundless=boundless, fill_value=fill_value)
 
 
