@@ -78,6 +78,11 @@ nice output formatting, pipe their output to `jq` (`brew install jq`).
 
     python search_devseed.py --lat 22.34806 --lon 69.86889 | jq
 
+For example, this should print ready to use `curl` commands for downloading
+Sentinel-5P netCDF files:
+
+    python search_scihub.py --lon 2 --lat 48 -s 2020-3-1 --satellite Sentinel-5P --product-type L1B_RA_BD8 | jq -r '.[] | "curl --user s5pguest:s5pguest \"\(.links.alternative)\\$value\" > \(.title).nc"'
+
 
 ## As Python modules
 

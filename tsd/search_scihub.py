@@ -20,8 +20,6 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
-from __future__ import print_function
 import os
 import sys
 import argparse
@@ -39,7 +37,8 @@ from tsd import utils
 API_URLS = {
     'copernicus': 'https://scihub.copernicus.eu/dhus/',
     'austria': 'https://data.sentinel.zamg.ac.at/',
-    'finland': 'https://finhub.nsdc.fmi.fi/'
+    'finland': 'https://finhub.nsdc.fmi.fi/',
+    's5phub': 'https://s5phub.copernicus.eu/dhus/'
 }
 
 
@@ -107,7 +106,7 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
     return query
 
 
-def load_query(query, api_url, start_row=0, page_size=100):
+def load_query(query, api_url, credentials, start_row=0, page_size=100):
     """
     Do a full-text query on the SciHub API using the OpenSearch format.
 
@@ -116,7 +115,7 @@ def load_query(query, api_url, start_row=0, page_size=100):
     # load query results
     url = '{}search?format=json&rows={}&start={}'.format(api_url, page_size,
                                                          start_row)
-    login, password = read_copernicus_credentials_from_environment_variables()
+    login, password = credentials
     r = post_scihub(url, query, login, password)
 
     # parse response content
@@ -131,7 +130,8 @@ def load_query(query, api_url, start_row=0, page_size=100):
     # repeat query until all results have been loaded
     output = entries
     if total_results > start_row + page_size:
-        output += load_query(query, api_url, start_row=(start_row + page_size))
+        output += load_query(query, api_url, credentials,
+                             start_row=(start_row + page_size))
     return output
 
 
@@ -156,7 +156,11 @@ def prettify_scihub_dict(d):
             out[k] = d[k]
 
     if 'int' in d:
-        for x in d['int']:
+        if isinstance(d['int'], list):
+            for x in d['int']:
+                out[x['name']] = int(x['content'])
+        else:
+            x = d['int']
             out[x['name']] = int(x['content'])
 
     if 'str' in d:
@@ -187,10 +191,24 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
     if satellite == 'Sentinel-2' and product_type not in ['S2MSI1C', 'S2MSI2A', 'S2MSI2Ap']:
         product_type = 'S2MSI1C'
 
+    if satellite == 'Sentinel-5P':
+        satellite = 'Sentinel-5'
+
+    if satellite == 'Sentinel-5':
+        api = 's5phub'
+
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode,
                                relative_orbit_number, swath_identifier)
-    results = [prettify_scihub_dict(x) for x in load_query(query, API_URLS[api])]
+
+    if api == "s5phub":
+        creds = ("s5pguest", "s5pguest")
+    else:
+        creds = read_copernicus_credentials_from_environment_variables()
+
+    results = [prettify_scihub_dict(x) for x in load_query(query,
+                                                           API_URLS[api],
+                                                           creds)]
 
     # check if the image footprint contains the area of interest
     not_covering = []
