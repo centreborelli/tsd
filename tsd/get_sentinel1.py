@@ -20,7 +20,6 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from __future__ import print_function
 import os
 import zipfile
 import argparse
@@ -201,8 +200,8 @@ def download(imgs, aoi, mirror, out_dir, parallel_downloads):
         parallel_downloads (int): number of parallel downloads
     """
     print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
-    if mirror == 'gcloud':
-        parallel.run_calls(s1_metadata_parser.Sentinel1Image.build_gs_links,
+    if mirror == 'scihub':
+        parallel.run_calls(s1_metadata_parser.Sentinel1Image.build_scihub_links,
                            imgs, pool_type='threads',
                            nb_workers=parallel_downloads)
     else:

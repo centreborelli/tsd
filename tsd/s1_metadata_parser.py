@@ -31,7 +31,6 @@ import xmltodict
 from tsd import search_scihub, utils
 
 AWS_S3_URL = 's3://sentinel-s1-l1c'
-GCLOUD_URL = 'https://storage.googleapis.com/gcp-public-data-sentinel-1'  # TODO FIXME
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
 RODA_URL = 'https://roda.sentinel-hub.com/sentinel-s1-l1c/'
 
@@ -64,6 +63,14 @@ def parse_datatake_id_for_absolute_orbit(datatake_id):
     return int(datatake_id.split('_')[2])
 
 
+def parse_tiff_filename_for_polarisation(tiffname):
+    """
+    Example of a tiff filename:
+        s1a-iw-grd-vv-20200227t092256-20200227t092321-031436-039e7f-001.tiff
+    """
+    return tiffname.split("-")[3]
+
+
 def filename_from_metadata(img):
     """
     Args:
@@ -73,6 +80,33 @@ def filename_from_metadata(img):
                                           img.satellite,
                                           img.relative_orbit,
                                           img.product_type)
+
+
+def get_s1_tiff_filenames_from_scihub(img):
+    """
+    Get the names of the tiff files of a Sentinel-1 SAFE from scihub.
+
+    The actual names of the tiff files of a Sentinel-1 SAFE are unfortunately
+    not part of the metadata returned by scihub. This function queries scihub
+    OData API to retrieve them. It requires credentials.
+
+    Args:
+        img (Sentinel1Image instance): Sentinel-1 image metadata
+
+    Return:
+        list of strings, each string is a tiff filename
+    """
+    request = "{}/Products('{}')/".format(SCIHUB_API_URL, img["id"])
+    request += "Nodes('{}.SAFE')/".format(img["title"])
+    request += "Nodes('measurement')/"
+    request += "Nodes?$format=json"
+
+    r = requests.get(request, auth=(search_scihub.read_copernicus_credentials_from_environment_variables()))
+    if r.ok:
+        tiffs = r.json()
+    else:
+        r.raise_for_status()
+    return [x["Id"] for x in tiffs["d"]["results"]]
 
 
 def get_roda_metadata(img, filename='tileInfo.json'):
@@ -132,7 +166,7 @@ class Sentinel1Image(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-    def __init__(self, img, api='devseed'):
+    def __init__(self, img, api="scihub"):
         """
         """
         self.metadata_source = api
@@ -144,7 +178,7 @@ class Sentinel1Image(dict):
             self.planet_parser(img)
 
         self.filename = filename_from_metadata(self)
-        self.urls = {'aws': {}, 'gcloud': {}}
+        self.urls = {'scihub': {}, 'aws': {}}
 
 
     def scihub_parser(self, img):
@@ -164,6 +198,7 @@ class Sentinel1Image(dict):
         self.product_type = img['producttype']
         self.footprint = img['footprint']
         self.thumbnail = img['links']['icon']
+        self.id = img['id']
 
 
     def planet_parser(self, img):  #TODO FIXME
@@ -189,62 +224,27 @@ class Sentinel1Image(dict):
         self.sun_elevation = p['sun_elevation']
 
 
-    def build_gs_links(self):
+    def build_scihub_links(self):
         """
-        Build Gcloud urls for the 13 jp2 bands and the gml cloud mask.
+        Build http urls for the tiff image files of a Sentinel-1 image.
 
         Example of url:
-        https://storage.googleapis.com/gcp-public-data-sentinel-2/tiles/36/R/TV/S2B_MSIL1C_20180226T083909_N0206_R064_T36RTV_20180226T122942.SAFE/GRANULE/L1C_T36RTV_A005095_20180226T084545/IMG_DATA/T36RTV_20180226T083909_B01.jp2
-
-        The tricky part is to build the granule name
-        (L1C_T36RTV_A005095_20180226T084545 in the example above), which is not
-        part neither of the devseed nor of the scihub API responses. This function
-        queries roda to retrieve it. It takes about 200 ms.
+        https://scihub.copernicus.eu/apihub/odata/v1/Products('f4e5c2e9-0f4b-48a2-a92c-abb70816031e')/Nodes('S1B_IW_GRDH_1SDV_20200307T171647_20200307T171712_020589_027066_C8B6.SAFE')/Nodes('measurement')/Nodes('s1b-iw-grd-vv-20200307t171647-20200307t171712-020589-027066-001.tiff')/\$value"
         """
-        if 'granule_date' not in self:
-            tile_info = get_roda_metadata(self, filename='tileInfo.json')
-            #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
-            if not tile_info:  # abort if file not found on roda
-                return
-            self.granule_date = parse_datastrip_id_for_granule_date(tile_info['datastrip']['id'])
+        try:
+            self.tiffs = get_s1_tiff_filenames_from_scihub(self)
+        except requests.exceptions.HTTPError:
+            print("WARNING: {} not available on scihub".format(self.title))
+            return
 
-        if 'absolute_orbit' not in self:
-            product_info = get_roda_metadata(self, filename='productInfo.json')
-            if not product_info:  # abort if file not found on roda
-                return
-            self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
+        base_url = "{}/Products('{}')".format(SCIHUB_API_URL, self.id)
+        base_url += "/Nodes('{}.SAFE')".format(self.title)
+        base_url += "/Nodes('measurement')"
 
-    #    if self.is_old:
-    #        img_name = '{}_{}.jp2'.format('_'.join(granule_id.split('_')[:-1]), '{}')
-    #        cloud_mask_name = '{}_B00_MSIL1C.gml'.format('_'.join(granule_id.split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
-
-        granule_id = 'L{}_T{}_A{:06d}_{}'.format(self.product_type,
-                                                 self.mgrs_id,
-                                                 self.absolute_orbit,
-                                                 self.granule_date.strftime("%Y%m%dT%H%M%S"))
-        base_url = '{}/L2'.format(GCLOUD_URL) if self.product_type == '2A' else GCLOUD_URL
-        base_url += '/tiles/{}/{}/{}/{}.SAFE/GRANULE/{}'.format(self.utm_zone,
-                                                                self.lat_band,
-                                                                self.sqid,
-                                                                self.title,
-                                                                granule_id)
-        urls = self.urls['gcloud']
-        urls['cloud_mask'] = '{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(base_url)
-        for b in ALL_BANDS:
-            if self.product_type == '1C':
-                urls[b] = '{}/IMG_DATA/T{}_{}_{}.jp2'.format(base_url,
-                                                             self.mgrs_id,
-                                                             self.date.strftime("%Y%m%dT%H%M%S"),
-                                                             b)
-            elif self.product_type == '2A':
-                urls[b] = '{}/IMG_DATA/R{}m/T{}_{}_{}_{}m.jp2'.format(base_url,
-                                                                      BANDS_RESOLUTION[b],
-                                                                      self.mgrs_id,
-                                                                      self.date.strftime("%Y%m%dT%H%M%S"),
-                                                                      b,
-                                                                      BANDS_RESOLUTION[b])
-            else:
-                raise Exception("product_type of {} is neither L1C nor L2A".format(self['title']))
+        urls = self.urls['scihub']
+        for tiff in self.tiffs:
+            polarisation = parse_tiff_filename_for_polarisation(tiff)
+            urls[polarisation] = "{}/Nodes('{}')/\$value".format(base_url, tiff)
 
 
     def build_s3_links(self):

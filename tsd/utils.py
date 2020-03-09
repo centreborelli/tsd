@@ -243,20 +243,38 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
 
 
 def crop_with_gdalwarp(outpath, inpath, ulx, uly, lrx, lry, epsg=None):
+    """
+    """
+    if inpath.startswith(("http://", "https://")):
+        inpath = "/vsicurl/{}".format(inpath)
+    inpath = inpath.replace("s3://", "/vsis3/")
 
-    if inpath.startswith(("http://", "https://", "s3://")):
-        inpath = inpath.replace("s3://", "/vsis3/")
+    if inpath.endswith("$value"):  # scihub urls special case
+        file_ext = "value"
+    else:
+        _, file_ext = os.path.splitext(inpath)
+        file_ext = file_ext[1:]  # Remove the leading dot from file_ext
 
-    cmd = "CPL_VSIL_CURL_ALLOWED_EXTENSIONS=tiff"
+    cmd = "GDAL_HTTP_USERPWD={}:{}".format(os.environ['COPERNICUS_LOGIN'],
+                                           os.environ['COPERNICUS_PASSWORD'])
+    cmd += " CPL_VSIL_CURL_ALLOWED_EXTENSIONS={}".format(file_ext)
     cmd += " GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR"
+    cmd += " GDAL_INGESTED_BYTES_AT_OPEN=YES"
+    cmd += " GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES"
+    cmd += " GDAL_HTTP_MULTIPLEX=YES"
+    cmd += " GDAL_HTTP_VERSION=2"
+    cmd += " CPL_VSIL_CURL_CHUNK_SIZE=2000000"  # 2MB
+    cmd += " GDAL_HTTP_MAX_RETRY=3"
+    cmd += " GDAL_HTTP_RETRY_DELAY=15"
     cmd += " VSI_CACHE=TRUE"
     cmd += " AWS_REQUEST_PAYER=requester"
-    cmd += " gdalwarp {} {}".format(inpath, outpath)
+    cmd += " gdalwarp \"{}\" {}".format(inpath, outpath)
     if epsg:
         cmd += " -t_srs epsg:{}".format(epsg)
     cmd += " -tr 10 10"
     cmd += " -te {} {} {} {}".format(ulx, lry, lrx, uly)
     cmd += " -overwrite"
+    #print(cmd)
     os.system(cmd)
 
 
