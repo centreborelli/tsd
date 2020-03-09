@@ -20,8 +20,7 @@ import requests
 import rasterio
 import rasterio.warp
 import pyproj
-
-from tsd import rpc_model
+import rpcm
 
 
 warnings.filterwarnings("ignore",
@@ -491,14 +490,6 @@ def bounding_box2D(pts):
     return bb_min[0], bb_min[1], bb_max[0] - bb_min[0], bb_max[1] - bb_min[1]
 
 
-def rpc_from_geotiff(geotiff_path):
-    """
-    """
-    with rasterio.open(geotiff_path, 'r') as src:
-        rpc_dict = src.tags(ns='RPC')
-    return rpc_model.RPCModel(rpc_dict)
-
-
 def points_apply_homography(H, pts):
     """
     Applies an homography to a list of 2D points.
@@ -532,7 +523,7 @@ def bounding_box_of_projected_aoi(rpc, aoi, z=0, homography=None):
     Return the x, y, w, h pixel bounding box of a projected AOI.
 
     Args:
-        rpc (rpc_model.RPCModel): RPC camera model
+        rpc (rpcm.RPCModel): RPC camera model
         aoi (geojson.Polygon): GeoJSON polygon representing the AOI
         z (float): altitude of the AOI with respect to the WGS84 ellipsoid
         homography (2D array, optional): matrix of shape (3, 3) representing an
@@ -600,7 +591,7 @@ def crop_aoi(geotiff, aoi, z=0):
             coordinates of the top-left corner, while w, h are the dimensions
             of the crop.
     """
-    x, y, w, h = bounding_box_of_projected_aoi(rpc_from_geotiff(geotiff), aoi, z)
+    x, y, w, h = bounding_box_of_projected_aoi(rpcm.rpc_from_geotiff(geotiff), aoi, z)
     with rasterio.open(geotiff) as src:
         crop = rasterio_window_crop(src, x, y, w, h)
     return crop, x, y
