@@ -320,7 +320,8 @@ def get_time_series(aoi, start_date=None, end_date=None,
                     out_dir='',
                     parallel_downloads=multiprocessing.cpu_count(),
                     clip_and_ship=True, no_crop=False, satellite_id=None,
-                    search_type='contains', remove_duplicates=True):
+                    item_id=None, search_type='contains',
+                    remove_duplicates=True):
     """
     Main function: crop and download Planet images.
     """
@@ -328,6 +329,7 @@ def get_time_series(aoi, start_date=None, end_date=None,
     items = search_planet.search(aoi, start_date, end_date,
                                  item_types=item_types,
                                  satellite_id=satellite_id,
+                                 item_id=item_id,
                                  search_type=search_type,
                                  remove_duplicates=remove_duplicates)
     print('Found {} images'.format(len(items)))
@@ -430,6 +432,7 @@ if __name__ == '__main__':
     parser.add_argument('--search-type', choices=['contains', 'intersects'],
                         default='contains', help='search type')
     parser.add_argument('--satellite-id', help='satellite identifier, e.g. 0f02')
+    parser.add_argument('--item-id', help='item identifier, e.g. 20190609_121828_ssc6d2_0008')
     parser.add_argument('--keep-duplicates', action='store_true',
                         help='keep all images even when two were acquired within'
                              ' less than 5 minutes (the default behaviour is to'
@@ -476,4 +479,5 @@ if __name__ == '__main__':
                     no_crop=args.no_crop,
                     search_type=args.search_type,
                     satellite_id=args.satellite_id,
+                    item_id=args.item_id,
                     remove_duplicates=~args.keep_duplicates)

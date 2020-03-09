@@ -39,7 +39,8 @@ ITEM_TYPES = ['PSScene3Band', 'PSScene4Band', 'PSOrthoTile', 'REScene', 'REOrtho
 
 
 def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
-           satellite_id=None, search_type='contains', remove_duplicates=True):
+           satellite_id=None, item_id=None, search_type='contains',
+           remove_duplicates=True):
     """
     Search for images using Planet API.
 
@@ -69,6 +70,11 @@ def search(aoi, start_date=None, end_date=None, item_types=ITEM_TYPES,
         query = api.filters.and_filter(query,
                                        api.filters.string_filter('satellite_id',
                                                                  satellite_id))
+
+    if item_id:
+        query = api.filters.and_filter(query,
+                                       api.filters.string_filter('id',
+                                                                 item_id))
 
     request = api.filters.build_search_request(query, item_types)
 
@@ -126,6 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--search-type', choices=['contains', 'intersects'],
                         default='contains', help='search type')
     parser.add_argument('--satellite-id', help='satellite identifier, e.g. 0f02')
+    parser.add_argument('--item-id', help='item identifier, e.g. 20190609_121828_ssc6d2_0008')
     parser.add_argument('--keep-duplicates', action='store_true',
                         help='keep all images even when two were acquired within'
                              ' less than 5 minutes (the default behaviour is to'
@@ -154,4 +161,5 @@ if __name__ == '__main__':
                             item_types=args.item_types,
                             search_type=args.search_type,
                             satellite_id=args.satellite_id,
+                            item_id=args.item_id,
                             remove_duplicates=not args.keep_duplicates)))
