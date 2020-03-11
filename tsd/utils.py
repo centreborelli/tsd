@@ -272,7 +272,7 @@ def crop_with_gdalwarp(outpath, inpath, ulx, uly, lrx, lry, epsg=None):
         cmd += " -t_srs epsg:{}".format(epsg)
     cmd += " -tr 10 10"
     cmd += " -te {} {} {} {}".format(ulx, lry, lrx, uly)
-    cmd += " -overwrite"
+    cmd += " -q -overwrite"
     #print(cmd)
     os.system(cmd)
 
