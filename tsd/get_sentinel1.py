@@ -188,7 +188,7 @@ def search(aoi, start_date=None, end_date=None, product_type="GRD",
     return images
 
 
-def download(imgs, aoi, mirror, out_dir, parallel_downloads):
+def download(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
     """
     Download a timeseries of crops with GDAL VSI feature.
 
@@ -207,6 +207,7 @@ def download(imgs, aoi, mirror, out_dir, parallel_downloads):
     else:
         parallel.run_calls(s1_metadata_parser.Sentinel1Image.build_s3_links,
                            imgs, pool_type='threads',
+                           timeout=timeout,
                            nb_workers=parallel_downloads)
 
     # convert aoi coords from (lon, lat) to UTM
@@ -243,7 +244,8 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', operational_mode='IW',
                     relative_orbit_number=None, swath_identifier=None,
                     search_api='copernicus', download_mirror='peps',
-                    parallel_downloads=multiprocessing.cpu_count()):
+                    parallel_downloads=multiprocessing.cpu_count(),
+                    timeout=600):
     """
     Main function: download a Sentinel-1 image time serie.
     """
@@ -255,7 +257,8 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     api=search_api)
 
     # download crops
-    download(images, aoi, download_mirror, out_dir, parallel_downloads)
+    download(images, aoi, download_mirror, out_dir, parallel_downloads,
+             timeout=timeout)
 
 #    # download full images
 #    for image in images:
@@ -297,6 +300,8 @@ if __name__ == '__main__':
                         help='relative orbit number, from 1 to 175')
     parser.add_argument('--parallel', type=int, default=multiprocessing.cpu_count(),
                         help='number of parallel downloads')
+    parser.add_argument('--timeout', type=int, default=600,
+                        help='timeout for images downloads, in seconds')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
@@ -322,4 +327,4 @@ if __name__ == '__main__':
                         swath_identifier=args.swath_identifier,
                         relative_orbit_number=args.orbit,
                         search_api=args.api, download_mirror=args.mirror,
-                        parallel_downloads=args.parallel)
+                        parallel_downloads=args.parallel, timeout=args.timeout)
