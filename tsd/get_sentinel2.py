@@ -354,7 +354,7 @@ if __name__ == '__main__':
     parser.add_argument('--cloud-masks', action='store_true',
                         help=('download cloud masks crops from provided GML files'))
     parser.add_argument('--satellite-angles', action='store_true',
-                        help=('retrieve satellite zenith and azimuth angles',
+                        help=('retrieve satellite zenith and azimuth angles'
                               ' and include them in tiff metadata'))
     args = parser.parse_args()
 
