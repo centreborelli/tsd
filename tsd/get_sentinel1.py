@@ -294,6 +294,8 @@ if __name__ == '__main__':
                         help='download mirror: peps, copernicus, austria or finland')
     parser.add_argument('--orbit', type=int,
                         help='relative orbit number, from 1 to 175')
+    parser.add_argument('--parallel', type=int, default=multiprocessing.cpu_count(),
+                        help='number of parallel downloads')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
@@ -318,4 +320,5 @@ if __name__ == '__main__':
                         operational_mode=args.operational_mode,
                         swath_identifier=args.swath_identifier,
                         relative_orbit_number=args.orbit,
-                        search_api=args.api, download_mirror=args.mirror)
+                        search_api=args.api, download_mirror=args.mirror,
+                        parallel_downloads=args.parallel)
