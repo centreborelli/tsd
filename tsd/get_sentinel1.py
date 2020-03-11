@@ -210,7 +210,8 @@ def download(imgs, aoi, mirror, out_dir, parallel_downloads):
                            nb_workers=parallel_downloads)
 
     # convert aoi coords from (lon, lat) to UTM
-    coords = utils.utm_bbx(aoi)
+    coords = utils.utm_bbx(aoi,
+                           r=60)  # round to multiples of 60m to match Sentinel-2 grid
 
     crops_args = []
     nb_removed = 0
