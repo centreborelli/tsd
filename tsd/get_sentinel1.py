@@ -234,7 +234,7 @@ def download(imgs, aoi, mirror, out_dir, parallel_downloads):
                                                                                  len(imgs) - nb_removed),
           end=' ')
     parallel.run_calls(utils.crop_with_gdalwarp, crops_args,
-                       pool_type='threads',
+                       pool_type='processes',
                        nb_workers=parallel_downloads)
 
 
