@@ -292,6 +292,8 @@ if __name__ == '__main__':
                         help='search API to use: copernicus, austria or finland')
     parser.add_argument('--mirror', default='peps',
                         help='download mirror: peps, copernicus, austria or finland')
+    parser.add_argument('--orbit', type=int,
+                        help='relative orbit number, from 1 to 175')
     args = parser.parse_args()
 
     if args.geom and (args.lat or args.lon):
@@ -315,4 +317,5 @@ if __name__ == '__main__':
                         out_dir=args.outdir, product_type=args.product_type,
                         operational_mode=args.operational_mode,
                         swath_identifier=args.swath_identifier,
+                        relative_orbit_number=args.orbit,
                         search_api=args.api, download_mirror=args.mirror)
