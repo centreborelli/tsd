@@ -11,7 +11,8 @@ Each parser returns a Sentinel1Image object with the following attributes:
 
     date (datetime.datetime): acquisition date and time of the image
     satellite (str): either 'S1A' or 'S1B'
-    orbit (int): relative orbit number
+    relative_orbit (int): relative orbit number
+    orbit_direction (str): orbit direction, either "ascending" or "descending"
     title (str): original name of the SAFE in which the image is packaged by ESA
     filename (str): string that TSD uses to name the crops downloaded for the bands
         of this image. It starts with the acquisition year, month and day so that
@@ -192,6 +193,7 @@ class Sentinel1Image(dict):
         self.satellite = self.title[:3]  # S1A_IW_GRDH_1SDV_20191218... --> S1A
         self.absolute_orbit = img['orbitnumber']
         self.relative_orbit = img['relativeorbitnumber']
+        self.orbit_direction = img['orbitdirection']
         self.operational_mode = img['sensoroperationalmode']
         self.polarisations = [p.lower() for p in img['polarisationmode'].split()]
         self.polarisation_string = parse_polarisation_string(img['polarisationmode'])
