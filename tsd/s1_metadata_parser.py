@@ -77,10 +77,11 @@ def filename_from_metadata(img):
     Args:
         img (Sentinel1Image instance): Sentinel-1 image metadata
     """
-    return '{}_{}_orbit_{:03d}_{}'.format(img.date.date().isoformat(),
-                                          img.satellite,
-                                          img.relative_orbit,
-                                          img.product_type)
+    return '{}_{}_orbit_{:03d}_{}_{}'.format(img.date.date().isoformat(),
+                                             img.satellite,
+                                             img.relative_orbit,
+                                             img.orbit_direction[:1],  # A or D
+                                             img.product_type)
 
 
 def get_s1_tiff_filenames_from_scihub(img):
