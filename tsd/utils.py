@@ -202,26 +202,31 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
 
     bounds = (ulx, lry, lrx, uly)
     with rasterio.Env(session=session, **gdal_options):
-        with rasterio.open(inpath) as src:
+        try:
+            with rasterio.open(inpath) as src:
 
-            # Convert the bounds to the CRS of inpath if epsg is given
-            if epsg:
-                bounds = rasterio.warp.transform_bounds(epsg, src.crs, *bounds)
+                # Convert the bounds to the CRS of inpath if epsg is given
+                if epsg:
+                    bounds = rasterio.warp.transform_bounds(epsg, src.crs, *bounds)
 
-            # Get the pixel coordinates of the bounds in inpath
-            window = src.window(*bounds)
+                # Get the pixel coordinates of the bounds in inpath
+                window = src.window(*bounds)
 
-            # Do a "floor" operation on offsets to match what gdal_translate does
-            window = window.round_offsets()
+                # Do a "floor" operation on offsets to match what gdal_translate does
+                window = window.round_offsets()
 
-            # Do a "round" operation on lengths to match what gdal_translate does
-            width = round(window.width)
-            height = round(window.height)
-            window = rasterio.windows.Window(window.col_off, window.row_off, width, height)
+                # Do a "round" operation on lengths to match what gdal_translate does
+                width = round(window.width)
+                height = round(window.height)
+                window = rasterio.windows.Window(window.col_off, window.row_off, width, height)
 
-            profile = src.profile
-            transform = src.window_transform(window)
-            crop = rasterio_window_crop(src, window.col_off, window.row_off, width, height)
+                profile = src.profile
+                transform = src.window_transform(window)
+                crop = rasterio_window_crop(src, window.col_off, window.row_off, width, height)
+
+        except rasterio.errors.RasterioIOError:
+            print("WARNING: download of {} failed".format(inpath))
+            return
 
         profile.update({"driver": "GTiff",
                         "compress": "deflate",
