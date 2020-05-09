@@ -200,16 +200,13 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
     else:
         session = None
 
+    bounds = (ulx, lry, lrx, uly)
     with rasterio.Env(session=session, **gdal_options):
-        #print("opening {}...".format(inpath))
         with rasterio.open(inpath) as src:
-            bounds = (ulx, lry, lrx, uly)
 
             # Convert the bounds to the CRS of inpath if epsg is given
             if epsg:
-                bounds = rasterio.warp.transform_bounds(
-                    rasterio.crs.CRS.from_epsg(epsg), src.crs, *bounds
-                )
+                bounds = rasterio.warp.transform_bounds(epsg, src.crs, *bounds)
 
             # Get the pixel coordinates of the bounds in inpath
             window = src.window(*bounds)
@@ -223,22 +220,19 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
             window = rasterio.windows.Window(window.col_off, window.row_off, width, height)
 
             profile = src.profile
-            profile.update(
-                {
-                    "driver": "GTiff",
-                    "compress": "deflate",
-                    "height": height,
-                    "width": width,
-                    "transform": src.window_transform(window),
-                }
-            )
-            if output_type:
-                profile["dtype"] = output_type.lower()
-
+            transform = src.window_transform(window)
             crop = rasterio_window_crop(src, window.col_off, window.row_off, width, height)
 
-            with rasterio.open(outpath, "w", **profile) as out:
-                out.write(crop)
+        profile.update({"driver": "GTiff",
+                        "compress": "deflate",
+                        "height": height,
+                        "width": width,
+                        "transform": transform})
+        if output_type:
+            profile["dtype"] = output_type.lower()
+
+        with rasterio.open(outpath, "w", **profile) as out:
+            out.write(crop)
 
 
 def crop_with_gdalwarp(outpath, inpath, ulx, uly, lrx, lry, epsg=None):
