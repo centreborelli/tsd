@@ -73,9 +73,6 @@ def run_calls(fun, list_of_args, extra_args=(), pool_type='processes',
     for r in results:
         try:
             outputs.append(r.get(timeout))
-        except multiprocessing.TimeoutError:
-            print("Timeout while running %s" % str(r), file=sys.stderr)
-            outputs.append(None)
         except KeyboardInterrupt:
             pool.terminate()
             sys.exit(1)

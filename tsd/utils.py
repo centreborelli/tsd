@@ -184,7 +184,7 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
         gdal_options["CPL_VSIL_CURL_ALLOWED_EXTENSIONS"] = file_ext
         gdal_options["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
         gdal_options["VSI_CACHE"] = "TRUE"
-        gdal_options["GDAL_HTTP_MAX_RETRY"] = "10000"  # needed for storage.googleapis.com 503
+        gdal_options["GDAL_HTTP_MAX_RETRY"] = "100"  # needed for storage.googleapis.com 503
         gdal_options["GDAL_HTTP_RETRY_DELAY"] = "1"
 
     if debug:
