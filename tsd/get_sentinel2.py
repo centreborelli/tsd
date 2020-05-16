@@ -71,7 +71,7 @@ def check_args(api, mirror, product_type):
 
 
 def search(aoi, start_date=None, end_date=None, product_type=None,
-           api='devseed'):
+           api='devseed', search_type='contains'):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
 
@@ -81,6 +81,7 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         end_date (datetime.datetime): end of the search time range
         product_type (str, optional): either 'L1C' or 'L2A'
         api (str, optional): either devseed (default), scihub, planet or gcloud
+        search_type (str): either "contains" or "intersects"
 
     Returns:
         list of image objects
@@ -96,7 +97,8 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
             product_type = 'S2MSI{}'.format(product_type[1:])
         images = search_scihub.search(aoi, start_date, end_date,
                                       satellite='Sentinel-2',
-                                      product_type=product_type)
+                                      product_type=product_type,
+                                      search_type=search_type)
     elif api == 'planet':
         from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,

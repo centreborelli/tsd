@@ -77,8 +77,10 @@ def post_scihub(url, query, user, password):
 def build_scihub_query(aoi, start_date=None, end_date=None,
                        satellite='Sentinel-1', product_type='GRD',
                        operational_mode='IW', relative_orbit_number=None,
-                       swath_identifier=None):
+                       swath_identifier=None, search_type='contains'):
     """
+    Args:
+        search_type (str): either "contains" or "intersects"
     """
     # default start/end dates
     if end_date is None:
@@ -101,7 +103,8 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
-    query += ' AND footprint:\"contains({})\"'.format(shapely.geometry.shape(aoi).wkt)
+    query += ' AND footprint:\"{}({})\"'.format(search_type,
+                                                shapely.geometry.shape(aoi).wkt)
 
     return query
 
@@ -184,7 +187,7 @@ def prettify_scihub_dict(d):
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
            product_type='GRD', operational_mode='IW',
            relative_orbit_number=None, swath_identifier=None,
-           api='copernicus'):
+           api='copernicus', search_type='contains'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
@@ -199,7 +202,8 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode,
-                               relative_orbit_number, swath_identifier)
+                               relative_orbit_number, swath_identifier,
+                               search_type=search_type)
 
     if api == "s5phub":
         creds = ("s5pguest", "s5pguest")
