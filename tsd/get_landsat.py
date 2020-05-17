@@ -5,7 +5,7 @@
 """
 Automatic crop and download of Landsat images.
 
-Copyright (C) 2016-18, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-20, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -68,7 +68,7 @@ def check_args(api, mirror):
 
 
 def search(aoi, start_date=None, end_date=None, satellite='L8',
-           sensor='OLITIRS', api='devseed'):
+           sensor='OLITIRS', api='devseed', unique_path_row_per_datatake=True):
     """
     Search Landsat images covering an AOI and timespan using a given API.
 
@@ -76,10 +76,13 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
         aoi (geojson.Polygon): area of interest
         start_date (datetime.datetime): start of the search time range
         end_date (datetime.datetime): end of the search time range
-        api (str, optional): either gcloud (default), scihub, planet or devseed
-        satellite (str, optional): either L1...L8
-        sensor (str, optional): MSS, TM, ETM, OLITIRS
-        see https://landsat.usgs.gov/what-are-band-designations-landsat-satellites
+        api (str, optional): either devseed (default) or gcloud
+        satellite (str, optional): either L4, L5, L7 or L8
+        sensor (str, optional): MSS, TM, ETM, OLITIRS. See:
+            https://landsat.usgs.gov/what-are-band-designations-landsat-satellites
+        unique_path_row_per_datatake (bool): if True, only one path/row tile per
+            datatake is considered. The selected path/row is the first in
+            alphabetical order.
 
     Returns:
         list of image objects
@@ -94,10 +97,21 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
     else:
         raise ValueError('The api "{}" is not available for {}.'.format(api, __file__))
 
+    # parse the API metadata
     images = [l8_metadata_parser.LandsatImage(img, api) for img in images]
 
-    # sort images by acquisition day, then by mgrs id
+    # sort images by acquisition date, then by row/path
     images.sort(key=(lambda k: (k.date.date(), k.row, k.path)))
+
+    # remove duplicates (same acquisition date but different path/row)
+    if unique_path_row_per_datatake:
+        seen = set()
+        unique_images = []
+        for img in images:
+            if img.date.date() not in seen:
+                seen.add(img.date.date())
+                unique_images.append(img)
+        images = unique_images
 
     print('Found {} images'.format(len(images)))
     return images
