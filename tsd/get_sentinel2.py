@@ -71,7 +71,8 @@ def check_args(api, mirror, product_type):
 
 
 def search(aoi, start_date=None, end_date=None, product_type=None,
-           api='devseed', search_type='contains'):
+           api='devseed', search_type='contains',
+           unique_mgrs_tile_per_datatake=True):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
 
@@ -82,6 +83,9 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         product_type (str, optional): either 'L1C' or 'L2A'
         api (str, optional): either devseed (default), scihub, planet or gcloud
         search_type (str): either "contains" or "intersects"
+        unique_mgrs_tile_per_datatake (bool): if True, only one MGRS tile per
+            datatake is considered. The selected MGRS tile is the first in
+            alphabetical order.
 
     Returns:
         list of image objects
@@ -110,19 +114,24 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
     # parse the API metadata
     images = [s2_metadata_parser.Sentinel2Image(img, api) for img in images]
 
-    # sort images by acquisition day, then by mgrs id
-    images.sort(key=(lambda k: (k.date.date(), k.mgrs_id)))
+    # remove images that have no datatake_id
+    images = [img for img in images if hasattr(img, "datatake_id")]
 
-    # remove duplicates (same acquisition date but different mgrs tile id)
-    seen = set()
-    unique_images = []
-    for img in images:
-        if img.date not in seen:
-            seen.add(img.date)
-            unique_images.append(img)
+    # sort images by datatake_id, then by mgrs id
+    images.sort(key=(lambda k: (k.datatake_id, k.mgrs_id)))
 
-    print('Found {} images'.format(len(unique_images)))
-    return unique_images
+    # remove duplicates (same datatake_id but different mgrs tile id)
+    if unique_mgrs_tile_per_datatake:
+        seen = set()
+        unique_images = []
+        for img in images:
+            if img.datatake_id not in seen:
+                seen.add(img.datatake_id)
+                unique_images.append(img)
+        images = unique_images
+
+    print('Found {} images'.format(len(images)))
+    return images
 
 
 def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):

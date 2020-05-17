@@ -247,6 +247,11 @@ class Sentinel2Image(dict):
         self.filename = filename_from_metadata(self)
         self.urls = {'aws': {}, 'gcloud': {}}
 
+        if 'datatake_id' not in self:
+            product_info = get_roda_metadata(self, filename='productInfo.json')
+            if product_info:
+                self.datatake_id = product_info['datatakeIdentifier']
+
 
     def devseed_parser(self, img):
         """
@@ -287,6 +292,7 @@ class Sentinel2Image(dict):
         self.satellite = self.title[:3]  # S2A_MSIL1C_2018010... --> S2A
         self.absolute_orbit = img['orbitnumber']
         self.relative_orbit = img['relativeorbitnumber']
+        self.datatake_id = img['s2datatakeid']
         self.processing_level = img['processinglevel'].split('-')[1]  # Level-1C --> L1C
         self.thumbnail = img['links']['icon']
 
@@ -305,6 +311,7 @@ class Sentinel2Image(dict):
         self.satellite = p['satellite_id'].replace("Sentinel-", "S")  # Sentinel-2A --> S2A
         self.relative_orbit = p['rel_orbit_number']
         self.absolute_orbit = p['abs_orbit_number']
+        self.datatake_id = p["datatake_id"]
         self.granule_date = dateutil.parser.parse(p['acquired'])
         #self.granule_date = dateutil.parser.parse(p['granule_id'].split('_')[3])
         self.thumbnail = img['_links']['thumbnail']
