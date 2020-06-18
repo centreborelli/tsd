@@ -91,6 +91,8 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
     elif api == 'devseed':
         from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
+    else:
+        raise ValueError('The api "{}" is not available for {}.'.format(api, __file__))
 
     images = [l8_metadata_parser.LandsatImage(img, api) for img in images]
 
@@ -299,7 +301,7 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
+    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'gcloud'],
                         default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
