@@ -91,6 +91,8 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
     elif api == 'devseed':
         from tsd import search_devseed
         images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
+    else:
+        raise ValueError('The api "{}" is not available for {}.'.format(api, __file__))
 
     images = [l8_metadata_parser.LandsatImage(img, api) for img in images]
 
