@@ -24,11 +24,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import datetime
 import json
+import importlib
 import shapely.geometry
 
 import satsearch
 
 from tsd import utils
+
+
+satsearch.config.API_URL = "https://sat-api.developmentseed.org"
+importlib.reload(satsearch.search)
+importlib.reload(satsearch)
 
 
 def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
