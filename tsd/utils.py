@@ -354,26 +354,27 @@ def compute_epsg(lon, lat):
     return const + zone
 
 
-def pyproj_transform(x, y, in_epsg, out_epsg):
+def pyproj_transform(x, y, in_crs, out_crs, z=None):
     """
-    Wrapper around pyproj to convert coordinates from an EPSG system
-    to another.
+    Wrapper around pyproj to convert coordinates from an EPSG system to another.
 
     Args:
-        x (scalar or array): x coordinate(s) of the point(s), expressed in `in_epsg`
-        y (scalar or array): y coordinate(s) of the point(s), expressed in `in_epsg`
-        in_epsg (int): EPSG code of the input coordinate system
-        out_epsg (int): EPSG code of the output coordinate system
+        x (scalar or array): x coordinate(s), expressed in in_crs
+        y (scalar or array): y coordinate(s), expressed in in_crs
+        in_crs (pyproj.crs.CRS or int): input coordinate reference system or EPSG code
+        out_crs (pyproj.crs.CRS or int): output coordinate reference system or EPSG code
+        z (scalar or array): z coordinate(s), expressed in in_crs
 
     Returns:
-        scalar or array: x coordinate(s) of the point(s) in the output EPSG system
-        scalar or array: y coordinate(s) of the point(s) in the output EPSG system
+        scalar or array: x coordinate(s), expressed in out_crs
+        scalar or array: y coordinate(s), expressed in out_crs
+        scalar or array (optional if z): z coordinate(s), expressed in out_crs
     """
-    with warnings.catch_warnings():  # noisy warnings here with pyproj>=2.4.2
-        warnings.filterwarnings("ignore", category=FutureWarning)
-        in_proj = pyproj.Proj(init="epsg:{}".format(in_epsg))
-        out_proj = pyproj.Proj(init="epsg:{}".format(out_epsg))
-    return pyproj.transform(in_proj, out_proj, x, y)
+    transformer = pyproj.Transformer.from_crs(in_crs, out_crs, always_xy=True)
+    if z is None:
+        return transformer.transform(x, y)
+    else:
+        return transformer.transform(x, y, z)
 
 
 def utm_bbx(aoi, epsg=None, r=None, offset=(0, 0)):

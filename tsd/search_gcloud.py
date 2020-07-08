@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from tsd import utils
 
-from pyproj import Proj, transform
 from json.decoder import JSONDecodeError
 
 
@@ -41,7 +40,7 @@ def get_footprint(img, source='roda'):
             return get_footprint(img, source='google')
 
         key = 'tileDataGeometry' if 'tileDataGeometry' in metadata else 'tileGeometry'
-        epsg = metadata[key]['crs']['properties']['name'].split(':')[-1]
+        epsg = int(metadata[key]['crs']['properties']['name'].split(':')[-1])
         utm_coords = metadata[key]['coordinates'][0]
 
     else:
@@ -57,20 +56,17 @@ def get_footprint(img, source='roda'):
         r = requests.get(url)
         coords = BeautifulSoup(r.content, 'lxml').find('ext_pos_list').text.strip().split(' ')
         coords = [(float(coords[2*i]),float(coords[2*i+1])) for i in range(int(len(coords)/2))]
-        ref_lat, ref_lon = coords[0]
-        _,_,zn,_ = utm.from_latlon(ref_lat, ref_lon)
         utm_coords = [utm.from_latlon(x,y)[:2] for x,y in coords]
-        epsg = str(32700-round((45+ref_lat)/90)*100+zn)
+        ref_lat, ref_lon = coords[0]
+        epsg = utils.compute_epsg(ref_lon, ref_lat)
 
     return shapely.geometry.Polygon(utm_coords), epsg
 
 
 def convert_aoi_to_utm(aoi, epsg):
-    outProj = Proj(init='epsg:{}'.format(epsg))
-    inProj = Proj(init='epsg:4326')
     utm_aoi = []
     for x, y in aoi['coordinates'][0]:
-        utm_aoi.append(transform(inProj, outProj, x, y))
+        utm_aoi.append(utils.pyproj_transform(x, y, 4326, epsg))
     return shapely.geometry.Polygon(utm_aoi)
 
 
