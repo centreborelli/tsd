@@ -4,14 +4,12 @@ import datetime
 import json
 import requests
 import shapely.geometry
-import numpy as np
 import pandas as pd
 
 # from pandas.io import gbq
 from google.cloud import bigquery
 
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 from tsd import utils
 
 from json.decoder import JSONDecodeError

@@ -29,7 +29,6 @@ import multiprocessing
 
 import bs4
 import requests
-import shapely.geometry
 
 from tsd import utils
 from tsd import parallel

@@ -26,7 +26,6 @@ import json
 import argparse
 import datetime
 import requests
-import numpy as np
 import shapely.geometry
 
 from tsd import utils

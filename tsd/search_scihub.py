@@ -21,14 +21,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
-import sys
 import argparse
 import datetime
 import json
 import shapely.geometry
 import shapely.wkt
 import requests
-import dateutil.parser
 
 from tsd import utils
 
