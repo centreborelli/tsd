@@ -75,7 +75,8 @@ def post_scihub(url, query, user, password):
 def build_scihub_query(aoi, start_date=None, end_date=None,
                        satellite='Sentinel-1', product_type='GRD',
                        operational_mode='IW', relative_orbit_number=None,
-                       swath_identifier=None, search_type='contains'):
+                       swath_identifier=None, tile_id=None,
+                       search_type='contains'):
     """
     Args:
         search_type (str): either "contains" or "intersects"
@@ -98,6 +99,10 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
 
     if swath_identifier is not None:
         query += ' AND swathidentifier:{}'.format(swath_identifier)
+
+    if satellite == 'Sentinel-2':
+        if tile_id is not None:
+            query += ' AND tileid:{}'.format(tile_id)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
@@ -184,7 +189,7 @@ def prettify_scihub_dict(d):
 
 def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
            product_type='GRD', operational_mode='IW',
-           relative_orbit_number=None, swath_identifier=None,
+           relative_orbit_number=None, swath_identifier=None, tile_id=None,
            api='copernicus', search_type='contains'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
@@ -201,6 +206,7 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode,
                                relative_orbit_number, swath_identifier,
+                               tile_id=tile_id,
                                search_type=search_type)
 
     if api == "s5phub":
@@ -249,6 +255,8 @@ if __name__ == '__main__':
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--swath-identifier',
                         help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
+    parser.add_argument('--tile-id',
+                        help='(for S2) MGRS tile identifier, e.g. 31TCJ')
     parser.add_argument('--api', default='copernicus',
                         help='mirror to use: copernicus, austria or finland')
     args = parser.parse_args()
@@ -270,4 +278,5 @@ if __name__ == '__main__':
                             product_type=args.product_type,
                             operational_mode=args.operational_mode,
                             swath_identifier=args.swath_identifier,
+                            tile_id=args.tile_id,
                             api=args.api)))
