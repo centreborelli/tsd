@@ -310,7 +310,7 @@ if __name__ == '__main__':
                         default='devseed', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
-    parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-6', 'Landsat-7', 'Landsat-8'],
+    parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-7', 'Landsat-8'],
                         default='Landsat', help='satellite')
     parser.add_argument('--sensor', type=str, choices=['MSS', 'TM', 'ETM', 'OLITIRS'],
                         default=None, help='sensor')
