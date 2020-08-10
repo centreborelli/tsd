@@ -41,7 +41,7 @@ AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
 GCLOUD_URL = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
-RODA_URL = 'https://roda.sentinel-hub.com/sentinel-s2-l1c/tiles'
+RODA_URL = 'https://roda.sentinel-hub.com/sentinel-s2-l1c'
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
@@ -200,10 +200,10 @@ def get_roda_metadata(img, filename='tileInfo.json'):
     Return:
         dict: content of the roda metadata json file
     """
-    url = '{}/{}/{}/{}/{}/{}/{}/0/{}'.format(RODA_URL, img.utm_zone,
-                                             img.lat_band, img.sqid,
-                                             img.date.year, img.date.month,
-                                             img.date.day, filename)
+    url = '{}/tiles/{}/{}/{}/{}/{}/{}/0/{}'.format(RODA_URL, img.utm_zone,
+                                                   img.lat_band, img.sqid,
+                                                   img.date.year, img.date.month,
+                                                   img.date.day, filename)
     r = requests.get(url)
     if r.ok:
         try:
@@ -212,6 +212,30 @@ def get_roda_metadata(img, filename='tileInfo.json'):
             return r.text
     else:
         print("{} not found on roda".format(img.title, url))
+        return None
+
+
+def get_roda_product_info(title):
+    """
+    Args:
+        title (str): Sentinel-2 product title
+
+    Return:
+        dict: content of the roda productInfo.json metadata file
+    """
+    date = parse_safe_name_for_acquisition_date(title)
+    url = '{}/products/{}/{}/{}/{}/productInfo.json'.format(RODA_URL,
+                                                            date.year,
+                                                            date.month,
+                                                            date.day, title)
+    r = requests.get(url)
+    if r.ok:
+        try:
+            return json.loads(r.text)
+        except json.decoder.JSONDecodeError:
+            return r.text
+    else:
+        print("{} not found on roda".format(title, url))
         return None
 
 
