@@ -77,6 +77,15 @@ BANDS_INDEX = {'0': 'B01',
                '11': 'B11',
                '12': 'B12'}
 
+
+class ProductInfoNotFound(Exception):
+    pass
+
+
+class TileInfoNotFound(Exception):
+    pass
+
+
 def split_mgrs_id(mgrs_id):
     """
     Split an mgrs identifier such as 10SEG into (10, 'S', 'EG').
@@ -211,8 +220,7 @@ def get_roda_metadata(img, filename='tileInfo.json'):
         except json.decoder.JSONDecodeError:
             return r.text
     else:
-        print("{} not found on roda".format(img.title, url))
-        return None
+        raise TileInfoNotFound("{} not found on roda".format(url))
 
 
 def get_roda_product_info(title):
@@ -235,8 +243,7 @@ def get_roda_product_info(title):
         except json.decoder.JSONDecodeError:
             return r.text
     else:
-        print("{} not found on roda".format(title, url))
-        return None
+        raise ProductInfoNotFound("{} not found on roda".format(url))
 
 
 class Sentinel2Image(dict):
@@ -272,9 +279,11 @@ class Sentinel2Image(dict):
         self.urls = {'aws': {}, 'gcloud': {}}
 
         if 'datatake_id' not in self:
-            product_info = get_roda_metadata(self, filename='productInfo.json')
-            if product_info:
+            try:
+                product_info = get_roda_product_info(self.title)
                 self.datatake_id = product_info['datatakeIdentifier']
+            except ProductInfoNotFound:
+                pass
 
 
     def devseed_parser(self, img):
@@ -379,15 +388,17 @@ class Sentinel2Image(dict):
         queries roda to retrieve it. It takes about 200 ms.
         """
         if 'granule_date' not in self:
-            tile_info = get_roda_metadata(self, filename='tileInfo.json')
-            #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
-            if not tile_info:  # abort if file not found on roda
+            try:
+                tile_info = get_roda_metadata(self, filename='tileInfo.json')
+            except TileInfoNotFound:  # abort if file not found on roda
                 return
+            #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
             self.granule_date = parse_datastrip_id_for_granule_date(tile_info['datastrip']['id'])
 
         if 'absolute_orbit' not in self:
-            product_info = get_roda_metadata(self, filename='productInfo.json')
-            if not product_info:  # abort if file not found on roda
+            try:
+                product_info = get_roda_product_info(self.title)
+            except ProductInfoNotFound:  # abort if file not found on roda
                 return
             self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
 
@@ -451,11 +462,12 @@ class Sentinel2Image(dict):
         """
         Get satellite mean zenith and azimuth angles from xml metadata file.
         """
-        metadata_xml = get_roda_metadata(self, filename="metadata.xml")
-        if metadata_xml:
-            d = xmltodict.parse(metadata_xml)
-        else:
+        try:
+            metadata_xml = get_roda_metadata(self, filename="metadata.xml")
+        except TileInfoNotFound:
             return
+
+        d = xmltodict.parse(metadata_xml)
 
         angles = d["n1:Level-1C_Tile_ID"]["n1:Geometric_Info"]["Tile_Angles"]["Mean_Viewing_Incidence_Angle_List"]["Mean_Viewing_Incidence_Angle"]
         self.satellite_zenith = dict(sorted([(BANDS_INDEX[x["@bandId"]], float(x["ZENITH_ANGLE"]["#text"])) for x in angles]))
