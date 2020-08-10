@@ -441,14 +441,21 @@ class Sentinel2Image(dict):
 
         Example of url: s3://sentinel-s2-l1c/tiles/10/S/EG/2018/2/24/0/B04.jp2
         """
+        try:
+            product_info = get_roda_product_info(self.title)
+            path = product_info["tiles"][0]["path"]
+        except ProductInfoNotFound:  # make an educated guess, assuming
+                                     # that the sequence number is 0
+            path = 'tiles/{}/{}/{}/{}/{}/{}/0'.format(self.utm_zone,
+                                                      self.lat_band,
+                                                      self.sqid,
+                                                      self.date.year,
+                                                      self.date.month,
+                                                      self.date.day)
+
         aws_s3_url = AWS_S3_URL_L2A if 'MSIL2A' in self.title else AWS_S3_URL_L1C
-        base_url = '{}/tiles/{}/{}/{}/{}/{}/{}/0'.format(aws_s3_url,
-                                                         self.utm_zone,
-                                                         self.lat_band,
-                                                         self.sqid,
-                                                         self.date.year,
-                                                         self.date.month,
-                                                         self.date.day)
+        base_url = '{}/{}'.format(aws_s3_url, path)
+
         urls = self.urls['aws']
         urls['cloud_mask'] = '{}/qi/MSK_CLOUDS_B00.gml'.format(base_url)
         for b in ALL_BANDS:
