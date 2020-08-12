@@ -102,7 +102,7 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
 
     if satellite == 'Sentinel-2':
         if tile_id is not None:
-            query += ' AND tileid:{}'.format(tile_id)
+            query += ' AND filename:*T{}*'.format(tile_id)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
