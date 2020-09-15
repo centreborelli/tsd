@@ -12,6 +12,7 @@ import re
 import argparse
 import datetime
 import warnings
+import shutil
 
 import numpy as np
 import utm
@@ -27,16 +28,15 @@ warnings.filterwarnings("ignore",
                         category=rasterio.errors.NotGeoreferencedWarning)
 
 
-def download(from_url, to_file, auth=('', '')):
+def download(from_url, to_file, auth=None):
     """
     Download a file from an url to a file.
     """
     to_file = os.path.abspath(os.path.expanduser(to_file))
     os.makedirs(os.path.dirname(to_file), exist_ok=True)
-    response = requests.get(from_url, stream=True, auth=auth)
-    with open(to_file, 'wb') as handle:
-        for data in response.iter_content():
-            handle.write(data)
+    with requests.get(from_url, stream=True, auth=auth) as r:
+        with open(to_file, 'wb') as handle:
+            shutil.copyfileobj(r.raw, handle)
 
 
 def valid_datetime(s):
