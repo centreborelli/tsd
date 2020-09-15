@@ -134,7 +134,7 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
     return images
 
 
-def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
+def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=False):
     """
     Download a timeseries of crops with GDAL VSI feature.
 
@@ -145,6 +145,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
         mirror (str): either 'aws' or 'gcloud'
         out_dir (str): path where to store the downloaded crops
         parallel_downloads (int): number of parallel downloads
+        no_crop (bool): don't crop but instead download the original JP2 files
     """
     print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
     if mirror == 'gcloud':
@@ -181,9 +182,15 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads):
                                                                      len(imgs) - nb_removed,
                                                                      len(bands)),
           end=' ')
-    parallel.run_calls(utils.rasterio_geo_crop, crops_args,
-                       extra_args=('UInt16',), pool_type='threads',
-                       nb_workers=parallel_downloads)
+
+    if no_crop:  # download original JP2 files
+        for fname, url, *_ in crops_args:
+            utils.download(url, fname.replace(".tif", ".jp2"))
+
+    else:  # download crops
+        parallel.run_calls(utils.rasterio_geo_crop, crops_args,
+                           extra_args=('UInt16',), pool_type='threads',
+                           nb_workers=parallel_downloads)
 
 
 def bands_files_are_valid(img, bands, api, directory):
@@ -274,7 +281,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                     out_dir='', api='devseed', mirror='gcloud',
                     product_type=None, cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
-                    satellite_angles=False):
+                    satellite_angles=False, no_crop=False):
     """
     Main function: crop and download a time series of Sentinel-2 images.
 
@@ -292,6 +299,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         parallel_downloads (int): number of parallel gml files downloads
         satellite_angles (bool): whether or not to download satellite zenith
             and azimuth angles and include them in metadata
+        no_crop (bool): if True, download original JP2 files rather than crops
     """
     # check access to the selected search api and download mirror
     check_args(api, mirror, product_type)
@@ -307,7 +315,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
                     product_type=product_type, api=api)
 
     # download crops
-    download(images, bands, aoi, mirror, out_dir, parallel_downloads)
+    download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop)
 
     # discard images that failed to download
     images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
@@ -367,6 +375,9 @@ if __name__ == '__main__':
     parser.add_argument('--satellite-angles', action='store_true',
                         help=('retrieve satellite zenith and azimuth angles'
                               ' and include them in tiff metadata'))
+    parser.add_argument('--no-crop', action='store_true',
+                        help=("don't crop but instead download the original JP2 files"))
+
     args = parser.parse_args()
 
     if 'all' in args.band:
@@ -386,6 +397,7 @@ if __name__ == '__main__':
     get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
                     bands=args.band, out_dir=args.outdir, api=args.api,
                     mirror=args.mirror,
+                    no_crop=args.no_crop,
                     product_type=args.product_type,
                     cloud_masks=args.cloud_masks,
                     parallel_downloads=args.parallel_downloads,
