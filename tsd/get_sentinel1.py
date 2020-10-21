@@ -114,7 +114,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
     # download zip file
     zip_path = os.path.join(out_dir, '{}.SAFE.zip'.format(image['title']))
-    date = dateutil.parser.parse(image['beginposition'], ignoretz=True)
+    date = image['date']
     if not zipfile.is_zipfile(zip_path) or os.stat(zip_path).st_size == 0:
         if mirror == 'code-de':
             url = '{}/{:04d}/{:02d}/{:02d}/{}.SAFE.zip'.format(CODEDE_URL,
@@ -124,21 +124,16 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
                                                                image['title'])
             if requests.head(url).ok:  # download the file
                 subprocess.call(['wget', url])
-            else:  # switch to PEPS
-                print('WARNING: {} not available, trying from PEPS...'.format(url))
-                download_sentinel_image(image, out_dir, mirror='peps')
         elif mirror == 'peps':
             try:
                 download_safe_from_peps(image['title'], out_dir=out_dir)
             except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(PEPS_URL_SEARCH, image['title']))
-                print('WARNING: will download from copernicus mirror...')
-                download_sentinel_image(image, out_dir, mirror='copernicus')
         elif mirror in search_scihub.API_URLS:
             url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.API_URLS[mirror],
                                                              image['id'])
             user, password = read_copernicus_credentials_from_environment_variables()
-            query_data_hub(zip_path, url, user, password, verbose=False)
+            query_data_hub(zip_path, url, user, password, verbose=True)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 
@@ -162,7 +157,6 @@ def search(aoi, start_date=None, end_date=None, product_type="GRD",
         list of image objects
     """
     # list available images
-    #if api in ['copernicus', 'austria', 'finland']:
     if api == "scihub":
         from tsd import search_scihub
         images = search_scihub.search(aoi, start_date, end_date,
@@ -187,7 +181,7 @@ def search(aoi, start_date=None, end_date=None, product_type="GRD",
     return images
 
 
-def download(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
+def download_crops(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
     """
     Download a timeseries of crops with GDAL VSI feature.
 
@@ -242,7 +236,7 @@ def download(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', operational_mode='IW',
                     relative_orbit_number=None, swath_identifier=None,
-                    search_api='copernicus', download_mirror='peps',
+                    search_api='scihub', download_mirror='aws',
                     parallel_downloads=multiprocessing.cpu_count(),
                     timeout=600):
     """
@@ -255,14 +249,14 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     relative_orbit_number=relative_orbit_number,
                     api=search_api)
 
-    # download crops
-    download(images, aoi, download_mirror, out_dir, parallel_downloads,
-             timeout=timeout)
+    if product_type == "GRD":  # then download crops from AWS
+        download_miror = "aws"
+        download_crops(images, aoi, download_mirror, out_dir,
+                       parallel_downloads, timeout=timeout)
 
-#    # download full images
-#    for image in images:
-#        download_sentinel_image(image, out_dir, download_mirror)
-
+    else: # download full images from scihub
+        for image in images:
+            download_sentinel_image(image, out_dir, download_mirror)
 
 
 if __name__ == '__main__':
@@ -291,10 +285,10 @@ if __name__ == '__main__':
                         help='acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--swath-identifier',
                         help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
-    parser.add_argument('--api', default='copernicus',
-                        help='search API to use: copernicus, austria or finland')
+    parser.add_argument('--api', default='scihub',
+                        help='search API to use: scihub or planet')
     parser.add_argument('--mirror', default='peps',
-                        help='download mirror: peps, copernicus, austria or finland')
+                        help='download mirror: scihub or aws (GRD only)')
     parser.add_argument('--orbit', type=int,
                         help='relative orbit number, from 1 to 175')
     parser.add_argument('--parallel', type=int, default=multiprocessing.cpu_count(),
