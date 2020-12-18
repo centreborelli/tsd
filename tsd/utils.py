@@ -70,6 +70,7 @@ def valid_lon(s):
     try:
         return float(s)
     except ValueError:
+        s = s.replace(" ", "")
         regex = r"(\d+)d(\d+)'([\d.]+)\"([WE])"
         m = re.match(regex, s)
         if m is None:
@@ -93,6 +94,7 @@ def valid_lat(s):
     try:
         return float(s)
     except ValueError:
+        s = s.replace(" ", "")
         regex = r"(\d+)d(\d+)'([\d.]+)\"([NS])"
         m = re.match(regex, s)
         if m is None:
