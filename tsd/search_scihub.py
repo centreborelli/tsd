@@ -73,7 +73,7 @@ def post_scihub(url, query, user, password):
         r.raise_for_status()
 
 
-def build_scihub_query(aoi, start_date=None, end_date=None,
+def build_scihub_query(aoi=None, start_date=None, end_date=None,
                        satellite='Sentinel-1', product_type='GRD',
                        operational_mode='IW', relative_orbit_number=None,
                        swath_identifier=None, tile_id=None,
@@ -107,8 +107,9 @@ def build_scihub_query(aoi, start_date=None, end_date=None,
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
-    query += ' AND footprint:\"{}({})\"'.format(search_type,
-                                                shapely.geometry.shape(aoi).wkt)
+    if aoi is not None:
+        query += ' AND footprint:\"{}({})\"'.format(search_type,
+                                                    shapely.geometry.shape(aoi).wkt)
 
     return query
 
@@ -188,7 +189,7 @@ def prettify_scihub_dict(d):
     return out
 
 
-def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
+def search(aoi=None, start_date=None, end_date=None, satellite='Sentinel-1',
            product_type='GRD', operational_mode='IW',
            relative_orbit_number=None, swath_identifier=None, tile_id=None,
            api='copernicus', search_type='contains'):
@@ -219,15 +220,16 @@ def search(aoi, start_date=None, end_date=None, satellite='Sentinel-1',
                                                            API_URLS[api],
                                                            creds)]
 
-    # check if the image footprint contains the area of interest
-    not_covering = []
-    aoi_shape = shapely.geometry.shape(aoi)
-    for x in results:
-        if not shapely.wkt.loads(x['footprint']).contains(aoi_shape):
-            not_covering.append(x)
+    if aoi is not None:
+        # check if the image footprint contains the area of interest
+        not_covering = []
+        aoi_shape = shapely.geometry.shape(aoi)
+        for x in results:
+            if not shapely.wkt.loads(x['footprint']).contains(aoi_shape):
+                not_covering.append(x)
 
-    for x in not_covering:
-        results.remove(x)
+        for x in not_covering:
+            results.remove(x)
 
     return results
 
