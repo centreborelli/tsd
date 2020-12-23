@@ -72,7 +72,7 @@ def check_args(api, mirror, product_type):
 
 def search(aoi=None, start_date=None, end_date=None, product_type=None,
            tile_id=None, title=None, relative_orbit_number=None,
-           api='devseed', search_type='contains',
+           api='scihub', search_type='contains',
            unique_mgrs_tile_per_datatake=True):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
@@ -85,7 +85,7 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
         title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
         relative_orbit_number (int): relative orbit number, from 1 to 143
         product_type (str, optional): either "L1C" or "L2A"
-        api (str, optional): either devseed (default), scihub, planet or gcloud
+        api (str, optional): either scihub (default), devseed, planet or gcloud
         search_type (str): either "contains" or "intersects"
         unique_mgrs_tile_per_datatake (bool): if True, only one MGRS tile per
             datatake is considered. The selected MGRS tile is the first in
@@ -95,11 +95,7 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
         list of image objects
     """
     # list available images
-    if api == 'devseed':
-        from tsd import search_devseed
-        images = search_devseed.search(aoi, start_date, end_date,
-                                       'Sentinel-2')
-    elif api == 'scihub':
+    if api == 'scihub':
         from tsd import search_scihub
         if product_type is not None:
             product_type = 'S2MSI{}'.format(product_type[1:])
@@ -110,6 +106,10 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
                                       tile_id=tile_id,
                                       title=title,
                                       search_type=search_type)
+    elif api == 'devseed':
+        from tsd import search_devseed
+        images = search_devseed.search(aoi, start_date, end_date,
+                                       'Sentinel-2')
     elif api == 'planet':
         from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,
@@ -288,7 +288,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
 
 def get_time_series(aoi=None, start_date=None, end_date=None, bands=['B04'],
                     tile_id=None, title=None, relative_orbit_number=None,
-                    out_dir='', api='devseed', mirror='gcloud',
+                    out_dir='', api='scihub', mirror='gcloud',
                     product_type=None, cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
                     satellite_angles=False, no_crop=False):
@@ -304,7 +304,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=['B04'],
         title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
         relative_orbit_number (int): relative orbit number, from 1 to 143
         out_dir (str, optional): path where to store the downloaded crops
-        api (str, optional): either devseed (default), scihub, planet or gcloud
+        api (str, optional): either scihub (default), devseed, planet or gcloud
         mirror (str, optional): either 'aws' or 'gcloud'
         product_type (str, optional): either 'L1C' or 'L2A'
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
@@ -372,8 +372,8 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'scihub', 'gcloud'],
-                        default='devseed', help='search API')
+    parser.add_argument('--api', type=str, choices=['scihub', 'devseed', 'planet', 'gcloud'],
+                        default='scihub', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
     parser.add_argument('--product-type', choices=['L1C', 'L2A'],
