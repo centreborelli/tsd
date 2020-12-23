@@ -74,9 +74,9 @@ def post_scihub(url, query, user, password):
 
 
 def build_scihub_query(aoi=None, start_date=None, end_date=None,
-                       satellite='Sentinel-1', product_type='GRD',
-                       operational_mode='IW', relative_orbit_number=None,
-                       swath_identifier=None, tile_id=None,
+                       satellite=None, product_type=None,
+                       operational_mode=None, relative_orbit_number=None,
+                       swath_identifier=None, tile_id=None, title=None,
                        search_type='contains'):
     """
     Args:
@@ -88,22 +88,30 @@ def build_scihub_query(aoi=None, start_date=None, end_date=None,
     if start_date is None:
         start_date = datetime.datetime(2000, 1, 1)
 
-    # build the url used to query the scihub API
-    query = 'platformname:{}'.format(satellite)
-    query += ' AND producttype:{}'.format(product_type)
-    if satellite == 'Sentinel-1':
-        query += ' AND sensoroperationalmode:{}'.format(operational_mode)
-    query += ' AND beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
-                                                      end_date.isoformat())
+    # build the query
+    query = 'beginposition:[{}Z TO {}Z]'.format(start_date.isoformat(),
+                                                end_date.isoformat())
+
+    if satellite is not None:
+        query += ' AND platformname:{}'.format(satellite)
+
+    if product_type is not None:
+        query += ' AND producttype:{}'.format(product_type)
+
     if relative_orbit_number is not None:
         query += ' AND relativeorbitnumber:{}'.format(relative_orbit_number)
+
+    if title is not None:
+        query += ' AND filename:{}'.format(title)
+
+    if operational_mode is not None:
+        query += ' AND sensoroperationalmode:{}'.format(operational_mode)
 
     if swath_identifier is not None:
         query += ' AND swathidentifier:{}'.format(swath_identifier)
 
-    if satellite == 'Sentinel-2':
-        if tile_id is not None:
-            query += ' AND filename:*T{}*'.format(tile_id)
+    if tile_id is not None:
+        query += ' AND filename:*T{}*'.format(tile_id)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
@@ -189,10 +197,10 @@ def prettify_scihub_dict(d):
     return out
 
 
-def search(aoi=None, start_date=None, end_date=None, satellite='Sentinel-1',
-           product_type='GRD', operational_mode='IW',
+def search(aoi=None, start_date=None, end_date=None, satellite=None,
+           product_type=None, operational_mode=None,
            relative_orbit_number=None, swath_identifier=None, tile_id=None,
-           api='copernicus', search_type='contains'):
+           title=None, api='copernicus', search_type='contains'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
     """
@@ -209,6 +217,7 @@ def search(aoi=None, start_date=None, end_date=None, satellite='Sentinel-1',
                                product_type, operational_mode,
                                relative_orbit_number, swath_identifier,
                                tile_id=tile_id,
+                               title=title,
                                search_type=search_type)
 
     if api == "s5phub":
@@ -250,36 +259,34 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('--satellite', default='Sentinel-1',
+    parser.add_argument('--satellite',
                         help='which satellite: Sentinel-1 or Sentinel-2')
-    parser.add_argument('--product-type', default='GRD',
+    parser.add_argument('--product-type',
                         help='type of image: RAW, SLC, GRD, OCN (for S1), S2MSI1C, S2MSI2A, S2MSI2Ap (for S2)')
-    parser.add_argument('--operational-mode', default='IW',
+    parser.add_argument('--operational-mode',
                         help='(for S1) acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--swath-identifier',
                         help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
     parser.add_argument('--tile-id',
                         help='(for S2) MGRS tile identifier, e.g. 31TCJ')
+    parser.add_argument('--title',
+                        help='Product title (e.g. S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758)')
+    parser.add_argument('--relative-orbit-number', type=int,
+                        help='Relative orbit number, e.g. 98')
     parser.add_argument('--api', default='copernicus',
                         help='mirror to use: copernicus, austria or finland')
     args = parser.parse_args()
 
-    if args.geom and (args.lat or args.lon):
-        parser.error('--geom and {--lat, --lon} are mutually exclusive')
+    if args.lat is not None and args.lon is not None:
+        args.geom = utils.geojson_geometry_object(args.lat, args.lon,
+                                                  args.width, args.height)
 
-    if not args.geom and (not args.lat or not args.lon):
-        parser.error('either --geom or {--lat, --lon} must be defined')
-
-    if args.geom:
-        aoi = args.geom
-    else:
-        aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
-                                            args.height)
-
-    print(json.dumps(search(aoi, args.start_date, args.end_date,
+    print(json.dumps(search(args.geom, args.start_date, args.end_date,
                             satellite=args.satellite,
                             product_type=args.product_type,
                             operational_mode=args.operational_mode,
                             swath_identifier=args.swath_identifier,
+                            relative_orbit_number=args.relative_orbit_number,
                             tile_id=args.tile_id,
+                            title=args.title,
                             api=args.api)))
