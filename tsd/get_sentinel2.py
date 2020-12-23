@@ -70,7 +70,8 @@ def check_args(api, mirror, product_type):
                               "per GB. More info: {}".format(info_url)))
 
 
-def search(aoi, start_date=None, end_date=None, product_type=None,
+def search(aoi=None, start_date=None, end_date=None, product_type=None,
+           tile_id=None, title=None, relative_orbit_number=None,
            api='devseed', search_type='contains',
            unique_mgrs_tile_per_datatake=True):
     """
@@ -80,7 +81,10 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         aoi (geojson.Polygon): area of interest
         start_date (datetime.datetime): start of the search time range
         end_date (datetime.datetime): end of the search time range
-        product_type (str, optional): either 'L1C' or 'L2A'
+        tile_id (str): MGRS tile identifier, e.g. "31TCJ"
+        title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
+        relative_orbit_number (int): relative orbit number, from 1 to 143
+        product_type (str, optional): either "L1C" or "L2A"
         api (str, optional): either devseed (default), scihub, planet or gcloud
         search_type (str): either "contains" or "intersects"
         unique_mgrs_tile_per_datatake (bool): if True, only one MGRS tile per
@@ -100,8 +104,11 @@ def search(aoi, start_date=None, end_date=None, product_type=None,
         if product_type is not None:
             product_type = 'S2MSI{}'.format(product_type[1:])
         images = search_scihub.search(aoi, start_date, end_date,
-                                      satellite='Sentinel-2',
+                                      satellite="Sentinel-2",
                                       product_type=product_type,
+                                      relative_orbit_number=relative_orbit_number,
+                                      tile_id=tile_id,
+                                      title=title,
                                       search_type=search_type)
     elif api == 'planet':
         from tsd import search_planet
@@ -166,8 +173,10 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
             continue
 
         # convert aoi coords from (lon, lat) to UTM in the zone of the image
-        coords = utils.utm_bbx(aoi, epsg=int(img.epsg),
-                               r=60)  # round to multiples of 60 (B01 resolution)
+        coords = ()
+        if aoi is not None:
+            coords = utils.utm_bbx(aoi, epsg=int(img.epsg),
+                                   r=60)  # round to multiples of 60 (B01 resolution)
 
         for b in bands:
             fname = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
@@ -183,7 +192,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
                                                                      len(bands)),
           end=' ')
 
-    if no_crop:  # download original JP2 files
+    if no_crop or (aoi is None):  # download original JP2 files
         for fname, url, *_ in crops_args:
             utils.download(url, fname.replace(".tif", ".jp2"))
 
@@ -277,7 +286,8 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
                             os.path.join(out_dir, 'cloudy', f))
 
 
-def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
+def get_time_series(aoi=None, start_date=None, end_date=None, bands=['B04'],
+                    tile_id=None, title=None, relative_orbit_number=None,
                     out_dir='', api='devseed', mirror='gcloud',
                     product_type=None, cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
@@ -290,6 +300,9 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
         start_date (datetime.datetime, optional): start of the time range
         end_date (datetime.datetime, optional): end of the time range
         bands (list, optional): list of bands
+        tile_id (str): MGRS tile identifier, e.g. "31TCJ"
+        title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
+        relative_orbit_number (int): relative orbit number, from 1 to 143
         out_dir (str, optional): path where to store the downloaded crops
         api (str, optional): either devseed (default), scihub, planet or gcloud
         mirror (str, optional): either 'aws' or 'gcloud'
@@ -312,7 +325,11 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B04'],
 
     # list available images
     images = search(aoi, start_date, end_date,
-                    product_type=product_type, api=api)
+                    relative_orbit_number=relative_orbit_number,
+                    tile_id=tile_id,
+                    title=title,
+                    product_type=product_type,
+                    api=api)
 
     # download crops
     download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop)
@@ -367,6 +384,12 @@ if __name__ == '__main__':
                         default='gcloud', help='download mirror')
     parser.add_argument('--product-type', choices=['L1C', 'L2A'],
                         help='type of image')
+    parser.add_argument('--tile-id',
+                        help='MGRS tile identifier, e.g. 31TCJ')
+    parser.add_argument('--title',
+                        help='Product title (e.g. S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758)')
+    parser.add_argument('--relative-orbit-number', type=int,
+                        help='Relative orbit number, from 1 to 143')
     parser.add_argument('--parallel-downloads', type=int,
                         default=multiprocessing.cpu_count(),
                         help='max number of parallel crops downloads')
@@ -383,19 +406,19 @@ if __name__ == '__main__':
     if 'all' in args.band:
         args.band = ALL_BANDS
 
-    if args.geom and (args.lat or args.lon):
-        parser.error('--geom and {--lat, --lon} are mutually exclusive')
+    if args.lat is not None and args.lon is not None:
+        args.geom = utils.geojson_geometry_object(args.lat, args.lon,
+                                                  args.width, args.height)
 
-    if not args.geom and (not args.lat or not args.lon):
-        parser.error('either --geom or {--lat, --lon} must be defined')
-
-    if args.geom:
-        aoi = args.geom
-    else:
-        aoi = utils.geojson_geometry_object(args.lat, args.lon, args.width,
-                                            args.height)
-    get_time_series(aoi, start_date=args.start_date, end_date=args.end_date,
-                    bands=args.band, out_dir=args.outdir, api=args.api,
+    get_time_series(args.geom,
+                    start_date=args.start_date,
+                    end_date=args.end_date,
+                    bands=args.band,
+                    tile_id=args.tile_id,
+                    title=args.title,
+                    relative_orbit_number=args.relative_orbit_number,
+                    out_dir=args.outdir,
+                    api=args.api,
                     mirror=args.mirror,
                     no_crop=args.no_crop,
                     product_type=args.product_type,
