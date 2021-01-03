@@ -28,4 +28,4 @@ install:
 script:
   - bash tests.sh
   - python3 tsd/test_search_scihub.py
-  - python3 tsd/test_search_devseed.py
+  - python3 tsd/test_search_stac.py

@@ -49,8 +49,8 @@ def is_image_empty(path, bands):
 
 
 def check_args(api, mirror):
-    if mirror == 'gcloud' and api not in ['gcloud', 'devseed']:
-        raise ValueError("ERROR: You must use gcloud or devseed api to use gcloud as mirror")
+    if mirror == 'gcloud' and api not in ['gcloud', 'stac']:
+        raise ValueError("ERROR: You must use gcloud or stac api to use gcloud as mirror")
     if api == 'gcloud':
         try:
             private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
@@ -59,7 +59,7 @@ def check_args(api, mirror):
 
 
 def search(aoi, start_date=None, end_date=None, satellite='L8',
-           sensor='OLITIRS', api='devseed', unique_path_row_per_datatake=True):
+           sensor='OLITIRS', api='stac', unique_path_row_per_datatake=True):
     """
     Search Landsat images covering an AOI and timespan using a given API.
 
@@ -67,7 +67,7 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
         aoi (geojson.Polygon): area of interest
         start_date (datetime.datetime): start of the search time range
         end_date (datetime.datetime): end of the search time range
-        api (str, optional): either devseed (default) or gcloud
+        api (str, optional): either stac (default) or gcloud
         satellite (str, optional): either L4, L5, L7 or L8
         sensor (str, optional): MSS, TM, ETM, OLITIRS. See:
             https://landsat.usgs.gov/what-are-band-designations-landsat-satellites
@@ -82,9 +82,9 @@ def search(aoi, start_date=None, end_date=None, satellite='L8',
     if api == 'gcloud':
         from tsd import search_gcloud
         images = search_gcloud.search(aoi, start_date, end_date, satellite=satellite, sensor=sensor)
-    elif api == 'devseed':
-        from tsd import search_devseed
-        images = search_devseed.search(aoi, start_date, end_date, satellite='Landsat-8')
+    elif api == 'stac':
+        from tsd import search_stac
+        images = search_stac.search(aoi, start_date, end_date, satellite='Landsat-8')
     else:
         raise ValueError('The api "{}" is not available for {}.'.format(api, __file__))
 
@@ -225,7 +225,7 @@ def read_empty_images(imgs, bands, parallel_downloads,
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
                     satellite='Landsat', sensor=None,
-                    out_dir='', api='devseed', mirror='gcloud',
+                    out_dir='', api='stac', mirror='gcloud',
                     cloud_masks=False, check_empty=False,
                     parallel_downloads=multiprocessing.cpu_count()):
     """
@@ -240,7 +240,7 @@ def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
         sensor (str, optional): MSS, TM, ETM, OLI
         see https://landsat.usgs.gov/what-are-band-designations-landsat-satellites
         out_dir (str, optional): path where to store the downloaded crops
-        api (str, optional): either devseed (default), scihub, planet or gcloud
+        api (str, optional): either stac (default), scihub, planet or gcloud
         mirror (str, optional): either 'aws' or 'gcloud'
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
             cloudy images are discarded
@@ -306,8 +306,8 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['devseed', 'planet', 'gcloud'],
-                        default='devseed', help='search API')
+    parser.add_argument('--api', type=str, choices=['stac', 'planet', 'gcloud'],
+                        default='stac', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')
     parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-7', 'Landsat-8'],

@@ -1,5 +1,5 @@
 from tsd import utils
-from tsd import search_devseed
+from tsd import search_stac
 from tsd import search_scihub
 from tsd import search_planet
 from tsd import search_gcloud

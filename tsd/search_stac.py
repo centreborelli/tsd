@@ -3,9 +3,9 @@
 # pylint: disable=C0103
 
 """
-Search of Landsat-8 and Sentinel-2 images using Development Seed API.
+Search of Landsat-8 and Sentinel-2 images using STAC APIs.
 
-Copyright (C) 2016-19, Carlo de Franchis <carlo.de-franchis@m4x.org>
+Copyright (C) 2016-20, Carlo de Franchis <carlo.de-franchis@ens-paris-saclay.fr>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published

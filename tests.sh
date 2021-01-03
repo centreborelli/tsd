@@ -18,7 +18,7 @@ SIZE=2560
 # test Landsat-8
 echo
 echo "Landsat-8 downloads..."
-for API in devseed gcloud #planet
+for API in stac gcloud #planet
 do
    for MIRROR in gcloud aws
    do
@@ -32,7 +32,7 @@ done
 # test the 8 (api, mirror) combinations for Sentinel-2
 echo
 echo "Sentinel-2 downloads..."
-for API in devseed scihub planet gcloud
+for API in stac scihub planet gcloud
 do
    for MIRROR in gcloud aws
    do

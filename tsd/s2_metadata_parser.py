@@ -1,6 +1,6 @@
 """
 This module contains parsers for the Sentinel-2 metadata outputs of all the
-search APIs supported by TSD, such as devseed, planet, scihub and gcloud. Each
+search APIs supported by TSD, such as stac, planet, scihub and gcloud. Each
 API parser receives as input a Python dict containing the metadata of an image
 as returned by the API. It extracts from it the metadata that TSD needs and
 stores them in an object with standard attributes (i.e. the attributes are the
@@ -255,14 +255,14 @@ class Sentinel2Image(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-    def __init__(self, img, api='devseed'):
+    def __init__(self, img, api='stac'):
         """
         """
         self.metadata_source = api
         #self.metadata_original = img
 
-        if api == 'devseed':
-            self.devseed_parser(img)
+        if api == 'stac':
+            self.stac_parser(img)
         elif api == 'scihub':
             self.scihub_parser(img)
         elif api == 'planet':
@@ -286,10 +286,10 @@ class Sentinel2Image(dict):
                 pass
 
 
-    def devseed_parser(self, img):
+    def stac_parser(self, img):
         """
         Args:
-            img (dict): json metadata dict as shipped in devseed API response
+            img (dict): json metadata dict as shipped in stac API response
         """
         p = img['properties']
         self.title = p['sentinel:product_id']
@@ -379,7 +379,7 @@ class Sentinel2Image(dict):
 
         The tricky part is to build the granule name
         (L1C_T36RTV_A005095_20180226T084545 in the example above), which is not
-        part neither of the devseed nor of the scihub API responses. This function
+        part neither of the stac nor of the scihub API responses. This function
         queries roda to retrieve it. It takes about 200 ms.
         """
         if 'granule_date' not in self:

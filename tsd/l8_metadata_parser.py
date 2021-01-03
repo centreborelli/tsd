@@ -1,6 +1,6 @@
 """
 This module contains parsers for the Landsat metadata outputs of all the
-search APIs supported by TSD, such as devseed, planet, and gcloud. Each
+search APIs supported by TSD, such as stac, planet, and gcloud. Each
 API parser receives as input a Python dict containing the metadata of an image
 as returned by the API. It extracts from it the metadata that TSD needs and
 stores them in an object with standard attributes (i.e. the attributes are the
@@ -46,13 +46,13 @@ class LandsatImage(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-    def __init__(self, img, api='devseed'):
+    def __init__(self, img, api='stac'):
         """
         """
         self.metadata_source = api
 
-        if api == 'devseed':
-            self.devseed_parser(img)
+        if api == 'stac':
+            self.stac_parser(img)
         elif api == 'planet':
             self.planet_parser(img)
         elif api == 'gcloud':
@@ -65,10 +65,10 @@ class LandsatImage(dict):
         self.build_gs_links()
 
 
-    def devseed_parser(self, img):
+    def stac_parser(self, img):
         """
         Args:
-            img (dict): json metadata dict as shipped in devseed API response
+            img (dict): json metadata dict as shipped in stac API response
         """
         p = img['properties']
         self.scene_id = p['landsat:scene_id']

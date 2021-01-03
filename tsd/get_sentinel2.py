@@ -85,7 +85,7 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
         title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
         relative_orbit_number (int): relative orbit number, from 1 to 143
         product_type (str, optional): either "L1C" or "L2A"
-        api (str, optional): either scihub (default), devseed, planet or gcloud
+        api (str, optional): either scihub (default), stac, planet or gcloud
         search_type (str): either "contains" or "intersects"
         unique_mgrs_tile_per_datatake (bool): if True, only one MGRS tile per
             datatake is considered. The selected MGRS tile is the first in
@@ -106,9 +106,9 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
                                       tile_id=tile_id,
                                       title=title,
                                       search_type=search_type)
-    elif api == 'devseed':
-        from tsd import search_devseed
-        images = search_devseed.search(aoi, start_date, end_date,
+    elif api == 'stac':
+        from tsd import search_stac
+        images = search_stac.search(aoi, start_date, end_date,
                                        'Sentinel-2')
     elif api == 'planet':
         from tsd import search_planet
@@ -304,7 +304,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=['B04'],
         title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
         relative_orbit_number (int): relative orbit number, from 1 to 143
         out_dir (str, optional): path where to store the downloaded crops
-        api (str, optional): either scihub (default), devseed, planet or gcloud
+        api (str, optional): either scihub (default), stac, planet or gcloud
         mirror (str, optional): either 'aws' or 'gcloud'
         product_type (str, optional): either 'L1C' or 'L2A'
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
@@ -372,7 +372,7 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(ALL_BANDS))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['scihub', 'devseed', 'planet', 'gcloud'],
+    parser.add_argument('--api', type=str, choices=['scihub', 'stac', 'planet', 'gcloud'],
                         default='scihub', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='gcloud', help='download mirror')

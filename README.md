@@ -30,7 +30,7 @@ Search and download is performed by `get_sentinel2.py`, `get_landsat.py`,
 `get_planet.py` and `get_sentinel1.py` (one file per satellite constellation).
 They can be used both as command line scripts or as Python modules.
 
-They use the Python modules `search_devseed.py`, `search_scihub.py`,
+They use the Python modules `search_stac.py`, `search_scihub.py`,
 `search_peps.py` and `search_planet.py` (one file per API provider).
 
 ## From the command line
@@ -76,7 +76,7 @@ You can also run any of the `search_*.py` scripts from the command line
 separately. Run them with `-h` to get the list of available options.  For a
 nice output formatting, pipe their output to `jq` (`brew install jq`).
 
-    python search_devseed.py --lat 22.34806 --lon 69.86889 | jq
+    python search_stac.py --lat 22.34806 --lon 69.86889 | jq
 
 For example, this should print ready to use `curl` commands for downloading
 Sentinel-5P netCDF files:
@@ -94,8 +94,8 @@ to their docstrings to get usage information. Here are some examples.
     lat, lon = 42, 3
     aoi = tsd.utils.geojson_geometry_object(lat, lon, 5000, 5000)
 
-    # search Landsat-8 images available on the AOI with Development Seed's API
-    x = tsd.search_devseed.search(aoi, satellite='Landsat-8')
+    # search Landsat-8 images available on the AOI with a STAC API
+    x = tsd.search_stac.search(aoi, satellite='Landsat-8')
 
 
 # Common issues
