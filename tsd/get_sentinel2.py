@@ -42,8 +42,6 @@ ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
 
 
 def check_args(api, mirror, product_type):
-    if product_type is not None and api != 'scihub':
-        print("WARNING: product_type option is available only with api='scihub'")
     if api == 'gcloud':
         try:
             private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
@@ -109,7 +107,8 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
     elif api == 'stac':
         from tsd import search_stac
         images = search_stac.search(aoi, start_date, end_date,
-                                       'Sentinel-2')
+                                    satellite="Sentinel-2",
+                                    product_type=product_type)
     elif api == 'planet':
         from tsd import search_planet
         images = search_planet.search(aoi, start_date, end_date,

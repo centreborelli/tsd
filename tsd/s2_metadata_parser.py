@@ -39,9 +39,10 @@ from tsd import search_scihub, utils
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
+AWS_S3_URL_L2A_COGS = 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs'
 GCLOUD_URL = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
-RODA_URL = 'https://roda.sentinel-hub.com/sentinel-s2-l1c'
+RODA_URL = 'https://roda.sentinel-hub.com'
 
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
@@ -97,6 +98,10 @@ def split_mgrs_id(mgrs_id):
 
 def parse_safe_name_for_relative_orbit_number(safe_name):
     """
+    Parse a SAFE name for the relative orbit number.
+
+    Example of a SAFE name:
+        S2A_MSIL1C_20180105T185751_N0206_R113_T10SEG_20180105T204427 --> 113
     """
     s = re.search('_R([0-9]{3})_', safe_name)
     return int(s.group(1))
@@ -104,6 +109,10 @@ def parse_safe_name_for_relative_orbit_number(safe_name):
 
 def parse_safe_name_for_mgrs_id(safe_name):
     """
+    Parse a SAFE name for its MGRS tile identifier.
+
+    Example of a SAFE name:
+        S2A_MSIL1C_20180105T185751_N0206_R113_T10SEG_20180105T204427 --> 10SEG
     """
     return re.findall(r"_T([0-9]{2}[A-Z]{3})_", safe_name)[0]
 
@@ -117,7 +126,17 @@ def parse_safe_name_for_acquisition_date(safe_name):
     """
     date_str = re.findall(r"_(2[0-9]{3}[0-1][0-9][0-3][0-9]T[0-9]{6})_",
                           safe_name)[0]
-    return dateutil.parser.parse(date_str)
+    return dateutil.parser.parse(date_str, ignoretz=True)
+
+
+def parse_safe_name_for_product_type(safe_name):
+    """
+    Parse a SAFE name for the corresponding product type, either L1C or L2A.
+
+    Example of a SAFE name:
+        S2A_MSIL1C_20180105T185751_N0206_R113_T10SEG_20180105T204427 --> L1C
+    """
+    return re.findall(r"_MSIL(1C|2A)_", safe_name)[0]
 
 
 def parse_datastrip_id_for_granule_date(datastrip_id):
@@ -209,10 +228,16 @@ def get_roda_metadata(img, filename='tileInfo.json'):
     Return:
         dict: content of the roda metadata json file
     """
-    url = '{}/tiles/{}/{}/{}/{}/{}/{}/0/{}'.format(RODA_URL, img.utm_zone,
-                                                   img.lat_band, img.sqid,
-                                                   img.date.year, img.date.month,
-                                                   img.date.day, filename)
+    level = img.processing_level.lower()
+    url = '{}/sentinel-s2-l{}/tiles/{}/{}/{}/{}/{}/{}/0/{}'.format(RODA_URL,
+                                                                   level,
+                                                                   img.utm_zone,
+                                                                   img.lat_band,
+                                                                   img.sqid,
+                                                                   img.date.year,
+                                                                   img.date.month,
+                                                                   img.date.day,
+                                                                   filename)
     r = requests.get(url)
     if r.ok:
         try:
@@ -220,7 +245,7 @@ def get_roda_metadata(img, filename='tileInfo.json'):
         except json.decoder.JSONDecodeError:
             return r.text
     else:
-        raise TileInfoNotFound("{} not found on roda".format(url))
+        raise TileInfoNotFound("{} not found".format(url))
 
 
 def get_roda_product_info(title):
@@ -231,11 +256,14 @@ def get_roda_product_info(title):
     Return:
         dict: content of the roda productInfo.json metadata file
     """
+    level = parse_safe_name_for_product_type(title).lower()
     date = parse_safe_name_for_acquisition_date(title)
-    url = '{}/products/{}/{}/{}/{}/productInfo.json'.format(RODA_URL,
-                                                            date.year,
-                                                            date.month,
-                                                            date.day, title)
+    url = '{}/sentinel-s2-l{}/products/{}/{}/{}/{}/productInfo.json'.format(RODA_URL,
+                                                                            level,
+                                                                            date.year,
+                                                                            date.month,
+                                                                            date.day,
+                                                                            title)
     r = requests.get(url)
     if r.ok:
         try:
@@ -243,7 +271,7 @@ def get_roda_product_info(title):
         except json.decoder.JSONDecodeError:
             return r.text
     else:
-        raise ProductInfoNotFound("{} not found on roda".format(url))
+        raise ProductInfoNotFound("{} not found".format(url))
 
 
 class Sentinel2Image(dict):
@@ -259,7 +287,6 @@ class Sentinel2Image(dict):
         """
         """
         self.metadata_source = api
-        #self.metadata_original = img
 
         if api == 'stac':
             self.stac_parser(img)
@@ -270,10 +297,14 @@ class Sentinel2Image(dict):
         elif api == 'gcloud':
             self.gcloud_parser(img)
 
+        self.mgrs_id = parse_safe_name_for_mgrs_id(self.title)
+        self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
         self.epsg = utils.utm_to_epsg_code(self.utm_zone, self.lat_band)
 
-        if 'processing_level' not in self:
-            self.processing_level = '1C'  # right now only scihub api allows L2A
+        self.date = parse_safe_name_for_acquisition_date(self.title)
+        self.relative_orbit = parse_safe_name_for_relative_orbit_number(self.title)
+        self.processing_level = parse_safe_name_for_product_type(self.title)
+        self.satellite = self.title[:3]  # S2A_MSIL1C_2018010... --> S2A
 
         self.filename = filename_from_metadata(self)
         self.urls = {'aws': {}, 'gcloud': {}}
@@ -291,20 +322,15 @@ class Sentinel2Image(dict):
         Args:
             img (dict): json metadata dict as shipped in stac API response
         """
-        p = img['properties']
-        self.title = p['sentinel:product_id']
-        self.mgrs_id = parse_safe_name_for_mgrs_id(self.title)
-        self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
+        self.title = img['properties']['sentinel:product_id']
+        self.geometry = img['geometry']
+        self.cloud_cover = img['properties']['eo:cloud_cover']
 
-        self.date = dateutil.parser.parse(self.title.split("_")[2])
-        #self.granule_date = dateutil.parser.parse(p['datetime'])
-        self.satellite = self.title.split("_")[0]
-        self.relative_orbit = parse_safe_name_for_relative_orbit_number(self.title)
-
-        self.thumbnail = img['assets']['thumbnail']['href'].replace('sentinel-s2-l1c.s3.amazonaws.com',
-                                                                    'roda.sentinel-hub.com/sentinel-s2-l1c')
-        self.cloud_cover = p['eo:cloud_cover']
-        #self.id = img['id']
+        self.thumbnail = img['assets']['thumbnail']['href'] #.replace('sentinel-s2-l1c.s3.amazonaws.com',
+                                                            #         'roda.sentinel-hub.com/sentinel-s2-l1c')
+        self.aws_sequence_number = img["properties"]["sentinel:sequence"]
+        self.aws_id = img["id"]
+        self.source = [x["href"] for x in img["links"] if x["rel"] == "self"][0]
 
 
     def scihub_parser(self, img):
@@ -314,14 +340,9 @@ class Sentinel2Image(dict):
                 opensearch API response
         """
         self.title = img['title']
-        self.mgrs_id = parse_safe_name_for_mgrs_id(self.title)
-        self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
-        self.date = dateutil.parser.parse(img['beginposition'], ignoretz=True)
-        self.satellite = self.title[:3]  # S2A_MSIL1C_2018010... --> S2A
+        self.geometry = img['geometry']
         self.absolute_orbit = img['orbitnumber']
-        self.relative_orbit = img['relativeorbitnumber']
         self.datatake_id = img['s2datatakeid']
-        self.processing_level = img['processinglevel'].split('-')[1]  # Level-1C --> L1C
         self.thumbnail = img['links']['icon']
 
 
@@ -332,16 +353,11 @@ class Sentinel2Image(dict):
                 API response
         """
         self.title = img['id']
+
         p = img['properties']
-        self.mgrs_id = p['mgrs_grid_id']
-        self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
-        self.date = parse_safe_name_for_acquisition_date(self.title)  # 'acquired' contains the granule datetime
-        self.satellite = p['satellite_id'].replace("Sentinel-", "S")  # Sentinel-2A --> S2A
-        self.relative_orbit = p['rel_orbit_number']
         self.absolute_orbit = p['abs_orbit_number']
         self.datatake_id = p["datatake_id"]
         self.granule_date = dateutil.parser.parse(p['acquired'])
-        #self.granule_date = dateutil.parser.parse(p['granule_id'].split('_')[3])
         self.thumbnail = img['_links']['thumbnail']
 
         self.cloud_cover = p['cloud_cover']
@@ -356,18 +372,11 @@ class Sentinel2Image(dict):
                 API response
         """
         self.title = img['product_id']
-        self.mgrs_id = img['mgrs_tile']
-        self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
-        self.date = parse_safe_name_for_acquisition_date(self.title)  # 'sensing_time' contains the granule datetime
-        self.satellite = img['product_id'][:3]
-        self.relative_orbit = parse_safe_name_for_relative_orbit_number(self.title)
 
         self.absolute_orbit = int(img['granule_id'].split('_')[2][1:])
         self.granule_date = dateutil.parser.parse(img['sensing_time'], ignoretz=True)
-        #self.granule_date = dateutil.parser.parse(img['granule_id'].split('_')[3])
 
         self.cloud_cover = img['cloud_cover']
-        #self.is_old = True if '.' in img['granule_id'] else False
 
 
     def build_gs_links(self):
@@ -387,7 +396,6 @@ class Sentinel2Image(dict):
                 tile_info = get_roda_metadata(self, filename='tileInfo.json')
             except TileInfoNotFound:  # abort if file not found on roda
                 return
-            #self.granule_date = dateutil.parser.parse(tile_info['timestamp'])
             self.granule_date = parse_datastrip_id_for_granule_date(tile_info['datastrip']['id'])
 
         if 'absolute_orbit' not in self:
@@ -396,10 +404,6 @@ class Sentinel2Image(dict):
             except ProductInfoNotFound:  # abort if file not found on roda
                 return
             self.absolute_orbit = parse_datatake_id_for_absolute_orbit(product_info['datatakeIdentifier'])
-
-    #    if self.is_old:
-    #        img_name = '{}_{}.jp2'.format('_'.join(granule_id.split('_')[:-1]), '{}')
-    #        cloud_mask_name = '{}_B00_MSIL1C.gml'.format('_'.join(granule_id.split('_')[:-1]).replace('MSI_L1C_TL', 'MSK_CLOUDS'))
 
         granule_id = 'L{}_T{}_A{:06d}_{}'.format(self.processing_level,
                                                  self.mgrs_id,
@@ -427,37 +431,66 @@ class Sentinel2Image(dict):
                                                                       b,
                                                                       BANDS_RESOLUTION[b])
             else:
-                raise Exception("processing_level of {} is neither L1C nor L2A".format(self['title']))
+                raise TypeError("processing_level of {} is neither L1C nor L2A".format(self['title']))
 
 
     def build_s3_links(self):
         """
-        Build s3 urls for the 13 jp2 bands and the gml cloud mask.
+        Build s3 urls for the 13 raster bands and the gml cloud mask.
 
-        Example of url: s3://sentinel-s2-l1c/tiles/10/S/EG/2018/2/24/0/B04.jp2
+        Examples of urls:
+            L1C: s3://sentinel-s2-l1c/tiles/10/S/EG/2018/2/24/0/B04.jp2
+            L2A: https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/10/S/EG/2018/2/S2B_10SEG_20180219_0_L2A/B04.tif
         """
-        try:
-            product_info = get_roda_product_info(self.title)
-            path = product_info["tiles"][0]["path"]
-        except ProductInfoNotFound:  # make an educated guess, assuming
-                                     # that the sequence number is 0
-            path = 'tiles/{}/{}/{}/{}/{}/{}/0'.format(self.utm_zone,
-                                                      self.lat_band,
-                                                      self.sqid,
-                                                      self.date.year,
-                                                      self.date.month,
-                                                      self.date.day)
-
-        aws_s3_url = AWS_S3_URL_L2A if 'MSIL2A' in self.title else AWS_S3_URL_L1C
-        base_url = '{}/{}'.format(aws_s3_url, path)
-
         urls = self.urls['aws']
-        urls['cloud_mask'] = '{}/qi/MSK_CLOUDS_B00.gml'.format(base_url)
-        for b in ALL_BANDS:
-            if 'MSIL2A' in self.title:
-                urls[b] = '{}/R{}m/{}.jp2'.format(base_url, BANDS_RESOLUTION[b], b)
+
+        if "aws_sequence_number" in self:  # this is the case when api == "stac"
+            seq = self.aws_sequence_number
+        else:
+            try:
+                product_info = get_roda_product_info(self.title)
+                path = product_info["tiles"][0]["path"]
+                seq = path.split("/")[-1]
+            except ProductInfoNotFound:  # make an educated guess, assuming
+                                         # that the sequence number is 0
+                seq = "0"
+
+        if self.processing_level == "1C":
+            base_url = "{}/tiles/{}/{}/{}/{}/{}/{}/{}".format(AWS_S3_URL_L1C,
+                                                              self.utm_zone,
+                                                              self.lat_band,
+                                                              self.sqid,
+                                                              self.date.year,
+                                                              self.date.month,
+                                                              self.date.day,
+                                                              seq)
+            urls["cloud_mask"] = "{}/qi/MSK_CLOUDS_B00.gml".format(base_url)
+            ext = "jp2"
+
+        elif self.processing_level == "2A":
+            if "aws_id" in self:
+                aws_id = self.aws_id
             else:
-                urls[b] = '{}/{}.jp2'.format(base_url, b)
+                aws_id = "{}_{}_{}_{}_L2A".format(self.satellite,
+                                                  self.mgrs_id,
+                                                  self.date.date().isoformat(),
+                                                  seq)
+
+            base_url = "{}/{}/{}/{}/{}/{}/{}".format(AWS_S3_URL_L2A_COGS,
+                                                     self.utm_zone,
+                                                     self.lat_band,
+                                                     self.sqid,
+                                                     self.date.year,
+                                                     self.date.month,
+                                                     aws_id)
+            urls["SCL"] = "{}/SCL.tif".format(base_url)
+            ext = "tif"
+
+
+        for b in ALL_BANDS:
+            urls[b] = "{}/{}.{}".format(base_url, b, ext)
+#            if self.processing_level == "2A":
+#                urls[b] = '{}/R{}m/{}.jp2'.format(base_url, BANDS_RESOLUTION[b], b)
 
 
     def get_satellite_angles(self):

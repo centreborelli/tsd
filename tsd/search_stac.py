@@ -35,7 +35,7 @@ ENDPOINT = "https://sat-api.developmentseed.org"  # implements STAC 0.6.0, requi
 ENDPOINT = "https://earth-search.aws.element84.com/v0"  # implements STAC 1.0.0, requires sat-search 0.3.x
 
 
-def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", product_type="L1C"):
+def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", product_type=None):
     """
     List images covering an area of interest (AOI) using a STAC compliant API.
 
@@ -52,15 +52,17 @@ def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", product_
         start_date = end_date - datetime.timedelta(365)
 
     # collection
-    if satellite.lower() in ['sentinel-2', 'sentinel2', 'sentinel']:
-        if product_type.lower() in ["1c", "l1c"]:
-            collection = "sentinel-s2-l1c"
-        elif product_type.lower() in ["2a", "l2a"]:
-            collection = "sentinel-s2-l2a-cogs"
-        else:
-            raise TypeError(f"unknown product_type {product_type}")
-    elif satellite.lower() in ['landsat-8', 'landsat8', 'landsat']:
-        collection = 'landsat-8-l1-c1'
+    if satellite.lower() in ["sentinel-2", "sentinel2", "sentinel"]:
+        collections = ["sentinel-s2-l1c", "sentinel-s2-l2a-cogs"]
+        if product_type is not None:
+            if product_type.lower() in ["1c", "l1c"]:
+                collections = ["sentinel-s2-l1c"]
+            elif product_type.lower() in ["2a", "l2a"]:
+                collections = ["sentinel-s2-l2a-cogs"]
+            else:
+                raise TypeError(f"unknown product_type {product_type}")
+    elif satellite.lower() in ["landsat-8", "landsat8", "landsat"]:
+        collections = ["landsat-8-l1-c1"]
     else:
         raise TypeError(('Satellite "{}" not supported. Use either Landsat-8 or'
                          ' Sentinel-2.').format(satellite))
@@ -70,7 +72,7 @@ def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", product_
                          intersects=aoi,
                          datetime='{}/{}'.format(start_date.isoformat(),
                                                  end_date.isoformat()),
-                         collections=[collection])
+                         collections=collections)
 
     # check if the images footprints contain the area of interest
     aoi = shapely.geometry.shape(aoi)
