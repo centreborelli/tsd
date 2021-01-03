@@ -293,14 +293,12 @@ class Sentinel2Image(dict):
         """
         p = img['properties']
         self.title = p['sentinel:product_id']
-        self.utm_zone = int(p['sentinel:utm_zone'])
-        self.lat_band = p['sentinel:latitude_band']
-        self.sqid  = p['sentinel:grid_square']
-        self.mgrs_id = '{}{}{}'.format(self.utm_zone, self.lat_band, self.sqid)
+        self.mgrs_id = parse_safe_name_for_mgrs_id(self.title)
+        self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
 
-        self.date = dateutil.parser.parse(self.title.split('_')[2])
+        self.date = dateutil.parser.parse(self.title.split("_")[2])
         #self.granule_date = dateutil.parser.parse(p['datetime'])
-        self.satellite = p['eo:platform'].replace("sentinel-", "S").upper()  # sentinel-2b --> S2B
+        self.satellite = self.title.split("_")[0]
         self.relative_orbit = parse_safe_name_for_relative_orbit_number(self.title)
 
         self.thumbnail = img['assets']['thumbnail']['href'].replace('sentinel-s2-l1c.s3.amazonaws.com',
@@ -316,10 +314,7 @@ class Sentinel2Image(dict):
                 opensearch API response
         """
         self.title = img['title']
-        try:
-            self.mgrs_id = img['tileid']
-        except KeyError:
-            self.mgrs_id = re.findall(r"_T([0-9]{2}[A-Z]{3})_", img['title'])[0]
+        self.mgrs_id = parse_safe_name_for_mgrs_id(self.title)
         self.utm_zone, self.lat_band, self.sqid = split_mgrs_id(self.mgrs_id)
         self.date = dateutil.parser.parse(img['beginposition'], ignoretz=True)
         self.satellite = self.title[:3]  # S2A_MSIL1C_2018010... --> S2A

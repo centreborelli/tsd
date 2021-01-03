@@ -72,13 +72,13 @@ class LandsatImage(dict):
         """
         p = img['properties']
         self.scene_id = p['landsat:scene_id']
-        self.satellite = p['eo:platform'].replace('andsat-','').upper()
-        self.sensor = p['eo:instrument'].replace('_', '')
+        self.satellite = p['platform'].replace('ANDSAT_', '')
+        self.sensor = p['instruments'][0] + p['instruments'][1]
         self.date = dateutil.parser.parse(p['datetime'], ignoretz=True)
-        self.row = p['eo:row']
-        self.path = p['eo:column']
+        self.row = int(p['landsat:wrs_row'])
+        self.path = int(p['landsat:wrs_path'])
 
-        self.product_id = p['landsat:product_id']
+        self.product_id = img['id']
         self.thumbnail = img['assets']['thumbnail']['href']
         self.cloud_cover = p['eo:cloud_cover']
         self.aws_base_url = img['assets']['index']['href'].replace('/index.html', '')
@@ -114,12 +114,9 @@ class LandsatImage(dict):
         if self.satellite != 'L8':
             return
 
-        if 'aws_base_url' in self:
-            base_url = self.aws_base_url
-        else:
-            base_url = '{}/c1/L8/{:03d}/{:03d}/{}'.format(AWS_HTTPS_URL_L8,
-                                                          self.path, self.row,
-                                                          self.product_id)
+        base_url = '{}/c1/L8/{:03d}/{:03d}/{}'.format(AWS_HTTPS_URL_L8,
+                                                      self.path, self.row,
+                                                      self.product_id)
 
         for band in ALL_BANDS_LANDSAT:
             self.urls['aws'][band] = '{}/{}_{}.TIF'.format(base_url,
@@ -134,9 +131,12 @@ class LandsatImage(dict):
             base_url = self.gcloud_base_url.replace('gs://', GCLOUD_URL)
         else:
             sat, *_, collection, _ = self.product_id.split('_')
-            base_url = '{}{}/{}/{}/{}/{}/{}'.format(GCLOUD_URL, GCLOUD_BUCKET_LANDSAT,
-                                                    sat, collection, self.path,
-                                                    self.row, self.product_id)
+            base_url = '{}{}/{}/{}/{:03d}/{:03d}/{}'.format(GCLOUD_URL,
+                                                            GCLOUD_BUCKET_LANDSAT,
+                                                            sat, collection,
+                                                            self.path,
+                                                            self.row,
+                                                            self.product_id)
         for band in ALL_BANDS_LANDSAT:
             self.urls['gcloud'][band] = '{}/{}_{}.TIF'.format(base_url,
                                                               self.product_id,

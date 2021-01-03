@@ -24,7 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import datetime
 import json
-import importlib
 import shapely.geometry
 
 import satsearch
@@ -32,18 +31,18 @@ import satsearch
 from tsd import utils
 
 
-satsearch.config.API_URL = "https://sat-api.developmentseed.org"
-importlib.reload(satsearch.search)
-importlib.reload(satsearch)
+ENDPOINT = "https://sat-api.developmentseed.org"  # implements STAC 0.6.0, requires sat-search 0.2.x
+ENDPOINT = "https://earth-search.aws.element84.com/v0"  # implements STAC 1.0.0, requires sat-search 0.3.x
 
 
-def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
+def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", level="1c"):
     """
-    List images covering an area of interest (AOI) using Development Seed’s API.
+    List images covering an area of interest (AOI) using a STAC compliant API.
 
     Args:
         aoi: geojson.Polygon or geojson.Point object
         satellite: either Landsat-8 or Sentinel-2
+        level: for Sentinel-2, either 1c or 2a. Ignored for Landsat.
     """
     # date range
     if end_date is None:
@@ -53,18 +52,24 @@ def search(aoi, start_date=None, end_date=None, satellite='Landsat-8'):
 
     # collection
     if satellite.lower() in ['sentinel-2', 'sentinel2', 'sentinel']:
-        collection = 'sentinel-2-l1c'
+        if level.lower() in ["1c", "l1c"]:
+            collection = "sentinel-s2-l1c"
+        elif level.lower() in ["2a", "l2a"]:
+            collection = "sentinel-s2-l2a"
+        else:
+            raise TypeError(f"unknown level {level}")
     elif satellite.lower() in ['landsat-8', 'landsat8', 'landsat']:
-        collection = 'landsat-8-l1'
+        collection = 'landsat-8-l1-c1'
     else:
         raise TypeError(('Satellite "{}" not supported. Use either Landsat-8 or'
                          ' Sentinel-2.').format(satellite))
 
-    # query Development Seed’s API
-    r = satsearch.Search.search(intersects=aoi,
-                                time='{}/{}'.format(start_date.isoformat(),
-                                                    end_date.isoformat()),
-                                collection=collection)
+    # query the STAC compliant API
+    r = satsearch.Search(url=ENDPOINT,
+                         intersects=aoi,
+                         datetime='{}/{}'.format(start_date.isoformat(),
+                                                 end_date.isoformat()),
+                         collections=[collection])
 
     # check if the images footprints contain the area of interest
     aoi = shapely.geometry.shape(aoi)
