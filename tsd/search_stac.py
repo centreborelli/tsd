@@ -35,14 +35,15 @@ ENDPOINT = "https://sat-api.developmentseed.org"  # implements STAC 0.6.0, requi
 ENDPOINT = "https://earth-search.aws.element84.com/v0"  # implements STAC 1.0.0, requires sat-search 0.3.x
 
 
-def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", level="1c"):
+def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", product_type="L1C"):
     """
     List images covering an area of interest (AOI) using a STAC compliant API.
 
     Args:
-        aoi: geojson.Polygon or geojson.Point object
-        satellite: either Landsat-8 or Sentinel-2
-        level: for Sentinel-2, either 1c or 2a. Ignored for Landsat.
+        aoi (geojson.Polygon): area of interest
+        satellite (str): either Landsat-8 or Sentinel-2
+        product_type (str, optional): for Sentinel-2, either "L1C" or "L2A".
+            Ignored for Landsat.
     """
     # date range
     if end_date is None:
@@ -52,12 +53,12 @@ def search(aoi, start_date=None, end_date=None, satellite="sentinel-2", level="1
 
     # collection
     if satellite.lower() in ['sentinel-2', 'sentinel2', 'sentinel']:
-        if level.lower() in ["1c", "l1c"]:
+        if product_type.lower() in ["1c", "l1c"]:
             collection = "sentinel-s2-l1c"
-        elif level.lower() in ["2a", "l2a"]:
-            collection = "sentinel-s2-l2a"
+        elif product_type.lower() in ["2a", "l2a"]:
+            collection = "sentinel-s2-l2a-cogs"
         else:
-            raise TypeError(f"unknown level {level}")
+            raise TypeError(f"unknown product_type {product_type}")
     elif satellite.lower() in ['landsat-8', 'landsat8', 'landsat']:
         collection = 'landsat-8-l1-c1'
     else:
