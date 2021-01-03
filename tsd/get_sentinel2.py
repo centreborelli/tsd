@@ -154,7 +154,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
         parallel_downloads (int): number of parallel downloads
         no_crop (bool): don't crop but instead download the original JP2 files
     """
-    print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
+    print('Building {} {} download urls...'.format(len(imgs), mirror))
     if mirror == 'gcloud':
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
                            imgs, pool_type='threads',
@@ -189,8 +189,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
     os.makedirs(out_dir, exist_ok=True)
     print('Downloading {} crops ({} images with {} bands)...'.format(len(crops_args),
                                                                      len(imgs) - nb_removed,
-                                                                     len(bands)),
-          end=' ')
+                                                                     len(bands)))
 
     if no_crop or (aoi is None):  # download original JP2 files
         for fname, url, *_ in crops_args:

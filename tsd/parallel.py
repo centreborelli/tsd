@@ -1,31 +1,10 @@
 # Copyright (C) 2017, Carlo de Franchis <carlo.de-franchis@m4x.org>
 
-from __future__ import print_function
-import os
 import sys
 import multiprocessing
 import multiprocessing.pool
 
-
-def show_progress(a):
-    """
-    Callback for the run_calls function: print nb of calls that are done.
-
-    Args:
-        a: useless argument, but since this function is used as a callback by
-           apply_async, it has to take one argument.
-    """
-    show_progress.counter += 1
-    status = '{:{fill}{width}} / {}'.format(show_progress.counter,
-                                            show_progress.total,
-                                            fill='',
-                                            width=len(str(show_progress.total)))
-    if show_progress.counter < show_progress.total:
-        status += chr(8) * len(status)
-    else:
-        status += '\n'
-    sys.stdout.write(status)
-    sys.stdout.flush()
+from tqdm.auto import tqdm
 
 
 def run_calls(fun, list_of_args, extra_args=(), pool_type='processes',
@@ -55,27 +34,26 @@ def run_calls(fun, list_of_args, extra_args=(), pool_type='processes',
     elif pool_type == 'threads':
         pool = multiprocessing.pool.ThreadPool(nb_workers)
     else:
-        print('ERROR: unknow pool_type "{}"'.format(pool_type))
+        raise ValueError("unknow pool_type {}".format(pool_type))
 
     results = []
     outputs = []
-    if verbose:
-        show_progress.counter = 0
-        show_progress.total = len(list_of_args)
-    for x in list_of_args:
-        if type(x) == tuple:
-            args = x + extra_args
-        else:
-            args = (x,) + extra_args
-        results.append(pool.apply_async(fun, args=args,
-                                        callback=show_progress if verbose else None))
 
-    for r in results:
-        try:
-            outputs.append(r.get(timeout))
-        except KeyboardInterrupt:
-            pool.terminate()
-            sys.exit(1)
+    with tqdm(total=len(list_of_args)) as bar:
+        for x in list_of_args:
+            if type(x) == tuple:
+                args = x + extra_args
+            else:
+                args = (x,) + extra_args
+            results.append(pool.apply_async(fun, args=args,
+                                            callback=lambda x: bar.update(1) if verbose else None))
+
+        for r in results:
+            try:
+                outputs.append(r.get(timeout))
+            except KeyboardInterrupt:
+                pool.terminate()
+                sys.exit(1)
 
     pool.close()
     pool.join()
