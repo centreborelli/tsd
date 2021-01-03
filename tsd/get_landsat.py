@@ -225,7 +225,7 @@ def read_empty_images(imgs, bands, parallel_downloads,
 
 def get_time_series(aoi, start_date=None, end_date=None, bands=['B8'],
                     satellite='Landsat', sensor=None,
-                    out_dir='', api='stac', mirror='gcloud',
+                    out_dir='', api='stac', mirror='aws',
                     cloud_masks=False, check_empty=False,
                     parallel_downloads=multiprocessing.cpu_count()):
     """
@@ -309,7 +309,7 @@ if __name__ == '__main__':
     parser.add_argument('--api', type=str, choices=['stac', 'planet', 'gcloud'],
                         default='stac', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
-                        default='gcloud', help='download mirror')
+                        default='aws', help='download mirror')
     parser.add_argument('--satellite', type=str, choices=['Landsat', 'Landsat-4', 'Landsat-5', 'Landsat-7', 'Landsat-8'],
                         default='Landsat', help='satellite')
     parser.add_argument('--sensor', type=str, choices=['MSS', 'TM', 'ETM', 'OLITIRS'],
