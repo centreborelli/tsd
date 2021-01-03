@@ -30,9 +30,11 @@ Each parser returns a Sentinel2Image object with the following attributes:
 import re
 import json
 import datetime
+import geojson
 
 import dateutil.parser
 import requests
+import shapely
 import xmltodict
 
 from tsd import search_scihub, utils
@@ -340,10 +342,17 @@ class Sentinel2Image(dict):
                 opensearch API response
         """
         self.title = img['title']
-        self.geometry = img['geometry']
         self.absolute_orbit = img['orbitnumber']
         self.datatake_id = img['s2datatakeid']
         self.thumbnail = img['links']['icon']
+        try:
+            self.datastrip_id = img["datastripidentifier"]
+            self.granule_date = parse_datastrip_id_for_granule_date(self.datastrip_id)
+        except KeyError:
+            pass
+
+        s = img["footprint"]
+        self.geometry = geojson.Feature(geometry=shapely.wkt.loads(s))["geometry"]
 
 
     def planet_parser(self, img):
@@ -436,7 +445,7 @@ class Sentinel2Image(dict):
 
     def build_s3_links(self):
         """
-        Build s3 urls for the 13 raster bands and the gml cloud mask.
+        Build s3 urls for all raster bands and the gml cloud mask.
 
         Examples of urls:
             L1C: s3://sentinel-s2-l1c/tiles/10/S/EG/2018/2/24/0/B04.jp2
@@ -473,7 +482,7 @@ class Sentinel2Image(dict):
             else:
                 aws_id = "{}_{}_{}_{}_L2A".format(self.satellite,
                                                   self.mgrs_id,
-                                                  self.date.date().isoformat(),
+                                                  self.date.date().strftime("%Y%m%d"),
                                                   seq)
 
             base_url = "{}/{}/{}/{}/{}/{}/{}".format(AWS_S3_URL_L2A_COGS,
@@ -504,6 +513,6 @@ class Sentinel2Image(dict):
 
         d = xmltodict.parse(metadata_xml)
 
-        angles = d["n1:Level-1C_Tile_ID"]["n1:Geometric_Info"]["Tile_Angles"]["Mean_Viewing_Incidence_Angle_List"]["Mean_Viewing_Incidence_Angle"]
+        angles = d["n1:Level-{}_Tile_ID".format(self.processing_level)]["n1:Geometric_Info"]["Tile_Angles"]["Mean_Viewing_Incidence_Angle_List"]["Mean_Viewing_Incidence_Angle"]
         self.satellite_zenith = dict(sorted([(BANDS_INDEX[x["@bandId"]], float(x["ZENITH_ANGLE"]["#text"])) for x in angles]))
         self.satellite_azimuth = dict(sorted([(BANDS_INDEX[x["@bandId"]], float(x["AZIMUTH_ANGLE"]["#text"])) for x in angles]))

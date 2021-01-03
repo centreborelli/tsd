@@ -68,7 +68,7 @@ def check_args(api, mirror, product_type):
                               "per GB. More info: {}".format(info_url)))
 
 
-def search(aoi=None, start_date=None, end_date=None, product_type=None,
+def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
            tile_id=None, title=None, relative_orbit_number=None,
            api='stac', search_type='contains',
            unique_mgrs_tile_per_datatake=True):
@@ -82,7 +82,8 @@ def search(aoi=None, start_date=None, end_date=None, product_type=None,
         tile_id (str): MGRS tile identifier, e.g. "31TCJ"
         title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
         relative_orbit_number (int): relative orbit number, from 1 to 143
-        product_type (str, optional): either "L1C" or "L2A"
+        product_type (str, optional): either "L1C" or "L2A" (default). Ignored
+            with planet and gcloud APIs.
         api (str, optional): either stac (default), scihub, planet or gcloud
         search_type (str): either "contains" or "intersects"
         unique_mgrs_tile_per_datatake (bool): if True, only one MGRS tile per
@@ -284,10 +285,10 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
                             os.path.join(out_dir, 'cloudy', f))
 
 
-def get_time_series(aoi=None, start_date=None, end_date=None, bands=['B04'],
+def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
                     tile_id=None, title=None, relative_orbit_number=None,
-                    out_dir='', api='stac', mirror='gcloud',
-                    product_type=None, cloud_masks=False,
+                    out_dir="", api="stac", mirror="aws",
+                    product_type="L2A", cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
                     satellite_angles=False, no_crop=False):
     """
@@ -303,8 +304,8 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=['B04'],
         relative_orbit_number (int): relative orbit number, from 1 to 143
         out_dir (str, optional): path where to store the downloaded crops
         api (str, optional): either stac (default), scihub, planet or gcloud
-        mirror (str, optional): either 'aws' or 'gcloud'
-        product_type (str, optional): either 'L1C' or 'L2A'
+        mirror (str, optional): either 'aws' (default) or 'gcloud'
+        product_type (str, optional): either 'L1C' or 'L2A' (default)
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
             cloudy images are discarded
         parallel_downloads (int): number of parallel gml files downloads
@@ -373,9 +374,9 @@ if __name__ == '__main__':
     parser.add_argument('--api', type=str, choices=['scihub', 'stac', 'planet', 'gcloud'],
                         default='stac', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
-                        default='gcloud', help='download mirror')
+                        default='aws', help='download mirror')
     parser.add_argument('--product-type', choices=['L1C', 'L2A'],
-                        help='type of image')
+                        default="L2A", help='processing level')
     parser.add_argument('--tile-id',
                         help='MGRS tile identifier, e.g. 31TCJ')
     parser.add_argument('--title',
