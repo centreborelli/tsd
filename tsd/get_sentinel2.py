@@ -43,7 +43,7 @@ ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
 def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
            tile_id=None, title=None, relative_orbit_number=None,
            api='stac', search_type='contains',
-           unique_mgrs_tile_per_datatake=True):
+           unique_mgrs_tile_per_orbit=True):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
 
@@ -58,9 +58,10 @@ def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
             with planet and gcloud APIs.
         api (str, optional): either stac (default), scihub, planet or gcloud
         search_type (str): either "contains" or "intersects"
-        unique_mgrs_tile_per_datatake (bool): if True, only one MGRS tile per
-            datatake is considered. The selected MGRS tile is the first in
-            alphabetical order.
+        unique_mgrs_tile_per_orbit (bool): if True, only one MGRS tile per
+            orbit is considered. The selected MGRS tile is the first in
+            alphabetical order. This is useful to remove duplicates when the
+            input AOI intersects several MGRS tiles.
 
     Returns:
         list of image objects
@@ -93,19 +94,16 @@ def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
     # parse the API metadata
     images = [s2_metadata_parser.Sentinel2Image(img, api) for img in images]
 
-    # remove images that have no datatake_id
-    images = [img for img in images if hasattr(img, "datatake_id")]
+    # sort images by date, relative_orbit, mgrs_id
+    images.sort(key=(lambda k: (k.date.date(), k.relative_orbit, k.mgrs_id)))
 
-    # sort images by datatake_id, then by mgrs id
-    images.sort(key=(lambda k: (k.datatake_id, k.mgrs_id)))
-
-    # remove duplicates (same datatake_id but different mgrs tile id)
-    if unique_mgrs_tile_per_datatake:
+    # remove duplicates (same pair (date, relative_orbit) but different mgrs_id)
+    if unique_mgrs_tile_per_orbit:
         seen = set()
         unique_images = []
         for img in images:
-            if img.datatake_id not in seen:
-                seen.add(img.datatake_id)
+            if (img.date.date(), img.relative_orbit) not in seen:
+                seen.add((img.date.date(), img.relative_orbit))
                 unique_images.append(img)
         images = unique_images
 

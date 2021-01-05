@@ -311,13 +311,6 @@ class Sentinel2Image(dict):
         self.filename = filename_from_metadata(self)
         self.urls = {'aws': {}, 'gcloud': {}}
 
-        if 'datatake_id' not in self:
-            try:
-                product_info = get_roda_product_info(self.title)
-                self.datatake_id = product_info['datatakeIdentifier']
-            except ProductInfoNotFound:
-                pass
-
 
     def stac_parser(self, img):
         """
