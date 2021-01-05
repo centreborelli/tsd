@@ -17,15 +17,9 @@ def readme():
 requirements = ['area',
                 'boto3',
                 'bs4',
-                'click',
-                'future',
                 'geojson',
-                'google-auth',
-                'google-cloud-bigquery',
                 'lxml',
-                'mgrs',
                 'numpy>=1.12',
-                'pandas',
                 'planet',
                 'pyproj',
                 'python-dateutil',
@@ -36,8 +30,7 @@ requirements = ['area',
                 'shapely',
                 'tqdm',
                 'utm',
-                'xmltodict',
-                'sentinelhub']
+                'xmltodict']
 
 
 setup(name=about["__title__"],
@@ -52,4 +45,8 @@ setup(name=about["__title__"],
       package_data={'': ['s2_mgrs_grid.txt']},
       include_package_data=True,
       install_requires=requirements,
+      extras_require={
+        "gcp": ["google-auth", "google-cloud-bigquery", "pandas"],
+        "sentinelhub": ["sentinelhub"]
+      },
       python_requires=">=3.5")
