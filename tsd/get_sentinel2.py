@@ -29,7 +29,6 @@ import datetime
 import requests
 import bs4
 import boto3
-import botocore
 import shapely.geometry
 
 from tsd import utils
@@ -39,33 +38,6 @@ from tsd import s2_metadata_parser
 # list of spectral bands
 ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
              'B8A', 'B09', 'B10', 'B11', 'B12']
-
-
-def check_args(api, mirror, product_type):
-    if api == 'gcloud':
-        try:
-            private_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-        except KeyError:
-            raise ValueError(
-                'You must have the env variable GOOGLE_APPLICATION_CREDENTIALS linking to the cred json file')
-    if mirror == 'aws':
-        info_url = "https://forum.sentinel-hub.com/t/changes-of-the-access-rights-to-l1c-bucket-at-aws-public-datasets-requester-pays/172"
-
-        if 'AWS_ACCESS_KEY_ID' in os.environ and 'AWS_SECRET_ACCESS_KEY' in os.environ:
-            try:
-                boto3.session.Session().client('s3').list_objects_v2(Bucket=s2_metadata_parser.AWS_S3_URL_L1C[5:],
-                                                                     RequestPayer='requester')
-            except botocore.exceptions.ClientError:
-                raise ValueError(
-                    'Could not connect to AWS server. Check credentials or use mirror=gcloud')
-        else:
-            raise ValueError(("TSD downloads Sentinel-2 image crops from the s3://sentinel-s2-l1c "
-                              "AWS bucket, which used to be free. On the 7th of August 2018, "
-                              "the bucket was switched to 'Requester Pays'. As a consequence, "
-                              "you need an AWS account and your credentials stored in the "
-                              "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment "
-                              "variables in order to use TSD. The price ranges in 0.05-0.09 $ "
-                              "per GB. More info: {}".format(info_url)))
 
 
 def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
@@ -313,9 +285,6 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
             and azimuth angles and include them in metadata
         no_crop (bool): if True, download original JP2 files rather than crops
     """
-    # check access to the selected search api and download mirror
-    check_args(api, mirror, product_type)
-
     # list available images
     images = search(aoi, start_date, end_date,
                     relative_orbit_number=relative_orbit_number,
