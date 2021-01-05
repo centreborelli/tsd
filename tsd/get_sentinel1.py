@@ -24,7 +24,6 @@ import os
 import zipfile
 import argparse
 import subprocess
-import dateutil.parser
 import multiprocessing
 
 import bs4

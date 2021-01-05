@@ -130,10 +130,12 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
     if mirror == 'gcloud':
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
                            imgs, pool_type='threads',
+                           verbose=False,
                            nb_workers=parallel_downloads)
     else:
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_s3_links,
                            imgs, pool_type='threads',
+                           verbose=False,
                            nb_workers=parallel_downloads)
 
     crops_args = []
