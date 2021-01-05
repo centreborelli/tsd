@@ -41,7 +41,7 @@ from tsd import search_scihub, utils
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
-AWS_S3_URL_L2A_COGS = 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs'
+AWS_S3_URL_L2A_COGS = 'http://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs'
 GCLOUD_URL = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
 RODA_URL = 'https://roda.sentinel-hub.com'
