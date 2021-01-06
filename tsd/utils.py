@@ -203,7 +203,7 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
     else:
         session = None
 
-    bounds = (ulx, lry, lrx, uly)
+    bounds = ulx, lry, lrx, uly
     with rasterio.Env(session=session, **gdal_options):
         try:
             with rasterio.open(inpath) as src:

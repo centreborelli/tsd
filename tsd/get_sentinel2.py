@@ -171,7 +171,7 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
 
     else:  # download crops
         parallel.run_calls(utils.rasterio_geo_crop, crops_args,
-                           extra_args=('UInt16',), pool_type='threads',
+                           pool_type='threads',
                            nb_workers=parallel_downloads)
 
 
