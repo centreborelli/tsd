@@ -18,21 +18,21 @@ SIZE=2560
 # test Landsat-8
 echo
 echo "Landsat-8 downloads..."
-for API in stac #gcloud planet
+for API in stac # gcloud planet
 do
    for MIRROR in gcloud aws
    do
        echo
        echo ${API} ${MIRROR}
-       python3 tsd/get_landsat.py --lon ${LON} --lat ${LAT} -w ${SIZE} -l ${SIZE} -s ${START} -e ${END} --satellite Landsat-8 -o tests/l8_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
+       python3 tsd/get_landsat.py --lon ${LON} --lat ${LAT} -w ${SIZE} -l ${SIZE} -s 2019-10-11 -e 2019-10-15 --satellite Landsat-8 -o tests/l8_${API}_${MIRROR} --api ${API} --mirror ${MIRROR}
        echo
     done
 done
 
-# test the 8 (api, mirror) combinations for Sentinel-2
+# test several (api, mirror) combinations for Sentinel-2
 echo
 echo "Sentinel-2 downloads..."
-for API in stac scihub planet #gcloud
+for API in stac scihub # planet gcloud
 do
    for MIRROR in gcloud aws
    do
