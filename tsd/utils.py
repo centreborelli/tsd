@@ -143,11 +143,12 @@ def is_valid(f):
         boolean telling wether or not the file is a valid image
     """
     try:
-        a = rasterio.open(f, 'r')
-        a.close()
-        return True
+        with rasterio.open(f, "r"):
+            pass
     except rasterio.RasterioIOError:
         return False
+
+    return True
 
 
 def set_geotif_metadata_items(path, tags={}):

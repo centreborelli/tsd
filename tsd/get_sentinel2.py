@@ -124,17 +124,18 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
         parallel_downloads (int): number of parallel downloads
         no_crop (bool): don't crop but instead download the original JP2 files
     """
-    print('Building {} {} download urls...'.format(len(imgs), mirror))
-    if mirror == 'gcloud':
+    if mirror == "gcloud":
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
                            imgs, pool_type='threads',
                            verbose=False,
                            nb_workers=parallel_downloads)
-    else:
+    elif mirror == "aws":
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_s3_links,
                            imgs, pool_type='threads',
                            verbose=False,
                            nb_workers=parallel_downloads)
+    else:
+        raise ValueError(f"Unknown mirror {mirror}")
 
     crops_args = []
     nb_removed = 0
@@ -173,13 +174,11 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
                            nb_workers=parallel_downloads)
 
 
-def bands_files_are_valid(img, bands, api, directory):
+def bands_files_are_valid(img, bands, d):
     """
     Check if all bands images files are valid.
     """
-    filenames = ['{}_band_{}.tif'.format(img.filename, b) for b in bands]
-    paths = [os.path.join(directory, f) for f in filenames]
-    return all(utils.is_valid(p) for p in paths)
+    return all(utils.is_valid(os.path.join(d, f"{img.filename}_band_{b}.tif")) for b in bands)
 
 
 def is_image_cloudy(img, aoi, mirror, p=0.5):
@@ -297,7 +296,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
     download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop)
 
     # discard images that failed to download
-    images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
+    images = [i for i in images if bands_files_are_valid(i, bands, out_dir)]
 
     if satellite_angles:  # retrieve satellite elevation and azimuth angles
         for img in images:
