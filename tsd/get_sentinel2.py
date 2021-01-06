@@ -164,9 +164,10 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
                                                                      len(imgs) - nb_removed,
                                                                      len(bands)))
 
-    if no_crop or (aoi is None):  # download original JP2 files
+    if no_crop or (aoi is None):  # download original files
         for fname, url, *_ in crops_args:
-            utils.download(url, fname.replace(".tif", ".jp2"))
+            ext = url.split(".")[-1]  # jp2, TIF, ...
+            utils.download(url, fname.replace(".tif", f".{ext}"))
 
     else:  # download crops
         parallel.run_calls(utils.rasterio_geo_crop, crops_args,
