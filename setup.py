@@ -14,18 +14,15 @@ def readme():
     with open(os.path.join(here, 'README.md'), 'r', 'utf-8') as f:
         return f.read()
 
-requirements = ['area',
-                'boto3',
+requirements = ['boto3',
                 'bs4',
                 'geojson',
                 'lxml',
                 'numpy>=1.12',
-                'planet',
                 'pyproj',
                 'python-dateutil',
                 'rasterio[s3]>=1.0',
                 'requests',
-                'rpcm',
                 'sat-search>=0.3.0',
                 'shapely',
                 'tqdm',
@@ -47,6 +44,7 @@ setup(name=about["__title__"],
       install_requires=requirements,
       extras_require={
         "gcp": ["google-auth", "google-cloud-bigquery", "pandas"],
+        "planet": ["area", "planet", "rpcm"],
         "sentinelhub": ["sentinelhub"]
       },
       python_requires=">=3.5")
