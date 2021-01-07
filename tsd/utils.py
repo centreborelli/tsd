@@ -21,7 +21,6 @@ import requests
 import rasterio
 import rasterio.warp
 import pyproj
-import rpcm
 
 
 warnings.filterwarnings("ignore",
@@ -594,6 +593,7 @@ def crop_aoi(geotiff, aoi, z=0):
             coordinates of the top-left corner, while w, h are the dimensions
             of the crop.
     """
+    import rpcm
     x, y, w, h = bounding_box_of_projected_aoi(rpcm.rpc_from_geotiff(geotiff), aoi, z)
     with rasterio.open(geotiff) as src:
         crop = rasterio_window_crop(src, x, y, w, h)
