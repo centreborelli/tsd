@@ -389,7 +389,7 @@ class Sentinel2Image(dict):
 
     def build_gs_links(self):
         """
-        Build Gcloud urls for the 13 jp2 bands and the gml cloud mask.
+        Build Gcloud urls for all raster bands and the gml cloud mask.
 
         Example of url:
         https://storage.googleapis.com/gcp-public-data-sentinel-2/tiles/36/R/TV/S2B_MSIL1C_20180226T083909_N0206_R064_T36RTV_20180226T122942.SAFE/GRANULE/L1C_T36RTV_A005095_20180226T084545/IMG_DATA/T36RTV_20180226T083909_B01.jp2
@@ -446,7 +446,7 @@ class Sentinel2Image(dict):
 
     def build_s3_links(self):
         """
-        Build s3 urls for all raster bands and the gml cloud mask.
+        Build s3 urls for all raster bands and the gml cloud mask (if L1C).
 
         Examples of urls:
             L1C: s3://sentinel-s2-l1c/tiles/10/S/EG/2018/2/24/0/B04.jp2
