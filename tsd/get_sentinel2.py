@@ -35,10 +35,6 @@ from tsd import utils
 from tsd import parallel
 from tsd import s2_metadata_parser
 
-# list of spectral bands
-ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
-             'B8A', 'B09', 'B10', 'B11', 'B12']
-
 
 def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
            tile_id=None, title=None, relative_orbit_number=None,
@@ -333,11 +329,11 @@ if __name__ == '__main__':
                         help='start date, YYYY-MM-DD')
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
-    parser.add_argument('-b', '--band', nargs='*', default=['B04'],
-                        choices=ALL_BANDS + ['all'], metavar='',
+    parser.add_argument('-b', '--band', nargs='*', default=['B04'], metavar='',
+                        choices=s2_metadata_parser.BANDS_L2A + ['all'],
                         help=('space separated list of spectral bands to'
                               ' download. Default is B04 (red). Allowed values'
-                              ' are {}'.format(', '.join(ALL_BANDS))))
+                              ' are {}'.format(', '.join(s2_metadata_parser.BANDS_L2A))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['scihub', 'stac', 'planet', 'gcloud'],
@@ -366,7 +362,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if 'all' in args.band:
-        args.band = ALL_BANDS
+        args.band = s2_metadata_parser.BANDS_L2A if args.product_type == "L2A" else s2_metadata_parser.BANDS_L1C
 
     if args.lat is not None and args.lon is not None:
         args.geom = utils.geojson_geometry_object(args.lat, args.lon,

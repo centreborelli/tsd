@@ -46,11 +46,13 @@ GCLOUD_URL = 'https://storage.googleapis.com/gcp-public-data-sentinel-2'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
 RODA_URL = 'https://roda.sentinel-hub.com'
 
-ALL_BANDS = ['TCI', 'B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08',
-             'B8A', 'B09', 'B10', 'B11', 'B12']
+BANDS_L1C = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A',
+             'B09', 'B10', 'B11', 'B12', 'TCI']
 
-BANDS_RESOLUTION = {'TCI': 10,
-                    'B01': 60,
+BANDS_L2A = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A',
+             'B09', 'B11', 'B12', 'TCI', 'AOT', 'WVP', 'SCL']
+
+BANDS_RESOLUTION = {'B01': 60,
                     'B02': 10,
                     'B03': 10,
                     'B04': 10,
@@ -62,7 +64,11 @@ BANDS_RESOLUTION = {'TCI': 10,
                     'B09': 60,
                     'B10': 60,
                     'B11': 20,
-                    'B12': 20}
+                    'B12': 20,
+                    'TCI': 10,
+                    'AOT': 60,
+                    'WVP': 10,
+                    'SCL': 20}
 
 # Correspondence between band name and band index, from page 57 / 496 of
 # https://sentinel.esa.int/documents/247904/349490/S2_MSI_Product_Specification.pdf
@@ -419,21 +425,23 @@ class Sentinel2Image(dict):
                                                                 granule_id)
         urls = self.urls['gcloud']
         urls['cloud_mask'] = '{}/QI_DATA/MSK_CLOUDS_B00.gml'.format(base_url)
-        for b in ALL_BANDS:
-            if self.processing_level == '1C':
+
+        if self.processing_level == '1C':
+            for b in BANDS_L1C:
                 urls[b] = '{}/IMG_DATA/T{}_{}_{}.jp2'.format(base_url,
                                                              self.mgrs_id,
                                                              self.date.strftime("%Y%m%dT%H%M%S"),
                                                              b)
-            elif self.processing_level == '2A':
+        elif self.processing_level == '2A':
+            for b in BANDS_L2A:
                 urls[b] = '{}/IMG_DATA/R{}m/T{}_{}_{}_{}m.jp2'.format(base_url,
                                                                       BANDS_RESOLUTION[b],
                                                                       self.mgrs_id,
                                                                       self.date.strftime("%Y%m%dT%H%M%S"),
                                                                       b,
                                                                       BANDS_RESOLUTION[b])
-            else:
-                raise TypeError("processing_level of {} is neither L1C nor L2A".format(self['title']))
+        else:
+            raise TypeError("processing_level of {} is neither L1C nor L2A".format(self['title']))
 
 
     def build_s3_links(self):
@@ -468,6 +476,7 @@ class Sentinel2Image(dict):
                                                               seq)
             urls["cloud_mask"] = "{}/qi/MSK_CLOUDS_B00.gml".format(base_url)
             ext = "jp2"
+            bands = BANDS_L1C
 
         elif self.processing_level == "2A":
             if "aws_id" in self:
@@ -487,9 +496,9 @@ class Sentinel2Image(dict):
                                                      aws_id)
             urls["SCL"] = "{}/SCL.tif".format(base_url)
             ext = "tif"
+            bands = BANDS_L2A
 
-
-        for b in ALL_BANDS:
+        for b in bands:
             urls[b] = "{}/{}.{}".format(base_url, b, ext)
 #            if self.processing_level == "2A":
 #                urls[b] = '{}/R{}m/{}.jp2'.format(base_url, BANDS_RESOLUTION[b], b)
