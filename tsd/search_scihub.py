@@ -229,7 +229,7 @@ def search(aoi=None, start_date=None, end_date=None, satellite=None,
                                                            API_URLS[api],
                                                            creds)]
 
-    if aoi is not None:
+    if aoi is not None and search_type == "contains":
         # check if the image footprint contains the area of interest
         not_covering = []
         aoi_shape = shapely.geometry.shape(aoi)
