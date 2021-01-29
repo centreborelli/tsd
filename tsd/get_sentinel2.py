@@ -333,10 +333,10 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end-date', type=utils.valid_datetime,
                         help='end date, YYYY-MM-DD')
     parser.add_argument('-b', '--band', nargs='*', default=['B04'], metavar='',
-                        choices=s2_metadata_parser.BANDS_L2A + ['all'],
+                        choices=list(set(s2_metadata_parser.BANDS_L2A +  s2_metadata_parser.BANDS_L1C + ['all'])),
                         help=('space separated list of spectral bands to'
                               ' download. Default is B04 (red). Allowed values'
-                              ' are {}'.format(', '.join(s2_metadata_parser.BANDS_L2A))))
+                              ' are {}'.format(', '.join(list(set(s2_metadata_parser.BANDS_L2A + s2_metadata_parser.BANDS_L1C))))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
     parser.add_argument('--api', type=str, choices=['scihub', 'stac', 'planet', 'gcloud'],
