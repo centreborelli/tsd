@@ -107,7 +107,7 @@ def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
     return images
 
 
-def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=False):
+def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=False, timeout=60):
     """
     Download a timeseries of crops with GDAL VSI feature.
 
@@ -124,12 +124,14 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_gs_links,
                            imgs, pool_type='threads',
                            verbose=False,
-                           nb_workers=parallel_downloads)
+                           nb_workers=parallel_downloads,
+                           timeout=timeout)
     elif mirror == "aws":
         parallel.run_calls(s2_metadata_parser.Sentinel2Image.build_s3_links,
                            imgs, pool_type='threads',
                            verbose=False,
-                           nb_workers=parallel_downloads)
+                           nb_workers=parallel_downloads,
+                           timeout=timeout)
     else:
         raise ValueError(f"Unknown mirror {mirror}")
 
@@ -258,7 +260,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
                     out_dir="", api="stac", mirror="aws",
                     product_type="L2A", cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
-                    satellite_angles=False, no_crop=False):
+                    satellite_angles=False, no_crop=False, timeout=60):
     """
     Main function: crop and download a time series of Sentinel-2 images.
 
@@ -280,6 +282,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
         satellite_angles (bool): whether or not to download satellite zenith
             and azimuth angles and include them in metadata
         no_crop (bool): if True, download original JP2 files rather than crops
+        timeout (scalar, optional): timeout for images download, in seconds
     """
     # list available images
     images = search(aoi, start_date, end_date,
@@ -290,7 +293,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
                     api=api)
 
     # download crops
-    download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop)
+    download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop, timeout)
 
     # discard images that failed to download
     images = [i for i in images if bands_files_are_valid(i, bands, out_dir)]
@@ -358,6 +361,8 @@ if __name__ == '__main__':
                               ' and include them in tiff metadata'))
     parser.add_argument('--no-crop', action='store_true',
                         help=("don't crop but instead download the original JP2 files"))
+    parser.add_argument('--timeout', type=int, default=60,
+                        help='timeout for images downloads, in seconds')
 
     args = parser.parse_args()
 
@@ -382,4 +387,5 @@ if __name__ == '__main__':
                     product_type=args.product_type,
                     cloud_masks=args.cloud_masks,
                     parallel_downloads=args.parallel_downloads,
-                    satellite_angles=args.satellite_angles)
+                    satellite_angles=args.satellite_angles,
+                    timeout=args.timeout)
