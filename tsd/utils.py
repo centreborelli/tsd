@@ -11,6 +11,7 @@ import os
 import re
 import argparse
 import datetime
+import subprocess
 import warnings
 import shutil
 
@@ -268,14 +269,22 @@ def crop_with_gdalwarp(outpath, inpath, ulx, uly, lrx, lry, epsg=None):
     cmd += " GDAL_HTTP_RETRY_DELAY=15"
     cmd += " VSI_CACHE=TRUE"
     cmd += " AWS_REQUEST_PAYER=requester"
-    cmd += " gdalwarp \"{}\" {}".format(inpath, outpath)
+    ee = {c.split('=')[0]:c.split('=')[1] for c in cmd.split()}
+    e = os.environ.copy()
+    e.update(ee)
+    cmd2 = ""
+    cmd2 += " gdalwarp \"{}\" {}".format(inpath, outpath)
     if epsg:
-        cmd += " -t_srs epsg:{}".format(epsg)
-    cmd += " -tr 10 10"
-    cmd += " -te {} {} {} {}".format(ulx, lry, lrx, uly)
-    cmd += " -q -overwrite"
-    #print(cmd)
-    os.system(cmd)
+        cmd2 += " -t_srs epsg:{}".format(epsg)
+    cmd2 += " -tr 10 10"
+    cmd2 += " -te {} {} {} {}".format(ulx, lry, lrx, uly)
+    cmd2 += " -q -overwrite"
+    cmd += cmd2
+    # print(cmd)
+    r = subprocess.run(cmd2.split(), env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if r.returncode != 0:
+        print('[GDALWARP] {}'.format(r.stdout.decode('utf-8').strip()))
+    # os.system(cmd)
 
 
 def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
