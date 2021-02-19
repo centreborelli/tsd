@@ -249,7 +249,9 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     api=search_api)
 
     if product_type == "GRD":  # then download crops from AWS
-        download_miror = "aws"
+        if download_mirror != "aws":
+            print('WARINING: Changing mirror to aws (because product type is GRD)')
+            download_mirror = "aws"
         download_crops(images, aoi, download_mirror, out_dir,
                        parallel_downloads, timeout=timeout)
 
