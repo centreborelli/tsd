@@ -187,7 +187,7 @@ def download_crops(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
     Args:
         imgs (list): list of images
         aoi (geojson.Polygon): area of interest
-        mirror (str): either 'aws' or 'gcloud'
+        mirror (str): either 'peps', 'aws' or 'scihub'
         out_dir (str): path where to store the downloaded crops
         parallel_downloads (int): number of parallel downloads
     """
@@ -249,7 +249,9 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     api=search_api)
 
     if product_type == "GRD":  # then download crops from AWS
-        download_miror = "aws"
+        if download_mirror != "aws":
+            print('WARINING: Changing mirror to aws (because product type is GRD)')
+            download_mirror = "aws"
         download_crops(images, aoi, download_mirror, out_dir,
                        parallel_downloads, timeout=timeout)
 
@@ -284,10 +286,10 @@ if __name__ == '__main__':
                         help='acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--swath-identifier',
                         help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
-    parser.add_argument('--api', default='scihub',
-                        help='search API to use: scihub or planet')
-    parser.add_argument('--mirror', default='peps',
-                        help='download mirror: scihub or aws (GRD only)')
+    parser.add_argument('--api', type=str, choices=['scihub', 'planet'], default='scihub',
+                        help='search API to use: scihub (default) or planet')
+    parser.add_argument('--mirror', type=str, choices=['peps', 'scihub', 'aws'], default='peps',
+                        help='download mirror: peps (default) scihub or aws (GRD only)')
     parser.add_argument('--orbit', type=int,
                         help='relative orbit number, from 1 to 175')
     parser.add_argument('--parallel', type=int, default=multiprocessing.cpu_count(),
