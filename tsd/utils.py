@@ -256,35 +256,32 @@ def crop_with_gdalwarp(outpath, inpath, ulx, uly, lrx, lry, epsg=None):
         _, file_ext = os.path.splitext(inpath)
         file_ext = file_ext[1:]  # Remove the leading dot from file_ext
 
-    cmd = "GDAL_HTTP_USERPWD={}:{}".format(os.environ['COPERNICUS_LOGIN'],
-                                           os.environ['COPERNICUS_PASSWORD'])
-    cmd += " CPL_VSIL_CURL_ALLOWED_EXTENSIONS={}".format(file_ext)
-    cmd += " GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR"
-    cmd += " GDAL_INGESTED_BYTES_AT_OPEN=YES"
-    cmd += " GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES"
-    cmd += " GDAL_HTTP_MULTIPLEX=YES"
-    cmd += " GDAL_HTTP_VERSION=2"
-    cmd += " CPL_VSIL_CURL_CHUNK_SIZE=2000000"  # 2MB
-    cmd += " GDAL_HTTP_MAX_RETRY=3"
-    cmd += " GDAL_HTTP_RETRY_DELAY=15"
-    cmd += " VSI_CACHE=TRUE"
-    cmd += " AWS_REQUEST_PAYER=requester"
-    ee = {c.split('=')[0]:c.split('=')[1] for c in cmd.split()}
-    e = os.environ.copy()
-    e.update(ee)
-    cmd2 = ""
-    cmd2 += " gdalwarp \"{}\" {}".format(inpath, outpath)
-    if epsg:
-        cmd2 += " -t_srs epsg:{}".format(epsg)
-    cmd2 += " -tr 10 10"
-    cmd2 += " -te {} {} {} {}".format(ulx, lry, lrx, uly)
-    cmd2 += " -q -overwrite"
-    cmd += cmd2
+    env = os.environ.copy()
+    env.update({
+        "GDAL_HTTP_USERPWD":"{}:{}".format(os.environ['COPERNICUS_LOGIN'],
+                                           os.environ['COPERNICUS_PASSWORD']),
+        "CPL_VSIL_CURL_ALLOWED_EXTENSIONS":file_ext,
+        "GDAL_DISABLE_READDIR_ON_OPEN":"EMPTY_DIR",
+        "GDAL_INGESTED_BYTES_AT_OPEN":"YES",
+        "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES":"YES",
+        "GDAL_HTTP_MULTIPLEX":"YES",
+        "GDAL_HTTP_VERSION":"2",
+        "CPL_VSIL_CURL_CHUNK_SIZE":"2000000",  # 2MB
+        "GDAL_HTTP_MAX_RETRY":"3",
+        "GDAL_HTTP_RETRY_DELAY":"15",
+        "VSI_CACHE":"TRUE",
+        "AWS_REQUEST_PAYER":"requester"
+    })
+    cmd = ["gdalwarp", inpath, outpath]
+    cmd += ["-t_srs", "epsg:{}".format(epsg)] if epsg else []
+    cmd += ["-tr", "10", "10"]
+    cmd += ["-te", str(ulx), str(lry), str(lrx), str(uly)]
+    cmd += ["-q", "-overwrite"]
     # print(cmd)
-    r = subprocess.run(cmd2.split(), env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    r = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if r.returncode != 0:
-        print('[GDALWARP] {}'.format(r.stdout.decode('utf-8').strip()))
-    # os.system(cmd)
+        warnings.warn('gdalwarp failed with error message: "{}"'.format(
+            r.stdout.decode('utf-8').strip()))
 
 
 def get_crop_from_aoi(output_path, aoi, metadata_dict, band):
