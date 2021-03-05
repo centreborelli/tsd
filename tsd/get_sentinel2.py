@@ -171,11 +171,11 @@ def download(imgs, bands, aoi, mirror, out_dir, parallel_downloads, no_crop=Fals
                            nb_workers=parallel_downloads)
 
 
-def bands_files_are_valid(img, bands, d):
+def bands_files_are_valid(img, bands, d, ext="tif"):
     """
     Check if all bands images files are valid.
     """
-    return all(utils.is_valid(os.path.join(d, f"{img.filename}_band_{b}.tif")) for b in bands)
+    return all(utils.is_valid(os.path.join(d, f"{img.filename}_band_{b}.{ext}")) for b in bands)
 
 
 def is_image_cloudy(img, aoi, mirror, p=0.5):
@@ -214,16 +214,23 @@ def is_image_cloudy(img, aoi, mirror, p=0.5):
                 clouds.append(shapely.geometry.Polygon(points))
             except IndexError:
                 pass
-    aoi_shape = shapely.geometry.shape(aoi)
+    if not aoi is None:        
+        aoi_shape = shapely.geometry.shape(aoi)
     try:
-        cloudy = shapely.geometry.MultiPolygon(clouds).intersection(aoi_shape)
-        return cloudy.area > (p * aoi_shape.area)
+        if not aoi is None:        
+            cloudy = shapely.geometry.MultiPolygon(clouds).intersection(aoi_shape)
+            return cloudy.area > (p * aoi_shape.area)
+        else:
+            cloudy = shapely.geometry.MultiPolygon(clouds)
+            return cloudy.area > (p * 109800**2)
+
+        
     except shapely.geos.TopologicalError:
         return False
 
 
 def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
-                     out_dir=''):
+                     out_dir='', ext="tif"):
     """
     Read Sentinel-2 GML cloud masks and intersects them with the input aoi.
 
@@ -237,8 +244,13 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
             'cloudy' in the current image
     """
     print('Reading {} cloud masks...'.format(len(imgs)), end=' ')
+    if aoi is None:
+        aoi_utm = None
+    else:
+        aoi_utm = utils.geojson_lonlat_to_utm(aoi)  
+    
     cloudy = parallel.run_calls(is_image_cloudy, imgs,
-                                extra_args=(utils.geojson_lonlat_to_utm(aoi), mirror, p),
+                                extra_args=(aoi_utm, mirror, p),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
     print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
@@ -248,7 +260,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
             out_dir = os.path.abspath(os.path.expanduser(out_dir))
             os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
             for b in bands:
-                f = '{}_band_{}.tif'.format(img.filename, b)
+                f = '{}_band_{}.{}'.format(img.filename, b,ext)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
 
@@ -292,8 +304,9 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
     # download crops
     download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop)
 
+    ext = "jp2" if no_crop else "tif"
     # discard images that failed to download
-    images = [i for i in images if bands_files_are_valid(i, bands, out_dir)]
+    images = [i for i in images if bands_files_are_valid(i, bands, out_dir, ext=ext)]
 
     if satellite_angles:  # retrieve satellite elevation and azimuth angles
         for img in images:
@@ -304,12 +317,12 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
         img['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
 
         for b in bands:
-            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            filepath = os.path.join(out_dir, '{}_band_{}.{}'.format(img.filename, b, ext))
             utils.set_geotif_metadata_items(filepath, img)
 
     if cloud_masks:  # discard images that are totally covered by clouds
         read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,
-                         out_dir=out_dir)
+                         out_dir=out_dir, ext=ext)
 
 
 if __name__ == '__main__':
