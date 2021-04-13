@@ -219,9 +219,12 @@ def is_image_cloudy(img, aoi, mirror, p=0.5):
     aoi_shape = shapely.geometry.shape(aoi)
     try:
         cloudy = shapely.geometry.MultiPolygon(clouds).intersection(aoi_shape)
-        return cloudy.area > (p * aoi_shape.area)
-    except shapely.geos.TopologicalError:
-        return False
+        print('CHLSL: computing cloud masks from polygons...')
+        from rasterio.features import rasterize
+        clouds_raster = rasterize(clouds)
+        return cloudy.area > (p * aoi_shape.area), clouds_raster
+    except:  # shapely.geos.TopologicalError:
+        return False, None
 
 
 def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
@@ -243,16 +246,27 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
                                 extra_args=(utils.geojson_lonlat_to_utm(aoi), mirror, p),
                                 pool_type='threads',
                                 nb_workers=parallel_downloads, verbose=True)
+
+    cloudy_rasters = [c[1] for c in cloudy]
+    cloudy = [c[0] for c in cloudy]
+    import iio
+
     print('{} cloudy images out of {}'.format(sum(cloudy), len(imgs)))
 
-    for img, cloud in zip(imgs, cloudy):
+    for img, cloud, r in zip(imgs, cloudy, cloudy_rasters):
         if cloud:
             out_dir = os.path.abspath(os.path.expanduser(out_dir))
             os.makedirs(os.path.join(out_dir, 'cloudy'), exist_ok=True)
+            print('CHLSL: cloudy image! Writing cloud mask for {img.filename}')
+            iio.write(img.filename.replace('.jp2', '_clouds.tiff'), r)
             for b in bands:
-                f = '{}_band_{}.tif'.format(img.filename, b)
+                # f = '{}_band_{}.tif'.format(img.filename, b)
+                print('CHLSL: WARNING! Horrible hack again!')
+                f = '{}_band_{}.jp2'.format(img.filename, b)
                 shutil.move(os.path.join(out_dir, f),
                             os.path.join(out_dir, 'cloudy', f))
+        else:
+            print(f'CHLSL: no clouds for image {img.filename}')
 
 
 def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
@@ -292,11 +306,19 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
                     product_type=product_type,
                     api=api)
 
+    print(f'CHLSL: images =')
+    for i in images: print(i)
+
     # download crops
     download(images, bands, aoi, mirror, out_dir, parallel_downloads, no_crop, timeout)
 
     # discard images that failed to download
+    #CHLSL: print('CHLSL: WARNING! Commented line that check if files are valid (potentially bugged).')
+    #CHLSL: images = [i for i in images if bands_files_are_valid(i, bands, api, out_dir)]
+    #CHLSL: modified in upstream to:
     images = [i for i in images if bands_files_are_valid(i, bands, out_dir)]
+    print('CHLSL: images after discarding these whose download failed')
+    for i in images: print(i)
 
     if satellite_angles:  # retrieve satellite elevation and azimuth angles
         for img in images:
@@ -307,10 +329,16 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
         img['downloaded_by'] = 'TSD on {}'.format(datetime.datetime.now().isoformat())
 
         for b in bands:
-            filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            # filepath = os.path.join(out_dir, '{}_band_{}.tif'.format(img.filename, b))
+            print('CHLSL: WARNING! Terrible hack happening now!')
+            filepath = os.path.join(out_dir, '{}_band_{}.jp2'.format(img.filename, b))
             utils.set_geotif_metadata_items(filepath, img)
 
     if cloud_masks:  # discard images that are totally covered by clouds
+        print(f'CHLSL: len(aoi) = {len(aoi)}')
+        print(f'CHLSL: len(images) = {len(images)}')
+        print(f'CHLSL: bands = {bands}')
+        print(f'CHLSL: mirror = {mirror}')
         read_cloud_masks(aoi, images, bands, mirror, parallel_downloads,
                          out_dir=out_dir)
 
