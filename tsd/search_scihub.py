@@ -75,8 +75,8 @@ def post_scihub(url, query, user, password):
 
 def build_scihub_query(aoi=None, start_date=None, end_date=None,
                        satellite=None, product_type=None,
-                       operational_mode=None, relative_orbit_number=None,
-                       swath_identifier=None, tile_id=None, title=None,
+                       operational_mode=None, relative_orbit_number=None, orbit_direction=None,
+                       swath_identifier=None, tile_id=None, title=None, tml=None,
                        search_type='contains'):
     """
     Args:
@@ -101,6 +101,9 @@ def build_scihub_query(aoi=None, start_date=None, end_date=None,
     if relative_orbit_number is not None:
         query += ' AND relativeorbitnumber:{}'.format(relative_orbit_number)
 
+    if orbit_direction is not None:
+        query += ' AND orbitdirection:{}'.format(orbit_direction)
+
     if title is not None:
         query += ' AND filename:{}'.format(title)
 
@@ -112,6 +115,9 @@ def build_scihub_query(aoi=None, start_date=None, end_date=None,
 
     if tile_id is not None:
         query += ' AND filename:*T{}*'.format(tile_id)
+
+    if tml is not None:
+        query += ' AND timeliness:{}*'.format(tml)
 
     # queried polygon or point
     # http://forum.step.esa.int/t/advanced-search-in-data-hub-contains-intersects/1150/2
@@ -198,8 +204,8 @@ def prettify_scihub_dict(d):
 
 
 def search(aoi=None, start_date=None, end_date=None, satellite=None,
-           product_type=None, operational_mode=None,
-           relative_orbit_number=None, swath_identifier=None, tile_id=None,
+           product_type=None, operational_mode=None, tml=None,
+           relative_orbit_number=None, orbit_direction=None, swath_identifier=None, tile_id=None,
            title=None, api='copernicus', search_type='contains'):
     """
     List the Sentinel images covering a location using Copernicus Scihub API.
@@ -215,9 +221,9 @@ def search(aoi=None, start_date=None, end_date=None, satellite=None,
 
     query = build_scihub_query(aoi, start_date, end_date, satellite,
                                product_type, operational_mode,
-                               relative_orbit_number, swath_identifier,
+                               relative_orbit_number, orbit_direction, swath_identifier,
                                tile_id=tile_id,
-                               title=title,
+                               title=title, tml=tml,
                                search_type=search_type)
 
     if api == "s5phub":

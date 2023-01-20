@@ -8,7 +8,7 @@ import sys
 from tqdm.auto import tqdm
 
 
-def run_calls(fun, list_of_args, extra_args=(), pool_type='processes',
+def run_calls(fun, list_of_args, extra_args=(), kwd_args={}, pool_type='processes',
               nb_workers=multiprocessing.cpu_count(), timeout=60, verbose=True,
               initializer=None, initargs=None):
     """
@@ -49,7 +49,7 @@ def run_calls(fun, list_of_args, extra_args=(), pool_type='processes',
                 args = x + extra_args
             else:
                 args = (x,) + extra_args
-            results.append(pool.apply_async(fun, args=args,
+            results.append(pool.apply_async(fun, args=args, kwds=kwd_args,
                                             callback=lambda x: bar.update(1) if verbose else None))
 
         for r in results:
