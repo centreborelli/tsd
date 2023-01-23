@@ -164,7 +164,7 @@ def set_geotif_metadata_items(path, tags={}):
 
 
 def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
-                      output_type=None, debug=False):
+                      output_type=None, debug=False, aws_unsigned=False):
     """
     Write a crop to disk from an input image, given the coordinates of the geographical
     bounding box.
@@ -199,7 +199,7 @@ def rasterio_geo_crop(outpath, inpath, ulx, uly, lrx, lry, epsg=None,
         #print('AWS_REQUEST_PAYER=requester gdal_translate /vsis3/{} {} -projwin {} {} {} {}'.format(inpath[5:], outpath, ulx, uly, lrx, lry))
 
     if inpath.startswith("s3://"):
-        session = rasterio.session.AWSSession(requester_pays=True)
+        session = rasterio.session.AWSSession(aws_unsigned=True) if aws_unsigned else rasterio.session.AWSSession(requester_pays=True)
     else:
         session = None
 
@@ -414,7 +414,8 @@ def utm_bbx(aoi, epsg=None, r=None, offset=(0, 0)):
     x, y, w, h = bounding_box2D(c)  # minx, miny, width, height
     ulx, uly, lrx, lry = x, y + h, x + w, y
 
-    if r is not None:  # round to multiples of the given resolution
+    # FIXME Rounding when epsg:4326
+    if r is not None and epsg != 4326:  # round to multiples of the given resolution
         ox, oy = offset
         ulx = ox + r * np.round((ulx - ox) / r)
         uly = oy + r * np.round((uly - oy) / r)
