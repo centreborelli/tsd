@@ -33,8 +33,8 @@ from tsd import utils
 
 # http://sentinel-s2-l1c.s3-website.eu-central-1.amazonaws.com
 API_URLS = {
-    'scihub': 'https://scihub.copernicus.eu/apihub/',
-    'copernicus': 'https://scihub.copernicus.eu/apihub/',
+    'scihub': 'https://scihub.copernicus.eu/dhus/',
+    'copernicus': 'https://scihub.copernicus.eu/dhus/',
     'austria': 'https://data.sentinel.zamg.ac.at/',
     'finland': 'https://finhub.nsdc.fmi.fi/',
     's5phub': 'https://s5phub.copernicus.eu/dhus/'
