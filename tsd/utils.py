@@ -385,7 +385,7 @@ def pyproj_transform(x, y, in_crs, out_crs, z=None):
         return transformer.transform(x, y, z)
 
 
-def utm_bbx(aoi, epsg=None, r=None, offset=(0, 0)):
+def utm_bbx(aoi, epsg=None, r=None, offset=None):
     """
     Compute UTM bounding box of a longitude, latitude AOI.
 
@@ -394,7 +394,7 @@ def utm_bbx(aoi, epsg=None, r=None, offset=(0, 0)):
         epsg (int): EPSG code of the desired UTM zone
         r (int): if not None, round bounding box vertices to vertices of an
             r-periodic grid
-        offset (tuple): origin of the r-periodic grid
+        offset (tuple or None): origin of the r-periodic grid
 
     Returns:
         ulx, uly, lrx, lry (floats): bounding box upper left (ul) and lower
@@ -404,6 +404,13 @@ def utm_bbx(aoi, epsg=None, r=None, offset=(0, 0)):
     if epsg is None:  # compute the EPSG code of the AOI centroid
         lon, lat = np.mean(aoi['coordinates'][0][:-1], axis=0)
         epsg = compute_epsg(lon, lat)
+
+    if epsg < 32601 or (epsg > 32660 and epsg < 32701) or epsg > 32760:
+        raise ValueError(
+            f'Provided EPSG code "{epsg}" do not correspond to an UTM zone')
+
+    if offset is None:  # offset of 40 meters for south hemisphere
+        offset = (0, -40) if epsg > 32700 else (0, 0)
 
     # convert all polygon vertices coordinates from (lon, lat) to utm
     lons, lats = np.asarray(aoi['coordinates'][0]).T
