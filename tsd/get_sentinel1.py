@@ -31,7 +31,6 @@ import requests
 
 from tsd import utils
 from tsd import parallel
-from tsd import search_scihub
 from tsd import s1_metadata_parser
 
 
@@ -128,11 +127,6 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
                 download_safe_from_peps(image['title'], out_dir=out_dir)
             except Exception:
                 print('WARNING: failed request to {}/S1/search.atom?identifier={}'.format(PEPS_URL_SEARCH, image['title']))
-        elif mirror in search_scihub.API_URLS:
-            url = "{}/odata/v1/Products('{}')/$value".format(search_scihub.API_URLS[mirror],
-                                                             image['id'])
-            user, password = read_copernicus_credentials_from_environment_variables()
-            query_data_hub(zip_path, url, user, password, verbose=True)
         else:
             print('ERROR: unknown mirror {}'.format(mirror))
 
@@ -141,7 +135,7 @@ def download_sentinel_image(image, out_dir='', mirror='peps'):
 
 def search(aoi, start_date=None, end_date=None, product_type="GRD",
            operational_mode="IW", swath_identifier=None,
-           relative_orbit_number=None, api='scihub'):
+           relative_orbit_number=None, api='cdse'):
     """
     Search Sentinel-1 images covering an AOI and timespan using a given API.
 
@@ -150,15 +144,17 @@ def search(aoi, start_date=None, end_date=None, product_type="GRD",
         start_date (datetime.datetime): start of the search time range
         end_date (datetime.datetime): end of the search time range
         product_type (str, optional): either 'GRD' or 'SLC'
-        api (str, optional): either scihub (default) or planet
+        api (str, optional): either cdse (default) or planet
 
     Returns:
         list of image objects
     """
     # list available images
-    if api == "scihub":
+    if api == "cdse":
         from tsd import search_scihub
-        images = search_scihub.search(aoi, start_date, end_date,
+        images = search_scihub.search(aoi=aoi,
+                                      start_date=start_date,
+                                      end_date=end_date,
                                       satellite='Sentinel-1',
                                       product_type=product_type,
                                       operational_mode=operational_mode,
@@ -187,12 +183,12 @@ def download_crops(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
     Args:
         imgs (list): list of images
         aoi (geojson.Polygon): area of interest
-        mirror (str): either 'peps', 'aws' or 'scihub'
+        mirror (str): either 'peps', 'aws' or 'cdse'
         out_dir (str): path where to store the downloaded crops
         parallel_downloads (int): number of parallel downloads
     """
     print('Building {} {} download urls...'.format(len(imgs), mirror), end=' ')
-    if mirror == 'scihub':
+    if mirror == 'cdse':
         parallel.run_calls(s1_metadata_parser.Sentinel1Image.build_scihub_links,
                            imgs, pool_type='threads',
                            nb_workers=parallel_downloads)
@@ -235,7 +231,7 @@ def download_crops(imgs, aoi, mirror, out_dir, parallel_downloads, timeout=600):
 def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
                     product_type='GRD', operational_mode='IW',
                     relative_orbit_number=None, swath_identifier=None,
-                    search_api='scihub', download_mirror='aws',
+                    search_api='cdse', download_mirror='aws',
                     parallel_downloads=multiprocessing.cpu_count(),
                     timeout=600):
     """
@@ -255,7 +251,7 @@ def get_time_series(aoi, start_date=None, end_date=None, out_dir='',
         download_crops(images, aoi, download_mirror, out_dir,
                        parallel_downloads, timeout=timeout)
 
-    else: # download full images from scihub
+    else: # download full images from cdse
         for image in images:
             download_sentinel_image(image, out_dir, download_mirror)
 
@@ -286,10 +282,10 @@ if __name__ == '__main__':
                         help='acquisiton mode: SM, IW, EW or WV')
     parser.add_argument('--swath-identifier',
                         help='(for S1) subswath id: S1..S6 or IW1..IW3 or EW1..EW5')
-    parser.add_argument('--api', type=str, choices=['scihub', 'planet'], default='scihub',
-                        help='search API to use: scihub (default) or planet')
-    parser.add_argument('--mirror', type=str, choices=['peps', 'scihub', 'aws'], default='peps',
-                        help='download mirror: peps (default) scihub or aws (GRD only)')
+    parser.add_argument('--api', type=str, choices=['cdse', 'planet'], default='cdse',
+                        help='search API to use: cdse (default) or planet')
+    parser.add_argument('--mirror', type=str, choices=['peps', 'cdse', 'aws'], default='peps',
+                        help='download mirror: peps (default) cdse or aws (GRD only)')
     parser.add_argument('--orbit', type=int,
                         help='relative orbit number, from 1 to 175')
     parser.add_argument('--parallel', type=int, default=multiprocessing.cpu_count(),

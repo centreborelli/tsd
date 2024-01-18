@@ -1,6 +1,6 @@
 """
 This module contains parsers for the Sentinel-2 metadata outputs of all the
-search APIs supported by TSD, such as stac, planet, scihub and gcloud. Each
+search APIs supported by TSD, such as cdse, stac, planet, and gcloud. Each
 API parser receives as input a Python dict containing the metadata of an image
 as returned by the API. It extracts from it the metadata that TSD needs and
 stores them in an object with standard attributes (i.e. the attributes are the
@@ -37,7 +37,7 @@ import requests
 import shapely
 import xmltodict
 
-from tsd import search_scihub, utils
+from tsd import utils
 
 AWS_S3_URL_L1C = 's3://sentinel-s2-l1c'
 AWS_S3_URL_L2A = 's3://sentinel-s2-l2a'
@@ -200,7 +200,7 @@ def get_s2_granule_id_of_scihub_item_from_scihub(img):
                                                                                                  img['id'],
                                                                                                  img['filename'])
     granules = requests.get(granule_request,
-                            auth=(search_scihub.read_copernicus_credentials_from_environment_variables())).json()
+                            auth=()).json()
     return granules["d"]["results"][0]["Id"]
 
 
@@ -291,15 +291,15 @@ class Sentinel2Image(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-    def __init__(self, img, api='stac'):
+    def __init__(self, img, api='cdse'):
         """
         """
         self.metadata_source = api
 
         if api == 'stac':
             self.stac_parser(img)
-        elif api == 'scihub':
-            self.scihub_parser(img)
+        elif api == 'cdse':
+            self.cdse_parser(img)
         elif api == 'planet':
             self.planet_parser(img)
         elif api == 'gcloud':
@@ -334,24 +334,24 @@ class Sentinel2Image(dict):
         self.source = [x["href"] for x in img["links"] if x["rel"] == "self"][0]
 
 
-    def scihub_parser(self, img):
+    def cdse_parser(self, img):
         """
         Args:
-            img (dict): json metadata dict for a single SAFE, as shipped in scihub
-                opensearch API response
+            img (dict): json metadata dict for a single SAFE, as shipped in cdse
+                OData API response
         """
-        self.title = img['title']
-        self.absolute_orbit = img['orbitnumber']
-        self.datatake_id = img['s2datatakeid']
-        self.thumbnail = img['links']['icon']
+        self.title = img['Name'].split('.')[0]
+        self.absolute_orbit = img['orbitNumber']
+        self.datatake_id = img['productGroupId']
+        self.cloud_cover = img['cloudCover']
+        self.thumbnail = img['QUICKLOOK']
         try:
             self.datastrip_id = img["datastripidentifier"]
             self.granule_date = parse_datastrip_id_for_granule_date(self.datastrip_id)
         except KeyError:
             pass
 
-        s = img["footprint"]
-        self.geometry = geojson.Feature(geometry=shapely.wkt.loads(s))["geometry"]
+        self.geometry = img["GeoFootprint"]
 
 
     def planet_parser(self, img):

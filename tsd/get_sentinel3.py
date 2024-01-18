@@ -40,7 +40,7 @@ from tsd import s3_metadata_parser
 
 def search(aoi=None, start_date=None, end_date=None, product_type="SL_1_RBT___",
            title=None, orbit_direction=None, tml=None, clouds=False,
-           api='scihub', search_type='contains'):
+           api='cdse', search_type='contains'):
     """
     Search Sentinel-3 images covering an AOI and timespan using a given API.
 
@@ -51,18 +51,20 @@ def search(aoi=None, start_date=None, end_date=None, product_type="SL_1_RBT___",
         title (str): product title, e.g. "S3B_SL_1_RBT____20221005T193828_20221005T194128_20221006T130558_0179_071_170_4320_PS2_O_NT_004_"
         orbit_direction (str): either None (all, default), descending or ascending
         product_type (str, optional): either "SL_1_RBT___" (default) or "SL_2_FRP___".
-        api (str, optional): only scihub (default) is supported right now
+        api (str, optional): only cdse (default) is supported right now
         search_type (str): either "contains" or "intersects"
 
     Returns:
         list of image objects
     """
-    assert api in ['scihub'], "Invalid API"
+    assert api in ['cdse'], "Invalid API"
 
     # list available images
-    if api == 'scihub':
+    if api == 'cdse':
         from tsd import search_scihub
-        images = search_scihub.search(aoi, start_date, end_date,
+        images = search_scihub.search(aoi=aoi,
+                                      start_date=start_date,
+                                      end_date=end_date,
                                       satellite="Sentinel-3",
                                       product_type=product_type,
                                       orbit_direction=orbit_direction,
@@ -73,13 +75,15 @@ def search(aoi=None, start_date=None, end_date=None, product_type="SL_1_RBT___",
 
         # Retrieve a cloud index at the same time
         if clouds:
-            imagesc = search_scihub.search(aoi, start_date, end_date,
-                                          satellite="Sentinel-3",
-                                          product_type='SL_2_LST___',
-                                          orbit_direction=orbit_direction,
-                                          tml=tml,
-                                          title=title,
-                                          search_type=search_type)
+            imagesc = search_scihub.search(aoi=aoi,
+                                           start_date=start_date,
+                                           end_date=end_date,
+                                           satellite="Sentinel-3",
+                                           product_type='SL_2_LST___',
+                                           orbit_direction=orbit_direction,
+                                           tml=tml,
+                                           title=title,
+                                           search_type=search_type)
             imagesc.sort(key=(lambda k: (k['title'])))
             assert len(images) == len(imagesc), "The assumption that L1 products match L2 products is wrong, please report it"
 
@@ -245,7 +249,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
 
 def get_time_series(aoi=None, start_date=None, end_date=None, bands=["all"],
                     tile_id=None, title=None, orbit_direction=None, tml=None,
-                    out_dir="", api="scihub", mirror="aws",
+                    out_dir="", api="cdse", mirror="aws",
                     product_type="SL_1_RBT___", cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
                     satellite_angles=False, no_crop=False, timeout=60):
@@ -260,7 +264,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["all"],
         title (str): product title, e.g. "S3B_SL_1_RBT____20221005T193828_20221005T194128_20221006T130558_0179_071_170_4320_PS2_O_NT_004_"
         orbit_direction (str): either all (default), descending or ascending
         out_dir (str, optional): path where to store the downloaded crops
-        api (str, optional): only scihub (default) is supported right now 
+        api (str, optional): only cdse (default) is supported right now
         mirror (str, optional): only 'aws' (default) is supported right now
         product_type (str, optional): only "SL_1_RBT___" (default) is supported right now
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
@@ -325,8 +329,8 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(list(set(s3_metadata_parser.BANDS_L1))))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['scihub'],
-                        default='scihub', help='search API')
+    parser.add_argument('--api', type=str, choices=['cdse'],
+                        default='cdse', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws'],
                         default='aws', help='download mirror')
     parser.add_argument('--product-type', choices=['SL_1_RBT___'],
@@ -357,10 +361,10 @@ if __name__ == '__main__':
     if 'all' in args.band:
         args.band = s3_metadata_parser.BANDS_L1
 
-    if 'all' == args.orbit_direction: 
+    if 'all' == args.orbit_direction:
         args.orbit_direction = None
 
-    assert not args.cloud_masks or args.timeline == 'NTC', "Cloud maps are only copmpatible with the NTC timeline at the moment" 
+    assert not args.cloud_masks or args.timeline == 'NTC', "Cloud maps are only copmpatible with the NTC timeline at the moment"
 
     if 'all' == args.timeline:
         args.timeline = None
@@ -387,5 +391,4 @@ if __name__ == '__main__':
                     product_type=args.product_type,
                     cloud_masks=args.cloud_masks,
                     parallel_downloads=args.parallel_downloads,
-                    satellite_angles=args.satellite_angles,
                     timeout=args.timeout)

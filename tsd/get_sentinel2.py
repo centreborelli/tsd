@@ -38,7 +38,7 @@ from tsd import s2_metadata_parser
 
 def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
            tile_id=None, title=None, relative_orbit_number=None,
-           api='stac', search_type='contains',
+           api='cdse', search_type='contains',
            unique_mgrs_tile_per_orbit=True):
     """
     Search Sentinel-2 images covering an AOI and timespan using a given API.
@@ -52,7 +52,7 @@ def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
         relative_orbit_number (int): relative orbit number, from 1 to 143
         product_type (str, optional): either "L1C" or "L2A" (default). Ignored
             with planet and gcloud APIs.
-        api (str, optional): either stac (default), scihub, planet or gcloud
+        api (str, optional): either cdse (default), stac, planet or gcloud
         search_type (str): either "contains" or "intersects"
         unique_mgrs_tile_per_orbit (bool): if True, only one MGRS tile per
             orbit is considered. The selected MGRS tile is the first in
@@ -63,11 +63,11 @@ def search(aoi=None, start_date=None, end_date=None, product_type="L2A",
         list of image objects
     """
     # list available images
-    if api == 'scihub':
+    if api == 'cdse':
         from tsd import search_scihub
-        if product_type is not None:
-            product_type = 'S2MSI{}'.format(product_type[1:])
-        images = search_scihub.search(aoi, start_date, end_date,
+        images = search_scihub.search(aoi=aoi,
+                                      start_date=start_date,
+                                      end_date=end_date,
                                       satellite="Sentinel-2",
                                       product_type=product_type,
                                       relative_orbit_number=relative_orbit_number,
@@ -257,7 +257,7 @@ def read_cloud_masks(aoi, imgs, bands, mirror, parallel_downloads, p=0.5,
 
 def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
                     tile_id=None, title=None, relative_orbit_number=None,
-                    out_dir="", api="stac", mirror="aws",
+                    out_dir="", api="cdse", mirror="aws",
                     product_type="L2A", cloud_masks=False,
                     parallel_downloads=multiprocessing.cpu_count(),
                     satellite_angles=False, no_crop=False, timeout=60):
@@ -273,7 +273,7 @@ def get_time_series(aoi=None, start_date=None, end_date=None, bands=["B04"],
         title (str): product title, e.g. "S2A_MSIL1C_20160105T143732_N0201_R096_T19KGT_20160105T143758"
         relative_orbit_number (int): relative orbit number, from 1 to 143
         out_dir (str, optional): path where to store the downloaded crops
-        api (str, optional): either stac (default), scihub, planet or gcloud
+        api (str, optional): either cdse (default), stac, planet or gcloud
         mirror (str, optional): either 'aws' (default) or 'gcloud'
         product_type (str, optional): either 'L1C' or 'L2A' (default)
         cloud_masks (bool, optional): if True, cloud masks are downloaded and
@@ -339,8 +339,8 @@ if __name__ == '__main__':
                               ' are {}'.format(', '.join(list(set(s2_metadata_parser.BANDS_L2A + s2_metadata_parser.BANDS_L1C))))))
     parser.add_argument('-o', '--outdir', type=str, help=('path to save the '
                                                           'images'), default='')
-    parser.add_argument('--api', type=str, choices=['scihub', 'stac', 'planet', 'gcloud'],
-                        default='stac', help='search API')
+    parser.add_argument('--api', type=str, choices=['cdse', 'stac', 'planet', 'gcloud'],
+                        default='cdse', help='search API')
     parser.add_argument('--mirror', type=str, choices=['aws', 'gcloud'],
                         default='aws', help='download mirror')
     parser.add_argument('--product-type', choices=['L1C', 'L2A'],

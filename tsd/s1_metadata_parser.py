@@ -29,7 +29,7 @@ import dateutil.parser
 import requests
 import xmltodict
 
-from tsd import search_scihub, utils
+from tsd import utils
 
 AWS_S3_URL = 's3://sentinel-s1-l1c'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
@@ -103,7 +103,7 @@ def get_s1_tiff_filenames_from_scihub(img):
     request += "Nodes('measurement')/"
     request += "Nodes?$format=json"
 
-    r = requests.get(request, auth=(search_scihub.read_copernicus_credentials_from_environment_variables()))
+    r = requests.get(request, auth=())
     if r.ok:
         tiffs = r.json()
     else:

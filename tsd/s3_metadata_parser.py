@@ -30,7 +30,7 @@ import requests
 import shapely
 import xmltodict
 
-from tsd import search_scihub, utils
+from tsd import utils
 
 AWS_S3_URL_COGS = 's3://meeo-s3-cog'
 SCIHUB_API_URL = 'https://scihub.copernicus.eu/apihub/odata/v1'
